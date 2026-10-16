@@ -8,6 +8,7 @@ on:
 jobs:
   compilar:
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-22.04]
     runs-on: ${{ matrix.os }}
@@ -37,7 +38,7 @@ jobs:
           find dist -path "*plugins/platforms*" -type f
           $EXE --prueba
           # Abre la ventana real (complemento de plataforma de Qt) y la cierra sola
-          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get install -y xvfb libxcb-cursor0 >/dev/null; xvfb-run -a $EXE --prueba-gui;
+          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get install -y xvfb libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-xkb1 libxkbcommon-x11-0 libxcb-image0 libxcb-render-util0 libxcb-randr0 libxcb-shape0 >/dev/null; xvfb-run -a $EXE --prueba-gui;
           else $EXE --prueba-gui; fi
           echo "Ventana abierta y cerrada correctamente"
       - uses: actions/upload-artifact@v4

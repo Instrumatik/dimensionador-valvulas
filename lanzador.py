@@ -9,8 +9,13 @@ if getattr(sys, "frozen", False):
     for _var in ("QT_PLUGIN_PATH", "QT_QPA_PLATFORM_PLUGIN_PATH", "QT_QPA_PLATFORM", "QML2_IMPORT_PATH"):
         os.environ.pop(_var, None)
     _base = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
-    _plugins = os.path.join(_base, "PySide6", "plugins")
-    if os.path.isdir(_plugins):
+    for _plugins in (os.path.join(_base, "PySide6", "plugins"),          # Windows, macOS
+                     os.path.join(_base, "PySide6", "Qt", "plugins")):   # Linux
+        if os.path.isdir(os.path.join(_plugins, "platforms")):
+            break
+    else:
+        _plugins = None
+    if _plugins:
         os.environ["QT_PLUGIN_PATH"] = _plugins
         os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = os.path.join(_plugins, "platforms")
 
