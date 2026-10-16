@@ -1,4 +1,5 @@
 """Punto de entrada: python -m dimensionador"""
+import os
 import sys
 
 
@@ -10,6 +11,8 @@ def autoprueba() -> int:
                                     Pc=22120, nu=3.26e-7), Valvula(FL=0.9, xT=0.75, Fd=0.46, d_mm=150))
     p = propiedades.liquido("Agua / vapor de agua", 680, 363)
     ok = abs(r.Kv - 165) < 0.5 and 960 < p.rho < 970
+    if sys.stdout is None:   # ejecutable de ventana (Windows) sin consola
+        sys.stdout = open(os.devnull, "w")
     print(f"Kv = {r.Kv:.1f} (norma: 165); densidad agua 90 °C = {p.rho:.1f} kg/m³ -> {'OK' if ok else 'FALLA'}")
     return 0 if ok else 1
 

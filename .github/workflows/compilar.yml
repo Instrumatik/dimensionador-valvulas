@@ -28,6 +28,7 @@ jobs:
       - name: Compilar
         run: python -m PyInstaller --noconfirm dimensionador.spec
       - name: Verificar ejecutable
+        timeout-minutes: 5
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "macOS" ]; then dist/Dimensionador.app/Contents/MacOS/Dimensionador --prueba;
