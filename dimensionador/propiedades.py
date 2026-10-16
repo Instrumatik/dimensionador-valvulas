@@ -11,9 +11,11 @@ from dataclasses import dataclass
 try:
     import CoolProp.CoolProp as CP
     DISPONIBLE = True
-except Exception:  # pragma: no cover
+    ERROR_IMPORTACION = ""
+except Exception as _e:  # pragma: no cover
     CP = None
     DISPONIBLE = False
+    ERROR_IMPORTACION = f"{type(_e).__name__}: {_e}"
 
 # Nombre en español -> nombre CoolProp
 FLUIDOS = {
@@ -73,7 +75,7 @@ class PropiedadesGas:
 def _cp_nombre(fluido: str) -> str:
     if not DISPONIBLE:
         raise ErrorPropiedades("La biblioteca de propiedades no está disponible; ingrese las "
-                               "propiedades manualmente.")
+                               f"propiedades manualmente. ({ERROR_IMPORTACION})")
     return FLUIDOS.get(fluido, fluido)
 
 

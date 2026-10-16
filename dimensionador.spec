@@ -2,16 +2,18 @@
 # Empaquetado con PyInstaller:  pyinstaller dimensionador.spec
 # Genera dist/Dimensionador/ (Windows: Dimensionador.exe; macOS: Dimensionador.app; Linux: binario)
 import sys
-from PyInstaller.utils.hooks import collect_dynamic_libs, collect_submodules
+from PyInstaller.utils.hooks import collect_all
 
-hidden = collect_submodules("CoolProp")
-binarios = collect_dynamic_libs("CoolProp")
+# CoolProp tiene módulos compilados y bibliotecas propias: se incluyen completos
+cp_datas, cp_binarios, cp_hidden = collect_all("CoolProp")
+hidden = cp_hidden
+binarios = cp_binarios
 
 a = Analysis(
     ["lanzador.py"],
     pathex=["."],
     binaries=binarios,
-    datas=[("LICENCIAS_TERCEROS.md", ".")],
+    datas=[("LICENCIAS_TERCEROS.md", "."), *cp_datas],
     hiddenimports=hidden,
     excludes=["tkinter", "matplotlib", "scipy", "pandas", "PySide6.QtWebEngineCore",
               "PySide6.Qt3DCore", "PySide6.QtQuick", "PySide6.QtQml", "PySide6.QtMultimedia"],

@@ -19,7 +19,11 @@ def autoprueba() -> int:
 
 def main():
     if "--prueba" in sys.argv:
-        return autoprueba()
+        try:
+            return autoprueba()
+        except Exception as e:   # sin diálogos de error: el proceso debe terminar
+            sys.stderr and sys.stderr.write(f"FALLA: {type(e).__name__}: {e}\n")
+            return 1
     from PySide6.QtWidgets import QApplication
 
     from .gui.ventana import VentanaPrincipal
