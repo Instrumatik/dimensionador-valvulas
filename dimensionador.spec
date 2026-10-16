@@ -9,6 +9,12 @@ cp_datas, cp_binarios, cp_hidden = collect_all("CoolProp")
 hidden = cp_hidden
 binarios = cp_binarios
 
+# En Windows la rueda de CoolProp trae su runtime (msvcp140-*.dll) en la carpeta
+# hermana «coolprop.libs», que collect_all no incluye.
+import glob, os, CoolProp
+_libs = os.path.join(os.path.dirname(os.path.dirname(CoolProp.__file__)), "coolprop.libs")
+binarios += [(f, "coolprop.libs") for f in glob.glob(os.path.join(_libs, "*"))]
+
 a = Analysis(
     ["lanzador.py"],
     pathex=["."],
