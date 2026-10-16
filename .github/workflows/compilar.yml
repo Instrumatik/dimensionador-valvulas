@@ -31,9 +31,15 @@ jobs:
         timeout-minutes: 5
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "macOS" ]; then dist/Dimensionador.app/Contents/MacOS/Dimensionador --prueba;
-          elif [ "$RUNNER_OS" = "Windows" ]; then dist/Dimensionador/Dimensionador.exe --prueba;
-          else dist/Dimensionador/Dimensionador --prueba; fi
+          if [ "$RUNNER_OS" = "macOS" ]; then EXE=dist/Dimensionador.app/Contents/MacOS/Dimensionador;
+          elif [ "$RUNNER_OS" = "Windows" ]; then EXE=dist/Dimensionador/Dimensionador.exe;
+          else EXE=dist/Dimensionador/Dimensionador; fi
+          find dist -path "*plugins/platforms*" -type f
+          $EXE --prueba
+          # Abre la ventana real (complemento de plataforma de Qt) y la cierra sola
+          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get install -y xvfb libxcb-cursor0 >/dev/null; xvfb-run -a $EXE --prueba-gui;
+          else $EXE --prueba-gui; fi
+          echo "Ventana abierta y cerrada correctamente"
       - uses: actions/upload-artifact@v4
         with:
           name: Dimensionador-${{ runner.os }}

@@ -24,6 +24,7 @@ def main():
         except Exception as e:   # sin diálogos de error: el proceso debe terminar
             sys.stderr and sys.stderr.write(f"FALLA: {type(e).__name__}: {e}\n")
             return 1
+    from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
 
     from .gui.ventana import VentanaPrincipal
@@ -32,6 +33,8 @@ def main():
     app.setStyle("Fusion")
     w = VentanaPrincipal()
     w.show()
+    if "--prueba-gui" in sys.argv:   # verificación del ejecutable: abre la ventana y cierra
+        QTimer.singleShot(1500, app.quit)
     return app.exec()
 
 
