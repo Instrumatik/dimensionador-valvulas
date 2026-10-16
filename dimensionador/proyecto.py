@@ -74,6 +74,23 @@ class CasoLiquido:
     SG: float              # densidad relativa al agua a 15 °C
     mu: float              # Pa·s
     Pv: float              # kPa abs
+    FL: float = 0.9        # factores del trim a la carrera de este caso
+    Fd: float = 0.46
+    Kc: float | None = None    # None = estimado según IEC 60534-8-4
+    criterio: bool = True      # participa del criterio de selección de tamaño (no en transitorios)
+
+
+@dataclass
+class CasoCierre:
+    """Condición de cierre (Tight Shutoff): válvula cerrada, sin caudal."""
+    nombre: str
+    P1: float              # kPa abs
+    P2: float
+    T1: float | None = None    # K
+
+    @property
+    def dP(self) -> float:
+        return self.P1 - self.P2
 
 
 @dataclass
@@ -81,14 +98,12 @@ class Dimensionamiento:
     casos: list[CasoLiquido]
     Pc: float                          # kPa abs
     trim: str                          # clave de ESTILOS
-    FL: float
-    Fd: float
-    Kc: float | None = None            # None = estimado según IEC 60534-8-4
     nps_valvula: float | None = None   # None = selección automática
-    Cv_nominal: float | None = None    # None = típico del estilo
     caracteristica: str = "isoporcentual"
     fluido: str | None = None          # nombre de la biblioteca de propiedades
-    c_sonido: float | None = None      # m/s
+    cierre: CasoCierre | None = None
+    Cv_nominal: float | None = None    # None = típico del estilo
+    c_sonido: float | None = None      # m/s; None = calculada o 1 400 m/s
 
 
 @dataclass
@@ -157,21 +172,24 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) ->
         errores.append(Alerta("sin_casos", Severidad.ERROR, "Sin casos de operación",
                               "Active al menos un caso de operación."))
     for c in dim.casos:
+        if not 0.3 <= c.FL <= 1.0:
+            errores.append(Alerta("dato_FL", Severidad.ERROR, "FL fuera de rango",
+                                  f"Caso {c.nombre}: FL = {_n(c.FL)}; el factor de recuperación está entre 0,3 y 1,0."))
+        if not 0.01 <= c.Fd <= 1.0:
+            errores.append(Alerta("dato_Fd", Severidad.ERROR, "Fd fuera de rango",
+                                  f"Caso {c.nombre}: Fd = {_n(c.Fd)}; el modificador de estilo está entre 0,01 y 1,0."))
+        if c.Kc is not None and not 0.05 <= c.Kc <= 1.0:
+            errores.append(Alerta("dato_Kc", Severidad.ERROR, "Kc fuera de rango",
+                                  f"Caso {c.nombre}: Kc = {_n(c.Kc)}; el coeficiente de cavitación está entre 0,05 y 1,0."))
         if c.SG <= 0:
             errores.append(Alerta("dato_rho", Severidad.ERROR, "Gravedad específica inválida",
                                   f"Caso {c.nombre}: la gravedad específica debe ser mayor que cero."))
         if c.mu <= 0:
             errores.append(Alerta("dato_nu", Severidad.ERROR, "Viscosidad inválida",
                                   f"Caso {c.nombre}: la viscosidad debe ser mayor que cero."))
-    if not 0.3 <= dim.FL <= 1.0:
-        errores.append(Alerta("dato_FL", Severidad.ERROR, "FL fuera de rango",
-                              f"FL = {_n(dim.FL)}: el factor de recuperación está entre 0,3 y 1,0."))
-    if not 0.01 <= dim.Fd <= 1.0:
-        errores.append(Alerta("dato_Fd", Severidad.ERROR, "Fd fuera de rango",
-                              f"Fd = {_n(dim.Fd)}: el modificador de estilo está entre 0,01 y 1,0."))
-    if dim.Kc is not None and not 0.05 <= dim.Kc <= 1.0:
-        errores.append(Alerta("dato_Kc", Severidad.ERROR, "Kc fuera de rango",
-                              f"Kc = {_n(dim.Kc)}: el coeficiente de cavitación está entre 0,05 y 1,0."))
+    if dim.cierre is not None and dim.cierre.P2 >= dim.cierre.P1:
+        errores.append(Alerta("dato_cierre", Severidad.ERROR, "Condición de cierre inválida",
+                              "En el caso Tight Shutoff la presión de entrada debe ser mayor que la de salida."))
     if errores:
         raise ErrorDatos(errores)
 
@@ -180,15 +198,16 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) ->
     tamanos = tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= cuerpo.nps_max)
     sel = Seleccion(estilo, d_pulg=dim.nps_valvula,
                     Kv_nominal=dim.Cv_nominal * 0.865 if dim.Cv_nominal else None,
-                    D1_mm=D1, D2_mm=D2, FL=dim.FL, Fd=dim.Fd, xT=estilo.xT, xFz=dim.Kc,
-                    xFz_directo=dim.Kc is not None, tp_mm=tp2, c_liquido=dim.c_sonido,
+                    D1_mm=D1, D2_mm=D2, FL=dim.casos[0].FL, Fd=dim.casos[0].Fd, xT=estilo.xT,
+                    tp_mm=tp2, c_liquido=dim.c_sonido,
                     limite_ruido=inst.ruido_permitido, tamanos=tamanos, An=cuerpo.An,
                     verificar_clase=False)
     casos = []
     for c in dim.casos:
         rho = c.SG * RHO_AGUA_15C
         casos.append(Caso(c.nombre, Liquido(P1=c.P1, P2=c.P2, T1=c.T1, rho1=rho, Pv=c.Pv, Pc=dim.Pc,
-                                            nu=c.mu / rho, Q=c.Q, W=c.W), dim.fluido))
+                                            nu=c.mu / rho, Q=c.Q, W=c.W), dim.fluido,
+                          FL=c.FL, Fd=c.Fd, Kc=c.Kc, criterio=c.criterio))
     inf = dimensionar(casos, sel)
 
     salidas = []
@@ -197,7 +216,8 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) ->
         Q = r.extra["Q"]
         Kc = d["xFzp1"]
         salidas.append({
-            "Cv": r.Cv, "Kv": r.Kv, "Kapp": d["xF"], "Kc": Kc, "dP": e.P1 - e.P2,
+            "Cv": r.Cv, "Kv": r.Kv, "Kapp": d["xF"], "Kc": Kc, "Kc_estimado": c.Kc is None,
+            "FL": c.FL, "Fd": c.Fd, "dP": e.P1 - e.P2,
             "dP_P1": (e.P1 - e.P2) / e.P1, "dPchoked": r.extra["dPchoked"],
             "dPcav": Kc * (e.P1 - e.Pv), "FF": r.extra["FF"], "FP": r.FP, "FLP": r.extra["FLP"],
             "mu": c.mu, "nu": e.nu, "D1": D1, "D2": D2, "Rev": r.Rev, "FR": r.FR, "rho": e.rho1,
@@ -211,8 +231,10 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) ->
     alertas = [(rc.caso.nombre, a) for rc in inf.casos for a in rc.alertas]
     alertas = [("General", a) for a in inf.alertas_generales] + alertas
 
-    P_d = inst.P_diseno or max(c.P1 for c in dim.casos)
-    T_d = inst.T_diseno or max(c.T1 for c in dim.casos)
+    P_ops = [c.P1 for c in dim.casos] + ([dim.cierre.P1] if dim.cierre else [])
+    T_ops = [c.T1 for c in dim.casos] + ([dim.cierre.T1] if dim.cierre and dim.cierre.T1 else [])
+    P_d = inst.P_diseno or max(P_ops)
+    T_d = inst.T_diseno or max(T_ops)
     generales, rating_adm = _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2)
     alertas = [("General", a) for a in generales] + alertas
     alertas.sort(key=lambda t: -t[1].severidad)
@@ -371,7 +393,7 @@ def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
     flash = [x for x in s if x["condicion"] == "flashing"]
     Kapp = max(x["Kapp"] for x in s)
     Kc = min(x["Kc"] for x in s)
-    FL2 = dim.FL ** 2
+    FL2 = min(c.FL for c in dim.casos) ** 2
     dP_max = max(x["dP"] for x in s)
     Cv_max = max(x["Cv"] for x in s)
     h = [x["apertura"] for x in s]
@@ -450,8 +472,13 @@ def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
                     f"{_n(inst.ruido_permitido, 0)} dB(A))."
                     + (" Cumple." if max(Lp) <= inst.ruido_permitido else " No cumple: aplicar las medidas "
                        "contra la cavitación y el ruido indicadas en las alertas.")))
+    if dim.cierre is not None:
+        dp_cierre = f"{fdP(dim.cierre.dP)} (caso {dim.cierre.nombre})"
+    else:
+        dp_cierre = (f"{fdP(max(x['dP'] for x in s))} (máxima de operación; cargue el caso Tight Shutoff "
+                     "con la presión de cierre real)")
     rec.append(("Actuador",
                 "El cálculo de fuerza o par del actuador se incorporará en una próxima versión. Debe "
-                f"vencer la ΔP de cierre máxima ({fdP(max(x['dP'] for x in s))}) y asegurar la "
-                "carga de asiento de la clase de cierre."))
+                f"vencer la ΔP de cierre {dp_cierre} y asegurar la carga de asiento de la clase "
+                f"{inst.cierre}."))
     return rec

@@ -174,3 +174,21 @@ def espesor_pared(Di_mm: float) -> float:
     for a, b in zip(claves, claves[1:]):
         if a <= Di_mm <= b:
             return ESPESOR_SCH40[a] + (ESPESOR_SCH40[b] - ESPESOR_SCH40[a]) * (Di_mm - a) / (b - a)
+
+# Coeficiente de cavitación incipiente Kc típico de cada trim (ΔP de inicio / (P1 − Pv)).
+# Valores genéricos de referencia de la práctica de la industria (ISA-RP75.23 usa el índice
+# equivalente σi = 1/Kc); no corresponden a ningún fabricante. Deben reemplazarse por el Kc
+# certificado del trim ofertado.
+KC_TIPICO = {
+    "globo_contorneado_iso_abre": 0.65, "globo_contorneado_lineal_abre": 0.65,
+    "globo_contorneado_iso_cierra": 0.55, "globo_contorneado_lineal_cierra": 0.55,
+    "globo_jaula_4v_fuera": 0.70, "globo_jaula_4v_dentro": 0.65,
+    "globo_jaula_60_orificios": 0.80, "globo_jaula_120_orificios": 0.85, "globo_multietapa": 0.95,
+    "globo_liner_contorneado": 0.60,
+    "angular_contorneado_abre": 0.65, "angular_contorneado_cierra": 0.55, "angular_jaula_abre": 0.65,
+    "angular_venturi": 0.20,
+    "bola_segmentada": 0.25, "bola_paso_total_70": 0.30,
+    "mariposa_concentrica_60": 0.35, "mariposa_concentrica_70": 0.30,
+    "mariposa_alto_rendimiento_90": 0.35, "mariposa_triple_90": 0.35,
+    "rotativa_obturador_excentrico_abre": 0.50, "rotativa_obturador_excentrico_cierra": 0.35,
+}

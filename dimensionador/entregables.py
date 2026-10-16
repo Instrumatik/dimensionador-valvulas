@@ -134,8 +134,28 @@ def _tabla_entradas(res: Resultado, pr: Presentacion):
         _fila("Gravedad específica SG", "-", [c.SG for c in d.casos]),
         _fila("Viscosidad dinámica μ", "", [c.mu for c in d.casos], pr, "viscosidad_din"),
         _fila("Presión de vapor Pv", "", [c.Pv for c in d.casos], pr, "presion_abs"),
+        _fila("Factor de recuperación FL", "-", [c.FL for c in d.casos], cifras=3),
+        _fila("Modificador de estilo Fd", "-", [c.Fd for c in d.casos], cifras=3),
+        _fila("Coef. de cavitación del trim Kc", "-",
+              [f"{fmt(x['Kc'], 3)} (estimado)" if x["Kc_estimado"] else fmt(x["Kc"], 3) for x in res.salidas]),
     ]
     return filas
+
+
+def _volumetrico(res: Resultado) -> bool:
+    return all(c.Q is not None for c in res.dim.casos)
+
+
+def _tabla_cierre(doc: "Documento", res: Resultado, pr: Presentacion):
+    c = res.dim.cierre
+    if c is None:
+        return
+    doc.h3(f"Condición de cierre ({c.nombre})")
+    doc.tabla([["Presión de entrada P1", pr.vu(c.P1, "presion")],
+               ["Presión de salida P2", pr.vu(c.P2, "presion")],
+               ["ΔP de cierre", pr.vu(c.dP, "presion_dif")],
+               ["Temperatura", pr.vu(c.T1, "temperatura") if c.T1 else "—"],
+               ["Clase de cierre", res.inst.cierre]], anchos=[35, 65])
 
 
 def _tabla_salidas(res: Resultado, pr: Presentacion, completa=True):
@@ -144,7 +164,6 @@ def _tabla_salidas(res: Resultado, pr: Presentacion, completa=True):
         _fila("Coeficiente de caudal Cv", "-", [x["Cv"] for x in s]),
         _fila("Apertura estimada", "%", [x["apertura"] * 100 for x in s], cifras=3),
         _fila("Coef. de cavitación de la aplicación Kapp", "-", [x["Kapp"] for x in s], cifras=3),
-        _fila("Coef. de cavitación del trim Kc", "-", [x["Kc"] for x in s], cifras=3),
         _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
         _fila("Relación ΔP/P1", "-", [x["dP_P1"] for x in s], cifras=3),
         _fila("ΔP de flujo estrangulado (ΔP choked)", "", [x["dPchoked"] for x in s], pr, "presion_dif"),
@@ -159,7 +178,8 @@ def _tabla_salidas(res: Resultado, pr: Presentacion, completa=True):
             _fila("Viscosidad cinemática ν", "", [x["nu"] for x in s], pr, "viscosidad_cin"),
             _fila("Número de Reynolds Rev", "-", [x["Rev"] for x in s]),
             _fila("Densidad de entrada ρ1", "", [x["rho"] for x in s], pr, "densidad"),
-            _fila("Flujo másico", "", [x["W"] for x in s], pr, "caudal_masico"),
+            (_fila("Flujo másico", "", [x["W"] for x in s], pr, "caudal_masico") if _volumetrico(res) else
+             _fila("Caudal volumétrico", "", [x["Q"] for x in s], pr, "caudal_vol")),
             _fila("Velocidad aguas arriba", "", [x["v1"] for x in s], pr, "velocidad", 3),
             _fila("Velocidad aguas abajo", "", [x["v2"] for x in s], pr, "velocidad", 3),
         ]
@@ -180,7 +200,7 @@ def _tuberias(res: Resultado, pr: Presentacion):
 def _valvula_resumen(res: Resultado):
     i = res.inst
     return (f"{res.cuerpo.nombre}, {tuberias.texto_nps(res.nps_valvula)} (DN {res.informe.DN}), CL{i.rating}, "
-            f"{i.conexion}; internos: {res.trim.nombre.lower()}; Cv nominal {fmt(res.Cv_nominal)}.")
+            f"{i.conexion}; internos: {res.trim.nombre.lower()}; Cv nominal típico {fmt(res.Cv_nominal)}.")
 
 
 # ---------------------------------------------------------------------------
@@ -197,16 +217,14 @@ def memoria(res: Resultado, pr: Presentacion) -> Documento:
         "Dimensionamiento de líquidos según IEC 60534-2-1:2011 / ANSI/ISA-75.01.01 (cláusulas 5, 7 y 9).",
         "Inicio de cavitación y ruido hidrodinámico según IEC 60534-8-4.",
         "Diámetros interiores de tubería según ASME B36.10M / B36.19M.",
-        "Factores FL, Fd y Kc: " + ("típicos de IEC 60534-2-1, Tabla 2" if d.Kc is None else
-                                    "ingresados por el usuario") + ". Capacidad nominal: " +
-        ("típica del estilo." if not d.Cv_nominal else "ingresada por el usuario."),
+        "Factores FL y Fd por caso: típicos de IEC 60534-2-1 (Tabla 2) o ingresados por el usuario. "
+        "Kc: típico del trim o certificado; si se deja en blanco se estima con IEC 60534-8-4.",
+        "Capacidad nominal (Cv a carrera total): típica del estilo.",
     ])
     doc.h2("2. Datos de entrada")
     doc.tabla(_tabla_entradas(res, pr), ["Dato", "Unidad", *casos])
+    _tabla_cierre(doc, res, pr)
     doc.tabla([["Presión crítica Pc", pr.vu(d.Pc, "presion_abs")],
-               ["Factor de recuperación FL", fmt(d.FL, 3)],
-               ["Modificador de estilo Fd", fmt(d.Fd, 3)],
-               ["Coef. de cavitación del trim Kc", "estimado (IEC 60534-8-4)" if d.Kc is None else fmt(d.Kc, 3)],
                ["Válvula", _valvula_resumen(res)],
                ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)]],
               anchos=[35, 65])
@@ -272,6 +290,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         _fila("Velocidad aguas abajo", "", [x["v2"] for x in s], pr, "velocidad", 3),
     ]
     doc.tabla(filas, ["Dato", "Unidad", *casos])
+    _tabla_cierre(doc, res, pr)
     doc.h2("Línea")
     doc.tabla(_tuberias(res, pr), ["Tubería", "NPS", "Cédula", "Diámetro interior", "Espesor"])
     doc.h2("Cuerpo")
@@ -290,9 +309,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
     doc.tabla([
         ["Tipo de trim", res.trim.nombre],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
-        ["Cv nominal", fmt(res.Cv_nominal) + (" (típico)" if not d.Cv_nominal else "")],
-        ["FL / Fd", f"{fmt(d.FL, 3)} / {fmt(d.Fd, 3)}"],
-        ["Kc", "estimado (IEC 60534-8-4)" if d.Kc is None else fmt(d.Kc, 3)],
+        ["Cv nominal (típico del tamaño y trim)", fmt(res.Cv_nominal)],
         ["Guía y obturador", rec.get("Tipo de guía y obturador", "")],
         ["Clase de cierre", f"{i.cierre} ({REF_CIERRE})"],
         ["Fuga admisible", FUGA_CIERRE[i.cierre]],
@@ -335,6 +352,7 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
     doc.tabla(_tuberias(res, pr), ["Tubería", "NPS", "Cédula", "Diámetro interior", "Espesor"])
     doc.h2("3. Datos de dimensionamiento")
     doc.tabla(_tabla_entradas(res, pr), ["Dato", "Unidad", *casos])
+    _tabla_cierre(doc, res, pr)
     doc.h2("4. Resultados")
     doc.tabla(_tabla_salidas(res, pr), ["Resultado", "Unidad", *casos], resaltar_col=2)
     doc.grafico()

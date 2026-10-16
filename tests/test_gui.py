@@ -32,7 +32,7 @@ def test_calculo_y_entregables(app, tmp_path):
     assert w.res is not None
     assert w.res.nps_valvula == 6
     cv = [c.text() for c in w.salidas["Cv"].celdas]
-    assert all(cv) and cv[2].startswith("157")
+    assert all(cv[:3]) and cv[2].startswith("157") and cv[3] == cv[4] == ""
     assert w.salidas["dP"].lbl_unidad.text() == "bar"
     assert "Memoria de cálculo" in w.vistas["memoria"].toPlainText()
     ruta = w.exportar_word("todos", str(tmp_path / "todos.docx"))
@@ -58,3 +58,51 @@ def test_cedulas_por_diametro(app):
     w.cb_nps["entrada"].setCurrentText('48"')
     items = [w.cb_sch["entrada"].itemText(i) for i in range(w.cb_sch["entrada"].count())]
     assert items == ["STD", "XS"]
+
+
+def test_rueda_no_cambia_listas(app):
+    from PySide6.QtCore import QPoint, QPointF, Qt
+    from PySide6.QtGui import QWheelEvent
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    cb = w.cb_trim
+    antes = cb.currentIndex()
+    ev = QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(0, 0), QPoint(0, -120), Qt.NoButton,
+                     Qt.NoModifier, Qt.NoScrollPhase, False)
+    QtWidgets.QApplication.sendEvent(cb, ev)
+    assert cb.currentIndex() == antes
+
+
+def test_casos_nuevos_y_panel(app):
+    from dimensionador.gui.ventana import CIERRE, VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    # FL por caso, distinto en el mínimo
+    w.filas["FL"].edits[0].setText("0,75")
+    # Tight Shutoff y Transitorio
+    w.filas["P1"].edits[CIERRE].setText("12")
+    w.filas["P2"].edits[CIERRE].setText("0")
+    for k, v in (("caudal", "400"), ("P1", "8"), ("P2", "1"), ("T1", "90")):
+        w.filas[k].edits[4].setText(v)
+    w.calcular()
+    assert w.res is not None and w.res.dim.cierre is not None
+    assert w.res.salidas[0]["FL"] == pytest.approx(0.75)
+    assert w.salidas["dP"].celdas[CIERRE].text().startswith("12")
+    assert w.salidas["Cv"].celdas[CIERRE].text() == ""
+    assert w.salidas["Cv"].celdas[4].text()
+    assert "Kc" not in w.salidas
+    # Caudal contrario en resultados
+    assert w.salidas["caudal_otro"].lbl.text() == "Flujo másico"
+    assert w.salidas["caudal_otro"].celdas[1].text()
+    # Cambiar a másico convierte en lugar de borrar
+    q = w.filas["caudal"].edits[1].text()
+    w.cb_tipo_caudal.setCurrentIndex(1)
+    assert w.filas["caudal"].edits[1].text() not in ("", q)
+    # Panel de información
+    w.tabs.setCurrentIndex(1)
+    w.abrir_ayuda("FL")
+    panel = w.paneles[1]
+    assert panel.texto.toPlainText()
+    ancho = panel.width()
+    panel.limpiar()
+    assert panel.texto.toPlainText() == "" and panel.width() == ancho

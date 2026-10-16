@@ -5,7 +5,7 @@ unidades base (ver ``unidades.py``).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from . import asme_b16_34, fenomenos, propiedades, ruido
 from .estilos import ESTILOS, TAMANOS, EstiloValvula, apertura_requerida, espesor_pared, kv_nominal
@@ -22,6 +22,10 @@ class Caso:
     nombre: str                    # «Mínimo», «Normal», «Máximo»...
     estado: Liquido | Gas | Bifasico
     fluido: str | None = None      # nombre para propiedades (flashing)
+    FL: float | None = None        # factores a la carrera de este caso (sustituyen a los de la selección)
+    Fd: float | None = None
+    Kc: float | None = None        # inicio de cavitación del trim a las condiciones del caso (directo)
+    criterio: bool = True          # participa del criterio de selección de tamaño
 
 
 @dataclass
@@ -97,6 +101,8 @@ def _valvula(sel: Seleccion, d_pulg: float) -> Valvula:
 
 def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> ResultadoCaso:
     e = caso.estado
+    if caso.FL or caso.Fd:
+        v = replace(v, FL=caso.FL or v.FL, Fd=caso.Fd or v.Fd)
     if isinstance(e, Bifasico):
         r = dimensionar_bifasico(e, v)
         alertas = list(r.alertas)
@@ -123,8 +129,12 @@ def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> Res
         q = None
         if e.P2 <= e.Pv and caso.fluido:
             q = propiedades.calidad_isoentalpica(caso.fluido, e.P1, e.T1, e.P2)
+        if caso.Kc is not None:
+            xFz, directo = caso.Kc, True
+        else:
+            xFz, directo = sel.xFz, sel.xFz_directo
         a, datos = fenomenos.evaluar_liquido(e.P1, e.P2, e.Pv, FL_eff, r.Kv, v.Fd,
-                                             r.extra["dPchoked"], sel.xFz, q, sel.xFz_directo)
+                                             r.extra["dPchoked"], xFz, q, directo)
         alertas += a
         bif = e.P2 <= e.Pv
         a, dv = fenomenos.evaluar_velocidad_liquido(r.extra["Q"], v.d_mm, v.D2_mm, e.rho1, bif)
@@ -222,7 +232,7 @@ def dimensionar(casos: list[Caso], sel: Seleccion) -> Informe:
             tabla.append({"d_pulg": d_pulg, "DN": dn, "Kv_nominal": Kv_nom, "Kv_max": None,
                           "apertura_max": None, "aperturas": []})
             continue
-        h_max = max(rc.apertura for rc in rcs)
+        h_max = max([rc.apertura for rc in rcs if rc.caso.criterio] or [0.0])
         tabla.append({"d_pulg": d_pulg, "DN": dn, "Kv_nominal": Kv_nom,
                       "Kv_max": max(rc.resultado.Kv for rc in rcs), "apertura_max": h_max,
                       "aperturas": [rc.apertura for rc in rcs]})

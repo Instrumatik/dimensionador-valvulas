@@ -63,7 +63,7 @@ def imagen_cv(res: Resultado, ancho: int = 1400, alto: int = 800) -> QImage:
     fb.setPixelSize(26)
     p.setFont(fb)
     p.drawText(QRectF(izq, 15, w, 40), Qt.AlignLeft | Qt.AlignVCenter,
-               f"Cv vs. apertura — válvula {texto_nps(res.nps_valvula)} (Cv nominal {fmt(res.Cv_nominal)})")
+               f"Cv vs. apertura — válvula {texto_nps(res.nps_valvula)} (Cv nominal típico {fmt(res.Cv_nominal)})")
     p.setFont(f)
 
     # Curva inherente

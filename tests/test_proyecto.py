@@ -2,8 +2,8 @@
 import pytest
 
 from dimensionador import tuberias
-from dimensionador.proyecto import (CasoLiquido, Dimensionamiento, Identificacion, Instalacion,
-                                    calcular)
+from dimensionador.proyecto import (CasoCierre, CasoLiquido, Dimensionamiento, Identificacion,
+                                    Instalacion, calcular)
 
 
 def test_diametros_b36():
@@ -16,8 +16,9 @@ def test_diametros_b36():
 
 
 def _dim(Kc=None, trim="globo_contorneado_iso_abre", FL=0.9, Fd=0.46):
-    c = CasoLiquido("Máximo", 360, None, 680, 220, 363, 0.965, 3.26e-7 * 0.965 * 999.1, 70.1)
-    return Dimensionamiento([c], 22120, trim, FL, Fd, Kc=Kc, nps_valvula=6)
+    c = CasoLiquido("Máximo", 360, None, 680, 220, 363, 0.965, 3.26e-7 * 0.965 * 999.1, 70.1,
+                    FL=FL, Fd=Fd, Kc=Kc)
+    return Dimensionamiento([c], 22120, trim, nps_valvula=6)
 
 
 def test_ejemplo_iec_con_kapp_kc():
@@ -56,3 +57,28 @@ def test_documentos_word(tmp_path):
     import docx
     texto = "\n".join(p.text for p in docx.Document(str(ruta)).paragraphs)
     assert "Memoria de cálculo" in texto and "Hoja de datos" in texto and "Informe técnico" in texto
+
+
+def test_fl_fd_por_caso_y_transitorio():
+    mu = 3.26e-7 * 0.965 * 999.1
+    casos = [CasoLiquido("Normal", 200, None, 680, 220, 363, 0.965, mu, 70.1, FL=0.9, Fd=0.46),
+             CasoLiquido("Mínimo", 40, None, 680, 220, 363, 0.965, mu, 70.1, FL=0.7, Fd=0.3),
+             CasoLiquido("Transitorio", 500, None, 680, 220, 363, 0.965, mu, 70.1, criterio=False)]
+    dim = Dimensionamiento(casos, 22120, "globo_contorneado_iso_abre",
+                           cierre=CasoCierre("Tight Shutoff", 1000, 0))
+    r = calcular(Identificacion(), Instalacion(nps_entrada=8, nps_salida=8), dim)
+    assert r.salidas[0]["FL"] == pytest.approx(0.9)
+    assert r.salidas[1]["FL"] == pytest.approx(0.7)
+    assert r.salidas[1]["Fd"] == pytest.approx(0.3)
+    # El transitorio no fija el tamaño: puede quedar por encima del 100 % de apertura
+    assert all(s["apertura"] <= 1.0 for s in r.salidas[:2])
+    # El caso de cierre define la presión de diseño
+    assert dim.cierre.dP == pytest.approx(1000)
+
+
+def test_cierre_invalido():
+    from dimensionador.modelos import ErrorDatos
+    c = CasoLiquido("Normal", 200, None, 680, 220, 363, 0.965, 0.3, 70.1)
+    dim = Dimensionamiento([c], 22120, "globo_contorneado_iso_abre", cierre=CasoCierre("Tight Shutoff", 100, 200))
+    with pytest.raises(ErrorDatos):
+        calcular(Identificacion(), Instalacion(nps_entrada=6, nps_salida=6), dim)
