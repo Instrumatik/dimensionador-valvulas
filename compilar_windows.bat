@@ -1,13 +1,13 @@
 @echo off
-REM Compila Dimensionador.exe en una PC con Windows y Python 3.11 o posterior instalado.
-REM Resultado: carpeta dist\Dimensionador con Dimensionador.exe
+REM Compila Valveselect-N25.exe en una PC con Windows y Python 3.11 o posterior instalado.
+REM Resultado: carpeta dist\Valveselect-N25 con Valveselect-N25.exe
 cd /d "%~dp0"
 python -m pip install -r requirements.txt || goto error
 python -m pytest -q tests || goto error
 python -m PyInstaller --noconfirm dimensionador.spec || goto error
-dist\Dimensionador\Dimensionador.exe --prueba || goto error
+dist\Valveselect-N25\Valveselect-N25.exe --prueba || goto error
 echo.
-echo Listo: dist\Dimensionador\Dimensionador.exe
+echo Listo: dist\Valveselect-N25\Valveselect-N25.exe
 pause
 exit /b 0
 :error

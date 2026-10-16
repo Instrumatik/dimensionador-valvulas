@@ -584,6 +584,179 @@ _e("diseno_por_operacion", "Condiciones de diseño supuestas",
    "operación.</p>", relacionadas=["P_diseno"], categoria="Fenómenos")
 
 
+# ---------------------------------------------------------------------------
+# Versión 2: datos de instalación, coeficientes de cavitación y entregables
+# ---------------------------------------------------------------------------
+_e("identificacion", "Identificación del proyecto",
+   "<p>Proyecto, cliente, tag, servicio, número de documento, revisión, autor y fecha. Aparecen en "
+   "el encabezado de la memoria de cálculo, la hoja de datos y el informe técnico.</p>",
+   relacionadas=["entregables"], categoria="Conceptos")
+_e("flujo_trabajo", "Flujo de trabajo",
+   "<p>1. En <b>Inst-Valve-Data</b> cargue los datos de instalación: estilo, rating, tuberías, "
+   "conexión, condiciones de diseño, clase de cierre y ruido permitido.</p>"
+   "<p>2. En <b>Dim-Valve-Data</b> cargue las condiciones de operación del líquido (mínimo, normal "
+   "y máximo) y revise los factores típicos del trim. Los diámetros y cédulas de tubería se copian "
+   "solos desde los datos de instalación.</p><p>3. Presione <b>Calcular</b>. Los resultados aparecen "
+   "debajo de las entradas, en celdas verdes, y se actualizan la memoria de cálculo, la hoja de "
+   "datos y el informe técnico.</p><p>4. Desde <b>Inicio → Entregables</b> exporte a Word o imprima "
+   "cada documento o todos juntos.</p>",
+   relacionadas=["identificacion", "entregables"], categoria="Conceptos")
+_e("estilo_cuerpo", "Estilo de válvula",
+   "<p>Tipo de cuerpo. Define los internos (trims) disponibles, los diámetros habituales, el tipo "
+   "de guía y el coeficiente acústico del ruido.</p><ul>"
+   "<li><b>Globo</b>: el más versátil; alto FL, admite internos anticavitación y multietapa.</li>"
+   "<li><b>Globo con liner</b>: cuerpo revestido (PFA/PTFE) para fluidos corrosivos; limitado en "
+   "temperatura.</li><li><b>Ángulo</b>: descarga a 90°; preferido para flashing y fluidos "
+   "erosivos.</li><li><b>Bola</b>: alta capacidad, bajo FL, apta para fluidos con sólidos y "
+   "viscosos.</li><li><b>Mariposa</b> concéntrica, de <b>doble</b> y de <b>triple "
+   "excentricidad</b>: gran capacidad y bajo costo en diámetros grandes; FL bajo, cavitan antes.</li></ul>",
+   relacionadas=["trim", "FL", "clase_cierre"])
+_e("rating", "Rating (clase de presión)",
+   "<p>Clase de presión-temperatura del cuerpo según ASME B16.34: CL150, 300, 600, 900, 1500 o "
+   "2500. La presión admisible baja al subir la temperatura y depende del material.</p>"
+   "<p>En esta versión el material todavía no se elige: el programa verifica el rating en forma "
+   "<b>referencial</b> con acero al carbono (grupo 1.1, p. ej. WCB) e indica la presión admisible "
+   "a la temperatura de diseño.</p>",
+   referencia="ASME B16.34, Tabla 2-1.1", relacionadas=["P_diseno"])
+_e("nps", "Diámetro nominal de tubería (NPS)",
+   "<p>Tamaño nominal de la tubería de entrada o de salida en pulgadas (NPS). Junto con la cédula "
+   "define el diámetro interior según ASME B36.10M / B36.19M, que el programa usa para los "
+   "factores de reductores (Fp, FLp), las velocidades y el ruido.</p><p>Si la válvula es menor que "
+   "la tubería se consideran reductores concéntricos.</p>",
+   referencia="ASME B36.10M / ASME B36.19M", relacionadas=["cedula", "FP"])
+_e("cedula", "Schedule (cédula) de tubería",
+   "<p>Designa el espesor de pared. Las cédulas numéricas (10 a 160), STD, XS y XXS son de "
+   "ASME B36.10M (acero al carbono y aleado); las terminadas en «S» (5S, 10S, 40S, 80S) son de "
+   "ASME B36.19M (inoxidable). Solo se ofrecen las combinaciones que la norma define para el "
+   "diámetro elegido.</p><p>Diámetro interior: DI = OD − 2·espesor. El espesor de la tubería de "
+   "salida interviene en la atenuación del ruido.</p>",
+   formula="DI = OD − 2·t", referencia="ASME B36.10M / ASME B36.19M", relacionadas=["nps", "ruido"])
+_e("conexion", "Tipo de conexión a proceso",
+   "<p>Extremos de la válvula: soldados a tope (BWE), soldados de enchufe (SWE), bridados de cara "
+   "con resalte (RF), cara plana (FF) o junta de anillo (RTJ), sin bridas (flangeless), wafer, "
+   "roscados hembra (FNPT) o macho (MNPT).</p><p>El programa avisa combinaciones poco habituales: "
+   "wafer fuera de mariposas, roscas o SWE por encima de 2\", FF con rating mayor que CL150, "
+   "rosca NPT por encima de CL600.</p>",
+   referencia="ASME B16.5 / B16.25 / B16.11", relacionadas=["rating"])
+_e("T_diseno", "Temperatura de diseño",
+   "<p>Temperatura de diseño de la línea. Se usa para la verificación del rating y para comprobar "
+   "que el asiento blando o el revestimiento admiten la temperatura. Si se deja en blanco se usa "
+   "la máxima T1 de operación.</p>", relacionadas=["P_diseno", "rating"])
+_e("clase_cierre", "Clase de cierre (shutoff)",
+   "<p>Fuga admisible con la válvula cerrada, según ANSI/FCI 70-2 (IEC 60534-4):</p><ul>"
+   "<li>Clase I: por acuerdo, sin ensayo.</li><li>Clase II: 0,5 % de la capacidad nominal.</li>"
+   "<li>Clase III: 0,1 %.</li><li>Clase IV: 0,01 % (asiento metálico estándar).</li>"
+   "<li>Clase V: 5·10⁻⁴ ml/min de agua por pulgada de puerto y por psi de ΔP (asiento metálico "
+   "lapeado, alta carga de asiento).</li><li>Clase VI: burbujas por minuto según el diámetro "
+   "(asiento blando).</li><li>Tight shutoff: sin fuga visible, requisito habitual de válvulas de "
+   "bloqueo (API 598, ISO 5208).</li></ul><p>La clase condiciona el asiento, el obturador y la "
+   "fuerza del actuador. El programa avisa si la clase pide un asiento blando y la temperatura "
+   "de diseño lo excede.</p>",
+   referencia="ANSI/FCI 70-2; IEC 60534-4", relacionadas=["estilo_cuerpo"])
+_e("tipo_caudal", "Tipo de caudal",
+   "<p>Volumétrico (m³/h, gpm, L/min) a condiciones de entrada, o másico (kg/h, lb/h, t/h). El "
+   "programa calcula el otro con la densidad de entrada.</p>", relacionadas=["caudal", "SG"])
+_e("SG", "Gravedad específica",
+   "<p>Densidad del líquido a las condiciones de entrada dividida por la del agua a 15 °C "
+   "(999,1 kg/m³). Es el término ρ1/ρ0 de las ecuaciones de IEC 60534-2-1.</p><p>Con un fluido de "
+   "la lista se calcula sola a P1 y T1.</p>",
+   formula="SG = ρ1 / ρ0, ρ0 = 999,1 kg/m³", tipicos="Agua 15 °C: 1,000. Agua 90 °C: 0,967. "
+   "Gasolina: 0,72–0,76. Crudo: 0,80–0,95.", relacionadas=["rho"])
+_e("trim", "Tipo de trim hidrodinámico",
+   "<p>Internos de la válvula (obturador, asiento y jaula). Cada opción trae sus factores típicos "
+   "de IEC 60534-2-1 (FL, Fd) y su característica, que se cargan en las entradas y se pueden "
+   "reemplazar por los certificados del fabricante.</p><ul><li><b>Contorneado</b>: obturador "
+   "perfilado, estándar.</li><li><b>Jaula caracterizada</b>: ventanas en la jaula, guiado estable.</li>"
+   "<li><b>Jaula de orificios</b> (60 o 120): anticavitación de etapa simple; bajo Fd retrasa la "
+   "cavitación.</li><li><b>Multietapa</b>: divide la caída de presión, para cavitación severa.</li></ul>",
+   relacionadas=["Kc", "FL", "Fd"])
+_e("Kc", "Coeficiente de cavitación de la construcción Kc",
+   "<p>Valor de ΔP/(P1 − Pv) a partir del cual el trim empieza a cavitar (cavitación incipiente). "
+   "Es una propiedad de los internos: cuanto más alto, más caída de presión admite la válvula sin "
+   "cavitar.</p><p>Si se deja en blanco el programa lo estima con IEC 60534-8-4 (xFz típico según "
+   "Fd y la capacidad, corregido por la presión de entrada). Si se ingresa, se usa tal cual, como "
+   "el valor del fabricante a las condiciones de servicio.</p><p>Se compara con Kapp: si "
+   "Kapp ≥ Kc hay cavitación; si Kapp ≥ FLp² el flujo está estrangulado.</p>",
+   formula="ΔPcav = Kc·(P1 − Pv)", tipicos="Trim estándar: 0,2–0,5. Jaula de orificios: 0,5–0,7. "
+   "Multietapa: 0,8–0,95.", referencia="IEC 60534-8-4 (xFz); ISA-RP75.23",
+   relacionadas=["Kapp", "dPcav", "cavitacion"], categoria="Coeficientes")
+_e("Kapp", "Coeficiente de cavitación de la aplicación Kapp",
+   "<p>Relación entre la caída de presión del servicio y la presión disponible sobre la de vapor. "
+   "Describe cuán exigente es la aplicación, sin importar la válvula.</p><ul><li>Kapp &lt; Kc: sin "
+   "cavitación.</li><li>Kc ≤ Kapp &lt; FLp²: cavitación (leve a severa).</li><li>Kapp ≥ FLp²: "
+   "flujo estrangulado por cavitación plena.</li></ul>",
+   formula="Kapp = ΔP / (P1 − Pv)", referencia="IEC 60534-8-4 (xF); ISA-RP75.23",
+   relacionadas=["Kc", "dPcav", "dPchoked"], categoria="Resultados")
+_e("dPcav", "ΔP de inicio de cavitación (ΔP cav)",
+   "<p>Caída de presión a partir de la cual el trim comienza a cavitar. Si la ΔP del servicio es "
+   "mayor hay cavitación; compárela también con ΔP choked.</p>",
+   formula="ΔPcav = Kc·(P1 − Pv)", relacionadas=["Kc", "Kapp"], categoria="Resultados")
+_e("dP_P1", "Relación de caída de presión ΔP/P1",
+   "<p>Fracción de la presión de entrada que se pierde en la válvula. Valores altos indican un "
+   "servicio exigente (cavitación, ruido, erosión).</p>", formula="ΔP/P1", categoria="Resultados")
+_e("D_interno", "Diámetro interno de tubería",
+   "<p>Diámetro interior de la tubería aguas arriba y aguas abajo, obtenido de NPS y cédula según "
+   "ASME B36.10M / B36.19M.</p>", formula="DI = OD − 2·t", relacionadas=["nps", "cedula"],
+   categoria="Resultados")
+_e("flujo_masico", "Flujo másico",
+   "<p>Caudal másico del líquido: W = Q·ρ1.</p>", formula="W = Q·ρ1", categoria="Resultados")
+_e("velocidad_tuberia", "Velocidad en tubería",
+   "<p>Velocidad media del líquido en la tubería de entrada (aguas arriba) y de salida (aguas "
+   "abajo): v = Q/A. La práctica habitual limita la velocidad de líquidos a unos 4,5 m/s (3 m/s con "
+   "sólidos) para evitar erosión, ruido y golpe de ariete.</p>", formula="v = Q / (π·DI²/4)",
+   relacionadas=["velocidad_liquido"], categoria="Resultados")
+_e("velocidad_sonido", "Velocidad del sonido en el líquido",
+   "<p>Se usa en el cálculo del ruido hidrodinámico (IEC 60534-8-4). Con un fluido de la lista se "
+   "calcula sola; si no, se toma 1 400 m/s salvo que se ingrese otro valor.</p>",
+   relacionadas=["ruido"])
+_e("Cv_nominal", "Cv nominal de la válvula",
+   "<p>Cv de la válvula completamente abierta. En blanco se usa un valor típico del estilo "
+   "(Cv ≈ Cd·d²). Para verificar la selección de un proveedor ingrese el Cv certificado y el "
+   "diámetro de la válvula ofertada.</p>", relacionadas=["Kv_nominal", "apertura"],
+   categoria="Coeficientes")
+_e("entregables", "Entregables",
+   "<p>El programa genera tres documentos que se ven en sus solapas y se exportan a Word editable "
+   "(.docx) o se imprimen desde <b>Inicio → Entregables</b>, por separado o todos juntos:</p><ul>"
+   "<li><b>Memoria de cálculo</b>: datos, ecuaciones esenciales con resultados, gráfico de Cv vs "
+   "apertura y conclusión.</li><li><b>Hoja de datos</b>: condiciones de servicio, línea, cuerpo, "
+   "internos, cierre y notas.</li><li><b>Informe técnico</b>: resultados completos, alertas con su "
+   "intensidad, acciones de corrección, características recomendadas y recomendaciones "
+   "finales.</li></ul><p>Todos usan las unidades elegidas en las entradas.</p>",
+   relacionadas=["identificacion"], categoria="Conceptos")
+_e("rating_referencial", "Rating verificado en forma referencial",
+   "<p>El rating se comparó con la tabla de acero al carbono (grupo 1.1). Cuando se defina el "
+   "material del cuerpo la verificación debe repetirse con su grupo.</p>", relacionadas=["rating"],
+   categoria="Fenómenos")
+_e("rating_fuera_tabla", "Temperatura fuera de la tabla de clase",
+   "<p>La temperatura de diseño supera la tabla de referencia; el rating depende del material.</p>",
+   relacionadas=["rating"], categoria="Fenómenos")
+_e("conexion_incompatible", "Conexión poco habitual",
+   "<p>La combinación de conexión, estilo, diámetro o rating no es la habitual. Revísela con la "
+   "especificación de tuberías del proyecto.</p>", relacionadas=["conexion"], categoria="Fenómenos")
+_e("conexion_info", "Conexión: observación",
+   "<p>Observación sobre la conexión elegida; no impide la selección.</p>", relacionadas=["conexion"],
+   categoria="Fenómenos")
+_e("valvula_mayor_linea", "Válvula mayor que la tubería",
+   "<p>La válvula resultó mayor que la tubería: la línea puede estar subdimensionada o el estilo "
+   "tiene poca capacidad para el servicio.</p>", relacionadas=["tamano"], categoria="Fenómenos")
+_e("valvula_chica_linea", "Válvula mucho menor que la tubería",
+   "<p>Los reductores grandes reducen la capacidad y el FL efectivo; verifique velocidades y "
+   "soportes.</p>", relacionadas=["FP", "FLP"], categoria="Fenómenos")
+_e("tamano_estilo", "Diámetro poco habitual para el estilo",
+   "<p>El diámetro está fuera del rango en que este estilo se fabrica habitualmente.</p>",
+   relacionadas=["estilo_cuerpo"], categoria="Fenómenos")
+_e("cierre_estilo", "Clase de cierre y estilo", "<p>El estilo elegido no suele alcanzar la clase "
+   "pedida.</p>", relacionadas=["clase_cierre"], categoria="Fenómenos")
+_e("cierre_info", "Clase de cierre: observación", "<p>Observación sobre la clase de cierre.</p>",
+   relacionadas=["clase_cierre"], categoria="Fenómenos")
+_e("cierre_temperatura", "Asiento blando fuera de temperatura",
+   "<p>La clase de cierre pide un asiento blando o revestimiento cuyo límite de temperatura es "
+   "menor que la de diseño. Use asiento metálico o un estilo con cierre metal-metal.</p>",
+   relacionadas=["clase_cierre", "T_diseno"], categoria="Fenómenos")
+_e("velocidad_tuberia_alta", "Velocidad alta en tubería", "<p>Ver «Velocidad en tubería».</p>",
+   relacionadas=["velocidad_tuberia"], categoria="Fenómenos")
+
+
 def obtener(clave: str) -> EntradaAyuda | None:
     if clave in A:
         return A[clave]

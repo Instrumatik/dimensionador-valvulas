@@ -32,9 +32,9 @@ jobs:
         timeout-minutes: 5
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "macOS" ]; then EXE=dist/Dimensionador.app/Contents/MacOS/Dimensionador;
-          elif [ "$RUNNER_OS" = "Windows" ]; then EXE=dist/Dimensionador/Dimensionador.exe;
-          else EXE=dist/Dimensionador/Dimensionador; fi
+          if [ "$RUNNER_OS" = "macOS" ]; then EXE=dist/Valveselect-N25.app/Contents/MacOS/Valveselect-N25;
+          elif [ "$RUNNER_OS" = "Windows" ]; then EXE=dist/Valveselect-N25/Valveselect-N25.exe;
+          else EXE=dist/Valveselect-N25/Valveselect-N25; fi
           find dist -path "*plugins/platforms*" -type f
           $EXE --prueba
           # Abre la ventana real (complemento de plataforma de Qt) y la cierra sola
@@ -43,5 +43,5 @@ jobs:
           echo "Ventana abierta y cerrada correctamente"
       - uses: actions/upload-artifact@v4
         with:
-          name: Dimensionador-${{ runner.os }}
+          name: Valveselect-N25-${{ runner.os }}
           path: dist/

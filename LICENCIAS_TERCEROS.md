@@ -35,3 +35,14 @@ SOFTWARE.
 
 Copyright (c) 2010-2024 Ian H. Bell, Jorrit Wronski, Sylvain Quoilin and
 Vincent Lemort. Distribuido bajo licencia MIT (mismo texto que el anterior).
+
+## python-docx (licencia MIT)
+
+Generación de los entregables en formato Word (.docx).
+Copyright (c) 2013 Steve Canny, https://github.com/python-openxml/python-docx.
+Se distribuye bajo la licencia MIT: se permite el uso, copia, modificación y distribución,
+incluso comercial, conservando este aviso. El software se entrega «tal cual», sin garantías.
+
+## lxml (licencia BSD)
+
+Dependencia de python-docx. Copyright (c) 2004 Infrae y colaboradores. Licencia BSD de 3 cláusulas.

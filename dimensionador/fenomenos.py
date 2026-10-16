@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 
-from .modelos import _n, Alerta, Severidad
+from .modelos import _n, Alerta, Severidad, fP, fRho, fV
 
 N34 = 1.17   # IEC 60534-8-4, Kv
 LB_FT3 = 16.01846337   # kg/m³ por lb/ft³
@@ -42,7 +42,8 @@ def xFz_tipico(Kv: float, FL: float, Fd: float) -> float:
 
 
 def evaluar_liquido(P1, P2, Pv, FL_eff, Kv, Fd, dPchoked, xFz: float | None = None,
-                    calidad_salida: float | None = None) -> tuple[list[Alerta], dict]:
+                    calidad_salida: float | None = None,
+                    xFz_directo: bool = False) -> tuple[list[Alerta], dict]:
     """Clasifica el régimen de cavitación / flashing.
 
     FL_eff: FLP/FP cuando hay reductores (FL en caso contrario).
@@ -55,7 +56,8 @@ def evaluar_liquido(P1, P2, Pv, FL_eff, Kv, Fd, dPchoked, xFz: float | None = No
     estimado = xFz is None
     if xFz is None:
         xFz = xFz_tipico(Kv, FL_eff, Fd)
-    xFzp1 = xFz * (6e5 / (P1 * 1000)) ** 0.125   # corrección por presión
+    # corrección por presión (salvo que el valor dado ya sea el de la presión de servicio)
+    xFzp1 = xFz if xFz_directo and not estimado else xFz * (6e5 / (P1 * 1000)) ** 0.125
     xFzp1 = min(xFzp1, FL_eff ** 2)
     sigma = (P1 - Pv) / dP
     datos = {"xF": xF, "xFz": xFz, "xFzp1": xFzp1, "sigma": sigma,
@@ -72,8 +74,8 @@ def evaluar_liquido(P1, P2, Pv, FL_eff, Kv, Fd, dPchoked, xFz: float | None = No
         nivel = nivel_de(intensidad)
         alertas.append(Alerta(
             "flashing", Severidad.CRITICA, "Flashing (vaporización instantánea)",
-            f"La presión de salida ({_n(P2, 1)} kPa a) es menor o igual que la presión de vapor "
-            f"({_n(Pv, 1)} kPa a): parte del líquido se vaporiza y no vuelve a condensar. "
+            f"La presión de salida ({fP(P2)}) es menor o igual que la presión de vapor "
+            f"({fP(Pv)}): parte del líquido se vaporiza y no vuelve a condensar. "
             f"{detalle} El caudal está limitado (flujo bloqueado) y el vapor a alta velocidad "
             "erosiona internos, cuerpo y tubería aguas abajo.",
             intensidad, nivel,
@@ -97,8 +99,8 @@ def evaluar_liquido(P1, P2, Pv, FL_eff, Kv, Fd, dPchoked, xFz: float | None = No
         if xF > 0.8 * xFzp1:
             alertas.append(Alerta(
                 "cavitacion_proxima", Severidad.INFO, "Cerca del inicio de cavitación",
-                f"xF = {_n(xF, 3)} está al {_n(xF / xFzp1 * 100, 0)} % del inicio de cavitación "
-                f"(xFzp1 = {_n(xFzp1, 3)}). Pequeños aumentos de ΔP o temperatura pueden iniciarla.",
+                f"Kapp = {_n(xF, 3)} está al {_n(xF / xFzp1 * 100, 0)} % del inicio de cavitación "
+                f"(Kc = {_n(xFzp1, 3)}). Pequeños aumentos de ΔP o temperatura pueden iniciarla.",
                 remedios=["Verifique las condiciones máximas de ΔP y temperatura."],
                 referencia=ref))
         return alertas, datos
@@ -133,7 +135,7 @@ def evaluar_liquido(P1, P2, Pv, FL_eff, Kv, Fd, dPchoked, xFz: float | None = No
     }[nivel]
     titulo = "Cavitación con flujo bloqueado" if bloqueado else f"Cavitación {nivel}"
     msg = (f"La presión en la vena contracta cae por debajo de la presión de vapor y las "
-           f"burbujas colapsan aguas abajo (P2 > Pv). xF = {_n(xF, 3)}, inicio xFzp1 = {_n(xFzp1, 3)}"
+           f"burbujas colapsan aguas abajo (P2 > Pv). Kapp = xF = {_n(xF, 3)}, inicio Kc = xFzp1 = {_n(xFzp1, 3)}"
            f"{' (estimado típico)' if estimado else ''}, bloqueo FL² = {_n(FL_eff ** 2, 3)}. "
            f"σ = {_n(sigma, 2)}.")
     if bloqueado:
@@ -158,11 +160,11 @@ def evaluar_velocidad_liquido(Q_m3h: float, d_mm: float, D2_mm: float | None,
         intensidad = min(100.0, (v_valv / limite - 1) * 100)
         alertas.append(Alerta(
             "velocidad_liquido", Severidad.ADVERTENCIA, "Velocidad de líquido alta en la válvula",
-            f"Velocidad en la conexión de salida de la válvula: {_n(v_valv, 1)} m/s (recomendado ≤ "
-            f"{_n(limite, 0)} m/s para líquidos limpios). Favorece erosión, vibración y golpe de ariete.",
+            f"Velocidad en la conexión de salida de la válvula: {fV(v_valv)} (recomendado ≤ "
+            f"{fV(limite, 1)} para líquidos limpios). Favorece erosión, vibración y golpe de ariete.",
             intensidad, nivel_de(intensidad),
             ["Seleccionar un diámetro de válvula mayor.",
-             "Si el líquido arrastra sólidos, reducir aún más la velocidad (≤ 4,5 m/s)."],
+             f"Si el líquido arrastra sólidos, reducir aún más la velocidad (≤ {fV(4.5, 1)})."],
             "Práctica de la industria (ISA / guías de usuarios)"))
     return alertas, datos
 
@@ -229,8 +231,8 @@ def evaluar_erosional(v_ms: float, rho_kgm3: float, donde: str, C: float = 100.0
     intensidad = min(100.0, (v_ms / ve - 1) * 100)
     return [Alerta(
         "erosional_api14e", Severidad.CRITICA, "Velocidad erosional superada (API RP 14E)",
-        f"La velocidad en {donde} ({_n(v_ms, 1)} m/s) supera la velocidad erosional "
-        f"Ve = C/√ρm = {_n(ve, 1)} m/s (C = {_n(C)}, ρm = {_n(rho_kgm3, 1)} kg/m³).",
+        f"La velocidad en {donde} ({fV(v_ms)}) supera la velocidad erosional "
+        f"Ve = C/√ρm = {fV(ve)} (C = {_n(C)}, ρm = {fRho(rho_kgm3)}).",
         intensidad, nivel_de(intensidad),
         ["Aumentar el diámetro de la tubería.",
          "Si el fluido está libre de sólidos y la corrosión está controlada, API RP 14E admite "

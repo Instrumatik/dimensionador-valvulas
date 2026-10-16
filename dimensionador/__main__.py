@@ -10,6 +10,10 @@ def autoprueba() -> int:
     r = dimensionar_liquido(Liquido(Q=360, P1=680, P2=220, T1=363, rho1=0.965 * 999.1, Pv=70.1,
                                     Pc=22120, nu=3.26e-7), Valvula(FL=0.9, xT=0.75, Fd=0.46, d_mm=150))
     p = propiedades.liquido("Agua / vapor de agua", 680, 363)
+    import tempfile
+    from docx import Document   # plantillas de Word incluidas en el ejecutable
+    with tempfile.TemporaryDirectory() as d:
+        Document().save(os.path.join(d, "prueba.docx"))
     ok = abs(r.Kv - 165) < 0.5 and 960 < p.rho < 970
     if sys.stdout is None:   # ejecutable de ventana (Windows) sin consola
         sys.stdout = open(os.devnull, "w")
@@ -29,7 +33,7 @@ def main():
 
     from .gui.ventana import VentanaPrincipal
     app = QApplication(sys.argv)
-    app.setApplicationName("Dimensionador de válvulas de control")
+    app.setApplicationName("Valveselect-N25")
     app.setStyle("Fusion")
     w = VentanaPrincipal()
     w.show()

@@ -69,7 +69,58 @@ ESTILOS: dict[str, EstiloValvula] = {e.clave: e for e in [
                   "isoporcentual", 100),
     EstiloValvula("bola_paso_total_70", "Bola de paso total, apertura 70°", "rotativa", 0.74, 0.42, 0.99, 30.0,
                   "isoporcentual", 50),
+    EstiloValvula("globo_liner_contorneado", "Globo con liner, obturador contorneado, flujo tiende a abrir",
+                  "globo", 0.90, 0.72, 0.46, 10.0, "isoporcentual", 30,
+                  "Cuerpo revestido (PFA/PTFE): IEC no publica factores propios; se adoptan los del "
+                  "globo contorneado."),
+    EstiloValvula("angular_jaula_abre", "Angular, jaula, flujo tiende a abrir",
+                  "angular", 0.85, 0.65, 0.41, 12.0, "lineal", 50),
+    EstiloValvula("mariposa_triple_90", "Mariposa triple excéntrica, 90°",
+                  "rotativa", 0.67, 0.35, 0.57, 30.0, "isoporcentual", 30,
+                  "IEC no publica factores propios de la triple excéntrica: se adoptan los del disco "
+                  "excéntrico (doble excéntrica)."),
 ]}
+
+
+# ---------------------------------------------------------------------------
+# Estilos de cuerpo de la versión 2 y los internos (trims) compatibles con cada uno.
+# Las claves de «trims» son estilos de ESTILOS (factores típicos de IEC 60534-2-1).
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Cuerpo:
+    clave: str
+    nombre: str
+    trims: tuple            # claves de ESTILOS
+    nps_min: float
+    nps_max: float
+    rotativa: bool
+    guia: str               # tipo de guía habitual del obturador
+    An: float               # coeficiente acústico de IEC 60534-8-4
+
+
+CUERPOS: dict[str, Cuerpo] = {c.clave: c for c in [
+    Cuerpo("globo", "Globo", ("globo_contorneado_iso_abre", "globo_contorneado_lineal_abre",
+                              "globo_contorneado_iso_cierra", "globo_jaula_4v_fuera",
+                              "globo_jaula_4v_dentro", "globo_jaula_60_orificios",
+                              "globo_jaula_120_orificios", "globo_multietapa"),
+           0.5, 24, False, "Guiado superior / por jaula", -4.6),
+    Cuerpo("globo_liner", "Globo con liner", ("globo_liner_contorneado",), 0.5, 12, False,
+           "Guiado superior (vástago con fuelle o empaquetadura PTFE)", -4.6),
+    Cuerpo("angulo", "Ángulo", ("angular_contorneado_abre", "angular_contorneado_cierra",
+                                "angular_jaula_abre", "angular_venturi"),
+           0.5, 16, False, "Guiado superior / por jaula", -4.6),
+    Cuerpo("bola", "Bola", ("bola_segmentada", "bola_paso_total_70"), 1, 36, True,
+           "Eje guiado por cojinetes", -4.3),
+    Cuerpo("mariposa", "Mariposa", ("mariposa_concentrica_60", "mariposa_concentrica_70"), 2, 60, True,
+           "Eje guiado por cojinetes", -4.3),
+    Cuerpo("mariposa_doble", "Mariposa doble excentricidad", ("mariposa_alto_rendimiento_90",), 2, 48,
+           True, "Eje guiado por cojinetes", -4.3),
+    Cuerpo("mariposa_triple", "Mariposa triple excentricidad", ("mariposa_triple_90",), 3, 60, True,
+           "Eje guiado por cojinetes", -4.3),
+]}
+
+# Grado de anticavitación de cada trim: 0 estándar, 1 etapa simple de orificios, 2 multietapa
+ANTICAVITACION = {"globo_jaula_60_orificios": 1, "globo_jaula_120_orificios": 1, "globo_multietapa": 2}
 
 # Diámetros nominales (pulgada, DN mm) y diámetro interior de tubería
 # cédula 40 según ASME B36.10M (mm).
@@ -79,6 +130,7 @@ TAMANOS = [
     (2.0, 50, 52.50), (3.0, 80, 77.92), (4.0, 100, 102.26), (6.0, 150, 154.05),
     (8.0, 200, 202.72), (10.0, 250, 254.51), (12.0, 300, 303.23), (14.0, 350, 333.34),
     (16.0, 400, 381.00), (18.0, 450, 428.66), (20.0, 500, 477.82), (24.0, 600, 574.64),
+    (30.0, 750, None), (36.0, 900, None), (42.0, 1050, None), (48.0, 1200, None),
 ]
 
 

@@ -44,6 +44,10 @@ class Seleccion:
     clase: int | None = None               # None = clase mínima que cumple
     P_diseno: float | None = None          # kPa abs; None = máxima P1 de los casos
     T_diseno: float | None = None          # K; None = máxima T1 de los casos
+    xFz_directo: bool = False              # xFz es el valor ya corregido por presión (Kc del trim)
+    tamanos: tuple | None = None           # diámetros admitidos en selección automática [pulg]
+    An: float | None = None                # coeficiente acústico IEC 60534-8-4
+    verificar_clase: bool = True
 
 
 @dataclass
@@ -120,7 +124,7 @@ def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> Res
         if e.P2 <= e.Pv and caso.fluido:
             q = propiedades.calidad_isoentalpica(caso.fluido, e.P1, e.T1, e.P2)
         a, datos = fenomenos.evaluar_liquido(e.P1, e.P2, e.Pv, FL_eff, r.Kv, v.Fd,
-                                             r.extra["dPchoked"], sel.xFz, q)
+                                             r.extra["dPchoked"], sel.xFz, q, sel.xFz_directo)
         alertas += a
         bif = e.P2 <= e.Pv
         a, dv = fenomenos.evaluar_velocidad_liquido(r.extra["Q"], v.d_mm, v.D2_mm, e.rho1, bif)
@@ -172,10 +176,13 @@ def _ruido(caso: Caso, r: Resultado, v: Valvula, sel: Seleccion, datos: dict) ->
         if c_liq is None and caso.fluido:
             c_liq = propiedades.velocidad_sonido(caso.fluido, e.P1, e.T1)
         c_liq = c_liq or 1400.0
-        An = -4.3 if "mariposa" in sel.estilo.clave else -4.6
+        An = sel.An if sel.An is not None else (-4.3 if "mariposa" in sel.estilo.clave else -4.6)
+        xFz = None
+        if sel.xFz is not None:   # valor dado por el usuario: el ruido usa el mismo inicio de cavitación
+            xFz = datos["xFzp1"] / (6e5 / (e.P1 * 1000)) ** 0.125
         res = ruido.ruido_liquido(r.extra["Q"] * e.rho1 / 3600, e.P1, e.P2, e.Pv, e.rho1, c_liq, r.Kv,
                                   v.d_mm / 1000, Di_mm / 1000, tp_mm / 1000, FL_eff, v.Fd,
-                                  xFz=sel.xFz, An=An)
+                                  xFz=xFz, An=An)
         gas = False
     else:
         res = ruido.ruido_gas(r.extra["W"] / 3600, e.P1, e.P2, e.T1, r.extra["rho1"], e.gamma, e.M,
@@ -197,7 +204,7 @@ def dimensionar(casos: list[Caso], sel: Seleccion) -> Informe:
                                  "Ingrese al menos un caso de operación.")])
     tabla = []
     elegido = None
-    tamanos = [t for t in TAMANOS] if sel.d_pulg is None else [
+    tamanos = [t for t in TAMANOS if sel.tamanos is None or t[0] in sel.tamanos] if sel.d_pulg is None else [
         next((t for t in TAMANOS if abs(t[0] - sel.d_pulg) < 1e-6), (sel.d_pulg, _dn(sel.d_pulg), None))]
     for d_pulg, dn, _ in tamanos:
         if sel.d_pulg is None:
@@ -243,6 +250,8 @@ def dimensionar(casos: list[Caso], sel: Seleccion) -> Informe:
                                 "La capacidad nominal de la válvula es un valor típico del estilo, "
                                 "no de un fabricante. Reemplácela por el valor certificado de la "
                                 "válvula ofertada para verificar la apertura real."))
+    if not sel.verificar_clase:
+        return Informe(d_pulg, dn, Kv_nom, v, rcs, tabla, generales)
     # Clase de presión ASME B16.34
     P_d = sel.P_diseno or max(c.estado.P1 for c in casos)
     T_d = sel.T_diseno or max(c.estado.T1 for c in casos)

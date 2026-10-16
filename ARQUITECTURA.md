@@ -1,4 +1,4 @@
-# Dimensionador de válvulas de control: plan y arquitectura
+# Valveselect-N25 (INSTRUMATIK S.A.S.): plan y arquitectura
 
 Software independiente de marcas para EPC, plantas industriales e ingenieros
 revisores. Todo en español, sin "caja negra": cada dato tiene ayuda y cada
@@ -27,8 +27,13 @@ dimensionador/
   servicio.py       Varios casos de operación (mín/normal/máx), selección de tamaño, informe
   ruido.py          Ruido aerodinámico IEC 60534-8-3 e hidrodinámico IEC 60534-8-4
   asme_b16_34.py    Clases de presión-temperatura y materiales ASTM
+  tuberias.py       Diámetro exterior y espesor por NPS y cédula (ASME B36.10M / B36.19M)
+  proyecto.py       Versión 2 (líquidos): datos de instalación y de dimensionamiento, Kapp/Kc,
+                    verificaciones de rating, conexión, cierre y velocidad, recomendaciones
+  entregables.py    Memoria de cálculo, hoja de datos e informe técnico (HTML y Word .docx)
+  grafico.py        Gráfico de Cv vs. apertura (PNG con Qt)
   ayuda.py          Textos de ayuda en español por dato, coeficiente, fenómeno y opción
-  gui/ventana.py    Interfaz PySide6
+  gui/ventana.py    Interfaz PySide6: Inst-Valve-Data, Dim-Valve-Data y vistas de entregables
 tests/              Validación contra ejemplos de las normas
 ```
 
@@ -41,10 +46,14 @@ tests/              Validación contra ejemplos de las normas
 | 2. Interfaz en español: SI/imperial, ayuda «?»/F1 en cada dato (74 temas), alertas con intensidad y remedios, memoria de cálculo, proyectos `.valvula`, informe PDF/HTML | Hecho (primera versión) |
 | 3. Ruido IEC 60534-8-3 (gases) e IEC 60534-8-4 (líquidos) | Hecho y validado |
 | 4. Bifásico (método de suma de fases), ASME B16.34 grupos 1.1 y 2.2 con materiales ASTM | Hecho |
-| 5. Ejecutables: Linux compilado y probado; Windows y macOS con `compilar_windows.bat`, `compilar.sh` o el flujo de GitHub Actions incluido | En curso |
+| 5. Ejecutables Windows, macOS y Linux por GitHub Actions, con prueba de cálculo y de ventana | Hecho |
+| 6. Versión 2 (solo líquidos): flujo Inst-Valve-Data → Dim-Valve-Data, tuberías por cédula, Kc/Kapp, entregables Word e impresión, marca Valveselect-N25 | Hecho, en validación |
 
 ## Próximos pasos sugeridos
 
+* Fuerza y par del actuador para la clase de cierre (anunciado en el informe técnico).
+* Materiales de cuerpo e internos (las entradas se quitaron en la versión 2).
+* Volver a habilitar gases, vapor y bifásico en la interfaz de la versión 2.
 * Más grupos de materiales ASME B16.34 (1.2 LCC, 1.3 LCB, 1.9 WC6, 1.10 WC9, 2.1 CF8) verificados
   contra la edición vigente de la norma.
 * Variación de FL y xT con la carrera (hoy se usan valores a carrera nominal).
@@ -62,7 +71,7 @@ certificados de la válvula ofertada.
 
 ## Validación actual
 
-`python -m pytest tests` (29 pruebas, incluida una prueba de la interfaz). Ejemplos resueltos del Anexo de
+`python -m pytest tests` (35 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
 IEC 60534-2-1:2011 reproducidos:
 
 | Ejemplo | Norma | Programa |

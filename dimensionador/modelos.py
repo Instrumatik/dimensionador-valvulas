@@ -62,3 +62,39 @@ class Memoria:
             if p.simbolo == simbolo:
                 return p.valor
         raise KeyError(simbolo)
+
+
+# ---------------------------------------------------------------------------
+# Unidades de presentación de los mensajes. La interfaz las fija antes de
+# calcular para que alertas, recomendaciones y entregables usen las mismas
+# unidades que los datos de entrada.
+# ---------------------------------------------------------------------------
+PRESENTACION = {"presion": "kPa a", "presion_dif": "kPa", "velocidad": "m/s", "temperatura": "°C",
+                "densidad": "kg/m³", "longitud": "mm"}
+
+
+def _con(v: float, magnitud: str, dec: int) -> str:
+    from . import unidades
+    u = PRESENTACION[magnitud]
+    return f"{_n(unidades.desde_base(v, magnitud, u), dec)} {u}"
+
+
+def fP(kPa_abs: float, dec: int = 2) -> str:
+    """Presión (absoluta en base) en la unidad de presentación."""
+    return _con(kPa_abs, "presion", dec)
+
+
+def fdP(kPa: float, dec: int = 2) -> str:
+    return _con(kPa, "presion_dif", dec)
+
+
+def fV(m_s: float, dec: int = 2) -> str:
+    return _con(m_s, "velocidad", dec)
+
+
+def fT(K: float, dec: int = 0) -> str:
+    return _con(K, "temperatura", dec)
+
+
+def fRho(kg_m3: float, dec: int = 1) -> str:
+    return _con(kg_m3, "densidad", dec)

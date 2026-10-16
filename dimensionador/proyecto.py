@@ -1,0 +1,457 @@
+"""Flujo de trabajo de la versión 2 (líquidos): datos de instalación +
+datos de dimensionamiento -> resultados, alertas y recomendaciones.
+
+Todos los valores se reciben y devuelven en unidades base (kPa abs, K,
+m³/h, kg/h, kg/m³, Pa·s, mm, m/s). Las unidades de presentación las
+resuelve la interfaz y los entregables.
+"""
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field, replace
+
+from . import asme_b16_34, tuberias
+from .estilos import ANTICAVITACION, CUERPOS, ESTILOS, TAMANOS, apertura_requerida
+from .iec60534_2_1 import RHO_AGUA_15C, Liquido
+from .modelos import _n, Alerta, ErrorDatos, Severidad, fdP, fP, fT, fV
+from .servicio import Caso, Informe, Seleccion, dimensionar
+
+RATINGS = [150, 300, 600, 900, 1500, 2500]
+CONEXIONES = ["BWE", "RF bridada", "RTJ bridada", "SCH XXS BWE", "SWE", "FF bridada",
+              "Sin bridas", "Wafer", "FNPT", "MNPT"]
+CIERRES = ["ANSI Clase I", "ANSI Clase II", "ANSI Clase III", "ANSI Clase IV", "ANSI Clase V",
+           "ANSI Clase VI", "Tight Shutoff"]
+FUGA_CIERRE = {
+    "ANSI Clase I": "Según acuerdo entre usuario y fabricante (sin ensayo).",
+    "ANSI Clase II": "0,5 % de la capacidad nominal.",
+    "ANSI Clase III": "0,1 % de la capacidad nominal.",
+    "ANSI Clase IV": "0,01 % de la capacidad nominal.",
+    "ANSI Clase V": "5·10⁻⁴ ml/min de agua por pulgada de diámetro de puerto y por psi de ΔP.",
+    "ANSI Clase VI": "Burbujas por minuto según el diámetro de puerto (asiento blando típico).",
+    "Tight Shutoff": "Sin fuga visible en el ensayo (requisito del proyecto, p. ej. API 598 / ISO 5208 tasa A).",
+}
+REF_CIERRE = "ANSI/FCI 70-2 / IEC 60534-4"
+T_ASIENTO_BLANDO_C = 200.0       # PTFE / RPTFE, límite práctico
+T_ELASTOMERO_C = 120.0           # asientos elastoméricos de mariposa concéntrica
+V_TUBERIA_LIQ = 4.5              # m/s, práctica habitual para líneas de líquido
+
+
+@dataclass
+class Identificacion:
+    proyecto: str = ""
+    cliente: str = ""
+    tag: str = ""
+    servicio: str = ""
+    documento: str = ""
+    revision: str = "0"
+    preparado: str = ""
+    fecha: str = ""
+
+
+@dataclass
+class Instalacion:
+    cuerpo: str = "globo"
+    rating: int = 300
+    nps_entrada: float = 4
+    nps_salida: float = 4
+    sch_entrada: str = "40"
+    sch_salida: str = "40"
+    ruido_permitido: float = 85.0
+    conexion: str = "RF bridada"
+    P_diseno: float | None = None     # kPa abs
+    T_diseno: float | None = None     # K
+    cierre: str = "ANSI Clase IV"
+
+
+@dataclass
+class CasoLiquido:
+    nombre: str
+    Q: float | None        # m³/h (volumétrico) o None
+    W: float | None        # kg/h (másico) o None
+    P1: float              # kPa abs
+    P2: float
+    T1: float              # K
+    SG: float              # densidad relativa al agua a 15 °C
+    mu: float              # Pa·s
+    Pv: float              # kPa abs
+
+
+@dataclass
+class Dimensionamiento:
+    casos: list[CasoLiquido]
+    Pc: float                          # kPa abs
+    trim: str                          # clave de ESTILOS
+    FL: float
+    Fd: float
+    Kc: float | None = None            # None = estimado según IEC 60534-8-4
+    nps_valvula: float | None = None   # None = selección automática
+    Cv_nominal: float | None = None    # None = típico del estilo
+    caracteristica: str = "isoporcentual"
+    fluido: str | None = None          # nombre de la biblioteca de propiedades
+    c_sonido: float | None = None      # m/s
+
+
+@dataclass
+class Resultado:
+    ident: Identificacion
+    inst: Instalacion
+    dim: Dimensionamiento
+    informe: Informe
+    salidas: list[dict]
+    alertas: list[tuple[str, Alerta]]
+    recomendaciones: list[tuple[str, str]]
+    D1: float
+    D2: float
+    tp1: float
+    tp2: float
+    Cv_nominal: float
+    rating_admisible: float | None = None   # kPa abs a T de diseño (grupo 1.1 referencial)
+    P_diseno: float = 0.0
+    T_diseno: float = 0.0
+    curva: list[tuple[float, float]] = field(default_factory=list)
+
+    @property
+    def cuerpo(self):
+        return CUERPOS[self.inst.cuerpo]
+
+    @property
+    def trim(self):
+        return ESTILOS[self.dim.trim]
+
+    @property
+    def nps_valvula(self) -> float:
+        return self.informe.d_pulg
+
+    def peor(self) -> Severidad:
+        return max([a.severidad for _, a in self.alertas] or [Severidad.INFO])
+
+
+def _area(d_mm: float) -> float:
+    return math.pi * (d_mm / 1000) ** 2 / 4
+
+
+def caudal_relativo(h: float, caracteristica: str, R: float) -> float:
+    """Inversa de apertura_requerida: Cv/Cv_nominal para una carrera h (0–1)."""
+    if h <= 0:
+        return 0.0
+    if caracteristica == "lineal":
+        return 1 / R + (1 - 1 / R) * h
+    if caracteristica == "isoporcentual":
+        return R ** (h - 1)
+    return math.sqrt(h)
+
+
+def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) -> Resultado:
+    errores: list[Alerta] = []
+    try:
+        D1 = tuberias.diametro_interior(inst.nps_entrada, inst.sch_entrada)
+        tp1 = tuberias.espesor(inst.nps_entrada, inst.sch_entrada)
+    except tuberias.ErrorTuberia as e:
+        errores.append(Alerta("dato_tuberia", Severidad.ERROR, "Tubería de entrada no definida", str(e)))
+    try:
+        D2 = tuberias.diametro_interior(inst.nps_salida, inst.sch_salida)
+        tp2 = tuberias.espesor(inst.nps_salida, inst.sch_salida)
+    except tuberias.ErrorTuberia as e:
+        errores.append(Alerta("dato_tuberia", Severidad.ERROR, "Tubería de salida no definida", str(e)))
+    if not dim.casos:
+        errores.append(Alerta("sin_casos", Severidad.ERROR, "Sin casos de operación",
+                              "Active al menos un caso de operación."))
+    for c in dim.casos:
+        if c.SG <= 0:
+            errores.append(Alerta("dato_rho", Severidad.ERROR, "Gravedad específica inválida",
+                                  f"Caso {c.nombre}: la gravedad específica debe ser mayor que cero."))
+        if c.mu <= 0:
+            errores.append(Alerta("dato_nu", Severidad.ERROR, "Viscosidad inválida",
+                                  f"Caso {c.nombre}: la viscosidad debe ser mayor que cero."))
+    if not 0.3 <= dim.FL <= 1.0:
+        errores.append(Alerta("dato_FL", Severidad.ERROR, "FL fuera de rango",
+                              f"FL = {_n(dim.FL)}: el factor de recuperación está entre 0,3 y 1,0."))
+    if not 0.01 <= dim.Fd <= 1.0:
+        errores.append(Alerta("dato_Fd", Severidad.ERROR, "Fd fuera de rango",
+                              f"Fd = {_n(dim.Fd)}: el modificador de estilo está entre 0,01 y 1,0."))
+    if dim.Kc is not None and not 0.05 <= dim.Kc <= 1.0:
+        errores.append(Alerta("dato_Kc", Severidad.ERROR, "Kc fuera de rango",
+                              f"Kc = {_n(dim.Kc)}: el coeficiente de cavitación está entre 0,05 y 1,0."))
+    if errores:
+        raise ErrorDatos(errores)
+
+    cuerpo = CUERPOS[inst.cuerpo]
+    estilo = replace(ESTILOS[dim.trim], caracteristica=dim.caracteristica)
+    tamanos = tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= cuerpo.nps_max)
+    sel = Seleccion(estilo, d_pulg=dim.nps_valvula,
+                    Kv_nominal=dim.Cv_nominal * 0.865 if dim.Cv_nominal else None,
+                    D1_mm=D1, D2_mm=D2, FL=dim.FL, Fd=dim.Fd, xT=estilo.xT, xFz=dim.Kc,
+                    xFz_directo=dim.Kc is not None, tp_mm=tp2, c_liquido=dim.c_sonido,
+                    limite_ruido=inst.ruido_permitido, tamanos=tamanos, An=cuerpo.An,
+                    verificar_clase=False)
+    casos = []
+    for c in dim.casos:
+        rho = c.SG * RHO_AGUA_15C
+        casos.append(Caso(c.nombre, Liquido(P1=c.P1, P2=c.P2, T1=c.T1, rho1=rho, Pv=c.Pv, Pc=dim.Pc,
+                                            nu=c.mu / rho, Q=c.Q, W=c.W), dim.fluido))
+    inf = dimensionar(casos, sel)
+
+    salidas = []
+    for c, rc in zip(dim.casos, inf.casos):
+        e, r, d = rc.caso.estado, rc.resultado, rc.datos
+        Q = r.extra["Q"]
+        Kc = d["xFzp1"]
+        salidas.append({
+            "Cv": r.Cv, "Kv": r.Kv, "Kapp": d["xF"], "Kc": Kc, "dP": e.P1 - e.P2,
+            "dP_P1": (e.P1 - e.P2) / e.P1, "dPchoked": r.extra["dPchoked"],
+            "dPcav": Kc * (e.P1 - e.Pv), "FF": r.extra["FF"], "FP": r.FP, "FLP": r.extra["FLP"],
+            "mu": c.mu, "nu": e.nu, "D1": D1, "D2": D2, "Rev": r.Rev, "FR": r.FR, "rho": e.rho1,
+            "Q": Q, "W": Q * e.rho1, "Lp": d.get("ruido_LpAe1m"),
+            "v1": Q / 3600 / _area(D1), "v2": Q / 3600 / _area(D2),
+            "v_valvula": d.get("v_salida_valvula"), "apertura": rc.apertura,
+            "condicion": d.get("regimen", ""), "bloqueado": r.bloqueado, "regimen_flujo": r.regimen,
+            "calidad": d.get("calidad_salida"), "sigma": d.get("sigma"),
+        })
+
+    alertas = [(rc.caso.nombre, a) for rc in inf.casos for a in rc.alertas]
+    alertas = [("General", a) for a in inf.alertas_generales] + alertas
+
+    P_d = inst.P_diseno or max(c.P1 for c in dim.casos)
+    T_d = inst.T_diseno or max(c.T1 for c in dim.casos)
+    generales, rating_adm = _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2)
+    alertas = [("General", a) for a in generales] + alertas
+    alertas.sort(key=lambda t: -t[1].severidad)
+
+    Cv_nom = inf.Kv_nominal / 0.865
+    curva = [(h, Cv_nom * caudal_relativo(h / 100, estilo.caracteristica, estilo.rangeabilidad))
+             for h in range(0, 101, 2)]
+    res = Resultado(ident, inst, dim, inf, salidas, alertas, [], D1, D2, tp1, tp2, Cv_nom,
+                    rating_adm, P_d, T_d, curva)
+    res.recomendaciones = recomendaciones(res)
+    return res
+
+
+def _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2):
+    al: list[Alerta] = []
+    d = inf.d_pulg
+    # Clase de presión (referencial, sin material definido)
+    P_barg = (P_d - 101.325) / 100
+    T_C = T_d - 273.15
+    r = asme_b16_34.rating("1.1", inst.rating, T_C)
+    rating_adm = None if r is None else r * 100 + 101.325
+    ref = "ASME B16.34, Tabla 2-1.1 (clase estándar)"
+    if r is None:
+        al.append(Alerta("rating_fuera_tabla", Severidad.ADVERTENCIA, "Temperatura fuera de la tabla de clase",
+                         f"La temperatura de diseño ({fT(T_d)}) supera la tabla de referencia de "
+                         f"acero al carbono ({fT(538 + 273.15)}). La clase debe verificarse con el material definitivo.",
+                         referencia=ref))
+    elif P_barg > r:
+        minima = asme_b16_34.clase_minima("1.1", P_barg, T_C)
+        al.append(Alerta("clase_insuficiente", Severidad.CRITICA, f"Rating CL{inst.rating} insuficiente",
+                         f"Con acero al carbono (grupo 1.1, referencia) la clase {inst.rating} admite "
+                         f"{fP(rating_adm)} a {fT(T_d)} y la presión de diseño es {fP(P_d)}.",
+                         remedios=[f"Usar rating CL{minima}." if minima else "Ninguna clase estándar alcanza: "
+                                   "revise las condiciones de diseño."],
+                         referencia=ref))
+    else:
+        al.append(Alerta("rating_referencial", Severidad.INFO, "Rating verificado en forma referencial",
+                         f"CL{inst.rating} admite {fP(rating_adm)} a {fT(T_d)} con acero al carbono "
+                         f"(grupo 1.1); diseño {fP(P_d)}. El material del cuerpo se define en una "
+                         "versión futura: repita la verificación con el grupo de material real.",
+                         referencia=ref))
+    if inst.P_diseno is None or inst.T_diseno is None:
+        al.append(Alerta("diseno_por_operacion", Severidad.INFO, "Condiciones de diseño supuestas",
+                         "No se ingresaron presión y/o temperatura de diseño: se usaron las máximas de "
+                         "operación."))
+
+    # Conexión a proceso
+    con = inst.conexion
+    if con == "Wafer" and not inst.cuerpo.startswith("mariposa"):
+        al.append(Alerta("conexion_incompatible", Severidad.ADVERTENCIA, "Conexión wafer no habitual",
+                         f"La conexión wafer es propia de válvulas mariposa; para un cuerpo "
+                         f"{cuerpo.nombre.lower()} use bridada o sin bridas.",
+                         remedios=["Cambiar a RF bridada o sin bridas (flangeless)."]))
+    if con in ("FNPT", "MNPT", "SWE") and d > 2:
+        al.append(Alerta("conexion_incompatible", Severidad.ADVERTENCIA, f"Conexión {con} en {_n(d)}\"",
+                         f"Las conexiones roscadas y de enchufe soldado se usan hasta 2\". La válvula "
+                         f"seleccionada es de {_n(d)}\".",
+                         remedios=["Usar bridada o soldada a tope (BWE)."], referencia="ASME B16.34 / B16.11"))
+    if con in ("FNPT", "MNPT") and inst.rating > 600:
+        al.append(Alerta("conexion_incompatible", Severidad.ADVERTENCIA, "Rosca NPT en alta presión",
+                         "Las uniones roscadas no son recomendables por encima de CL600 ni en servicios "
+                         "cíclicos o peligrosos.", remedios=["Usar SWE o BWE."]))
+    if con == "FF bridada" and inst.rating > 150:
+        al.append(Alerta("conexion_incompatible", Severidad.ADVERTENCIA, "Brida cara plana con rating alto",
+                         "Las bridas de cara plana (FF) se usan en CL150 para unir con bridas de fundición o "
+                         "no metálicas.", remedios=["Usar RF o RTJ bridada."], referencia="ASME B16.5"))
+    if con == "RTJ bridada" and inst.rating < 600:
+        al.append(Alerta("conexion_info", Severidad.INFO, "RTJ en rating bajo",
+                         "La junta de anillo (RTJ) es habitual desde CL600 o en servicios críticos; en "
+                         f"CL{inst.rating} lo usual es RF."))
+    if con == "SCH XXS BWE" and inst.rating < 1500:
+        al.append(Alerta("conexion_info", Severidad.INFO, "Extremos XXS en rating bajo",
+                         "Los extremos soldados XXS son propios de servicios de muy alta presión."))
+
+    # Tamaño de válvula frente a tubería y al estilo
+    nps_linea = min(inst.nps_entrada, inst.nps_salida)
+    if d > nps_linea:
+        al.append(Alerta("valvula_mayor_linea", Severidad.ADVERTENCIA, "Válvula mayor que la tubería",
+                         f"La válvula ({_n(d)}\") es mayor que la tubería ({_n(nps_linea)}\"). Revise el "
+                         "diámetro de la línea o el estilo elegido."))
+    elif d < 0.5 * nps_linea:
+        al.append(Alerta("valvula_chica_linea", Severidad.INFO, "Válvula mucho menor que la tubería",
+                         f"La válvula ({_n(d)}\") es menor que la mitad de la línea ({_n(nps_linea)}\"): "
+                         "los reductores reducen la capacidad (FP) y deben verificarse por velocidad y "
+                         "soportes."))
+    if not cuerpo.nps_min <= d <= cuerpo.nps_max:
+        al.append(Alerta("tamano_estilo", Severidad.ADVERTENCIA, "Diámetro poco habitual para el estilo",
+                         f"Las válvulas {cuerpo.nombre.lower()} se fabrican habitualmente entre "
+                         f"{_n(cuerpo.nps_min)}\" y {_n(cuerpo.nps_max)}\"."))
+
+    # Clase de cierre
+    al += _verificar_cierre(inst, cuerpo, T_d)
+
+    # Velocidad en tuberías
+    for donde, clave in (("entrada", "v1"), ("salida", "v2")):
+        v = max(s[clave] for s in salidas)
+        if v > V_TUBERIA_LIQ:
+            inten = min(100.0, (v / V_TUBERIA_LIQ - 1) * 100)
+            al.append(Alerta("velocidad_tuberia", Severidad.ADVERTENCIA, f"Velocidad alta en la tubería de {donde}",
+                             f"Velocidad máxima en la tubería de {donde}: {fV(v)} (práctica habitual "
+                             f"≤ {fV(V_TUBERIA_LIQ, 1)} en líquidos). Favorece erosión, ruido y golpe de ariete.",
+                             inten, "leve" if inten < 33 else "moderada" if inten < 66 else "severa",
+                             ["Revisar el diámetro de la tubería.",
+                              f"Si hay sólidos en suspensión, limitar a unos {fV(3.0, 1)}."]))
+    # Kc dado por el usuario frente a la aplicación
+    return al, rating_adm
+
+
+def _verificar_cierre(inst, cuerpo, T_d) -> list[Alerta]:
+    al = []
+    c = inst.cierre
+    T_C = T_d - 273.15
+    n = CIERRES.index(c)
+    blando = False
+    if inst.cuerpo in ("globo", "angulo"):
+        blando = n >= 5
+        if c == "Tight Shutoff":
+            al.append(Alerta("cierre_estilo", Severidad.ADVERTENCIA, "Cierre hermético en válvula de globo",
+                             "Una válvula de control de globo no suele garantizar cierre hermético (sin fuga).",
+                             remedios=["Usar asiento blando clase VI o una válvula de bloqueo en serie."],
+                             referencia=REF_CIERRE))
+    elif inst.cuerpo == "globo_liner":
+        blando = True
+    elif inst.cuerpo == "bola":
+        blando = n >= 5
+    elif inst.cuerpo == "mariposa":
+        blando = n >= 4
+        if n < 4:
+            al.append(Alerta("cierre_info", Severidad.INFO, "Mariposa concéntrica",
+                             "La mariposa concéntrica con asiento metálico no supera la clase III–IV."))
+    elif inst.cuerpo == "mariposa_doble":
+        blando = n >= 5
+    elif inst.cuerpo == "mariposa_triple":
+        blando = False
+    if blando:
+        limite = T_ELASTOMERO_C if inst.cuerpo == "mariposa" else T_ASIENTO_BLANDO_C
+        if T_C > limite:
+            al.append(Alerta("cierre_temperatura", Severidad.CRITICA, "Asiento blando fuera de temperatura",
+                             f"La clase {c} en un cuerpo {cuerpo.nombre.lower()} requiere asiento blando o "
+                             f"revestimiento, cuyo límite práctico es unos {fT(limite + 273.15)}. La temperatura de "
+                             f"diseño es {fT(T_d)}.",
+                             remedios=["Usar asiento metálico clase V (globo con asiento lapeado) o una "
+                                       "mariposa triple excéntrica de cierre metal-metal.",
+                                       "Verificar el material del asiento con el fabricante."],
+                             referencia=REF_CIERRE))
+    return al
+
+
+def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
+    """Características óptimas de la válvula a partir de los resultados (texto para el informe)."""
+    s = res.salidas
+    inst, dim = res.inst, res.dim
+    cuerpo, trim = res.cuerpo, res.trim
+    rec: list[tuple[str, str]] = []
+    cav = [x for x in s if x["condicion"].startswith("cavitación")]
+    flash = [x for x in s if x["condicion"] == "flashing"]
+    Kapp = max(x["Kapp"] for x in s)
+    Kc = min(x["Kc"] for x in s)
+    FL2 = dim.FL ** 2
+    dP_max = max(x["dP"] for x in s)
+    Cv_max = max(x["Cv"] for x in s)
+    h = [x["apertura"] for x in s]
+
+    # Coeficiente y tamaño
+    rec.append(("Coeficiente de caudal",
+                f"Cv requerido máximo {_n(Cv_max, 1)}. Se recomienda una válvula con Cv nominal de al "
+                f"menos {_n(Cv_max / 0.85, 1)} (apertura ≤ 85 % en el caso máximo). Con la válvula "
+                f"de {_n(res.nps_valvula)}\" (Cv nominal {_n(res.Cv_nominal, 1)}) la apertura queda entre "
+                f"{_n(min(h) * 100, 0)} % y {_n(max(h) * 100, 0)} %."))
+    # Cuerpo
+    if flash:
+        txt = ("Hay flashing: se recomienda cuerpo angular con flujo que tiende a cerrar, descarga directa "
+               "a recipiente o a tubería de mayor diámetro, y cuerpo de material resistente a la erosión.")
+    elif cav and Kapp >= FL2 * 0.9 and cuerpo.rotativa:
+        txt = (f"La cavitación es intensa para un cuerpo rotativo (FL² = {_n(FL2, 3)}). Se recomienda "
+               "cambiar a globo con internos anticavitación.")
+    else:
+        txt = f"Cuerpo {cuerpo.nombre.lower()} adecuado para el servicio, rating CL{inst.rating}, conexión {inst.conexion}."
+    rec.append(("Estilo de cuerpo", txt))
+    # Trim y jaula
+    grado = ANTICAVITACION.get(dim.trim, 0)
+    if flash:
+        trim_txt = ("Los internos anticavitación no eliminan el flashing. Usar obturador y asiento "
+                    "endurecidos (recubrimiento de estelita o carburo de tungsteno).")
+    elif not cav:
+        trim_txt = (f"Sin cavitación (Kapp {_n(Kapp, 3)} < Kc {_n(Kc, 3)}): internos estándar "
+                    f"({trim.nombre.lower()}).")
+    elif Kapp >= FL2:
+        trim_txt = ("Cavitación con flujo bloqueado: se requieren internos multietapa, o repartir la caída "
+                    "de presión entre la válvula y una restricción aguas abajo.")
+    elif grado == 0:
+        trim_txt = (f"Kapp {_n(Kapp, 3)} supera Kc {_n(Kc, 3)}: se recomienda jaula anticavitación de "
+                    "orificios pequeños (etapa simple) o multietapa si la intensidad es severa, con obturador "
+                    "y asiento endurecidos.")
+    else:
+        trim_txt = (f"Internos anticavitación seleccionados. Verifique con el fabricante que el Kc certificado "
+                    f"del trim sea mayor que Kapp = {_n(Kapp, 3)}.")
+    rec.append(("Internos (trim) y jaula", trim_txt))
+    # Guía y obturador
+    if cuerpo.rotativa:
+        guia = f"{cuerpo.guia}. Disco o bola con eje de diámetro suficiente para el par de cierre a ΔP máxima."
+    elif "jaula" in dim.trim or "multietapa" in dim.trim:
+        balance = dP_max > 1000 and res.nps_valvula >= 3
+        guia = ("Obturador guiado por jaula" + (", balanceado (reduce la fuerza del actuador; verificar que el "
+                "sello de balance cumpla la clase de cierre)." if balance else ", no balanceado."))
+    else:
+        guia = "Obturador contorneado guiado superior (o superior y por puerto en diámetros grandes)."
+    rec.append(("Tipo de guía y obturador", guia))
+    # Asiento
+    n = CIERRES.index(inst.cierre)
+    if inst.cuerpo == "mariposa_triple":
+        asiento = "Asiento metálico de sello laminado (cierre metal-metal)."
+    elif inst.cuerpo == "globo_liner":
+        asiento = "Asiento y revestimiento de PFA/PTFE."
+    elif n >= 5:
+        asiento = "Asiento blando (PTFE/RPTFE) o metálico especial para la clase solicitada."
+    elif n == 4:
+        asiento = "Asiento metálico lapeado con carga de asiento alta (clase V)."
+    else:
+        asiento = "Asiento metálico."
+    rec.append(("Asiento y clase de cierre", f"{asiento} {inst.cierre}: fuga admisible "
+                f"{FUGA_CIERRE[inst.cierre]}"))
+    # Característica
+    dps = [x["dP"] for x in s]
+    if len(s) > 1 and min(dps) > 0 and max(dps) / min(dps) > 2:
+        car = ("La caída de presión varía mucho entre casos: se recomienda característica isoporcentual.")
+    else:
+        car = ("La caída de presión varía poco entre casos (menos del doble): la característica lineal da "
+               "una ganancia más uniforme.")
+    rec.append(("Característica inherente", car + f" Seleccionada: {dim.caracteristica}."))
+    # Ruido
+    Lp = [x["Lp"] for x in s if x["Lp"] is not None]
+    if Lp:
+        rec.append(("Ruido", f"Nivel máximo estimado {_n(max(Lp), 1)} dB(A) a 1 m (límite "
+                    f"{_n(inst.ruido_permitido, 0)} dB(A))."
+                    + (" Cumple." if max(Lp) <= inst.ruido_permitido else " No cumple: aplicar las medidas "
+                       "contra la cavitación y el ruido indicadas en las alertas.")))
+    rec.append(("Actuador",
+                "El cálculo de fuerza o par del actuador se incorporará en una próxima versión. Debe "
+                f"vencer la ΔP de cierre máxima ({fdP(max(x['dP'] for x in s))}) y asegurar la "
+                "carga de asiento de la clase de cierre."))
+    return rec
