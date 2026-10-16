@@ -1,0 +1,39 @@
+# Compila el dimensionador para Windows (.exe), macOS (.app) y Linux en cada etiqueta v*
+# o manualmente desde la pestaña Actions. Los ejecutables quedan como artefactos descargables.
+name: Compilar ejecutables
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+jobs:
+  compilar:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias de sistema (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0 libgl1
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+      - name: Pruebas
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q tests
+      - name: Compilar
+        run: python -m PyInstaller --noconfirm dimensionador.spec
+      - name: Verificar ejecutable
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then dist/Dimensionador.app/Contents/MacOS/Dimensionador --prueba;
+          elif [ "$RUNNER_OS" = "Windows" ]; then dist/Dimensionador/Dimensionador.exe --prueba;
+          else dist/Dimensionador/Dimensionador --prueba; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dimensionador-${{ runner.os }}
+          path: dist/
