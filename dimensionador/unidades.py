@@ -94,6 +94,9 @@ MAGNITUDES: dict[str, dict[str, Unidad]] = {
             _u("°R", "grado Rankine", 5.0 / 9.0),
         ]
     },
+    # Diferencia de temperatura (sobrecalentamiento): sin desplazamiento de cero
+    "temperatura_dif": {u.simbolo: u for u in [_u("K", "kelvin", 1.0), _u("°C", "grado Celsius", 1.0),
+                                               _u("°F", "grado Fahrenheit", 5.0 / 9.0)]},
     "caudal_vol": {
         u.simbolo: u
         for u in [
@@ -167,7 +170,19 @@ MAGNITUDES: dict[str, dict[str, Unidad]] = {
             _u("ft/s", "pie por segundo", FT_M),
         ]
     },
-    "masa_molar": {u.simbolo: u for u in [_u("kg/kmol", "kilogramo por kilomol", 1.0)]},
+    # Masa molar o gravedad específica de gas (relativa al aire, M_aire = 28,9647 kg/kmol)
+    "masa_molar": {u.simbolo: u for u in [_u("kg/kmol", "kilogramo por kilomol", 1.0),
+                                          _u("lb/lbmol", "libra por libra-mol", 1.0),
+                                          _u("SG (aire = 1)", "gravedad específica respecto del aire", 28.9647)]},
+    "area": {
+        u.simbolo: u
+        for u in [
+            _u("mm²", "milímetro cuadrado", 1.0),
+            _u("cm²", "centímetro cuadrado", 100.0),
+            _u("in²", "pulgada cuadrada", IN_MM ** 2),
+        ]
+    },
+    "distancia": {u.simbolo: u for u in [_u("m", "metro", 1.0), _u("ft", "pie", FT_M)]},
     "adimensional": {u.simbolo: u for u in [_u("-", "adimensional", 1.0)]},
     "fraccion": {u.simbolo: u for u in [_u("%", "porcentaje", 0.01), _u("-", "fracción", 1.0)]},
 }
@@ -185,6 +200,9 @@ UNIDAD_BASE = {
     "longitud": "mm",
     "velocidad": "m/s",
     "masa_molar": "kg/kmol",
+    "area": "mm²",
+    "distancia": "m",
+    "temperatura_dif": "K",
     "adimensional": "-",
     "fraccion": "-",
 }
@@ -196,13 +214,15 @@ SISTEMAS = {
         "caudal_vol": "m³/h", "caudal_masico": "kg/h", "caudal_gas_std": "Nm³/h",
         "densidad": "kg/m³", "viscosidad_din": "cP", "viscosidad_cin": "cSt",
         "longitud": "mm", "velocidad": "m/s", "masa_molar": "kg/kmol", "adimensional": "-",
+        "area": "mm²", "distancia": "m", "temperatura_dif": "°C",
         "fraccion": "%",
     },
     "Imperial": {
         "presion": "psia", "presion_dif": "psi", "temperatura": "°F",
         "caudal_vol": "gpm", "caudal_masico": "lb/h", "caudal_gas_std": "scfh",
         "densidad": "lb/ft³", "viscosidad_din": "cP", "viscosidad_cin": "cSt",
-        "longitud": "in", "velocidad": "ft/s", "masa_molar": "kg/kmol", "adimensional": "-",
+        "longitud": "in", "velocidad": "ft/s", "masa_molar": "lb/lbmol", "adimensional": "-",
+        "area": "in²", "distancia": "ft", "temperatura_dif": "°F",
         "fraccion": "%",
     },
 }

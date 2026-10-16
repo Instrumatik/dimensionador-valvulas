@@ -13,12 +13,12 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QSplitter, QTabWidget, QTextBrowser, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
-from .. import __version__, ayuda, entregables as E, modelos, propiedades, tuberias, unidades as U
+from .. import __version__, ayuda, compresible as CG, entregables as E, modelos, propiedades, tuberias, unidades as U
 from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, TAMANOS
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
-from ..proyecto import (CIERRES, CONEXIONES, RATINGS, CasoCierre, CasoLiquido, Dimensionamiento,
-                        Identificacion, Instalacion, Resultado, calcular)
+from ..proyecto import (CIERRES, CONEXIONES, RATINGS, CasoCierre, CasoGas, CasoLiquido, Dimensionamiento,
+                        Identificacion, Instalacion, Resultado, RuidoAerodinamico, calcular)
 
 CASOS = ["Mínimo", "Normal", "Máximo", "Tight Shutoff", "Transitorio"]
 CIERRE = 3                      # índice de la columna Tight Shutoff
@@ -38,8 +38,45 @@ COLORES = {Severidad.INFO: "#2f6fb0", Severidad.ADVERTENCIA: "#b07a00",
 NOMBRE_SEV = E.NOMBRE_SEV
 DIF = {"kPa a": "kPa", "kPa g": "kPa", "bar a": "bar", "bar g": "bar", "MPa a": "MPa", "MPa g": "MPa",
        "psia": "psi", "psig": "psi", "kg/cm² a": "kg/cm²", "kg/cm² g": "kg/cm²"}
-# Datos que no aplican al caso Tight Shutoff (válvula cerrada, sin caudal)
-NO_APLICA_CIERRE = ("caudal", "SG", "mu", "Pv", "FL", "Fd", "Kc")
+DIF_ABS = {"kPa g": "kPa a", "bar g": "bar a", "MPa g": "MPa a", "psig": "psia", "kg/cm² g": "kg/cm² a"}
+LETRA = {"liquido": "L", "gas": "G", "vapor": "V", "steam": "S"}
+TITULO_TIPO = {"liquido": "LÍQUIDOS", "gas": "GAS", "vapor": "VAPOR", "steam": "VAPOR DE AGUA (STEAM)"}
+NOTA_TIPO = {
+    "liquido": "FL, Fd y Kc: típicos del trim, uno por caso para reflejar la carrera de cada uno. Reemplácelos "
+               "por los certificados del fabricante. Kc en blanco = estimado según IEC 60534-8-4.",
+    "gas": "xT, FL y Fd: típicos del trim, uno por caso; reemplácelos por los certificados. Con un fluido de la "
+           "lista, M, μ, γ, Z1, T2 y Z2 se calculan (expansión isoentálpica). Con «Definido por el usuario», "
+           "T2 en blanco = T1 y Z2 en blanco = Z1.",
+    "vapor": "xT, FL y Fd: típicos del trim, uno por caso. Con un fluido de la lista las propiedades se "
+             "calculan; con «Definido por el usuario» ingrese M, ρ1, μ y γ. T2 en blanco = T1; ρ2 en blanco = "
+             "ρ1·(P2/P1)·(T1/T2).",
+    "steam": "Propiedades del vapor de agua según IAPWS-95: solo se ingresan caudal másico, presiones y "
+             "temperatura. T1 en blanco = vapor saturado seco. T2 en blanco = expansión isoentálpica.",
+}
+# Entradas por caso: clave, etiqueta, magnitudes, ayuda, tipos (L líquido, G gas, V vapor, S steam)
+ENTRADAS = [
+    ("caudal", "Caudal", ("caudal_vol",), "caudal", "LGVS"),
+    ("P1", "Presión de entrada", ("presion",), "P1", "LGVS"),
+    ("P2", "Presión de salida", ("presion",), "P2", "LGVS"),
+    ("T1", "Temperatura de entrada", ("temperatura",), "T1", "LGVS"),
+    ("SG", "Gravedad específica", ("adimensional",), "SG", "L"),
+    ("M", "Masa molar / grav. específica", ("masa_molar",), "M", "GV"),
+    ("rho1", "Densidad de entrada ρ1", ("densidad",), "rho", "V"),
+    ("mu", "Viscosidad dinámica", ("viscosidad_din",), "viscosidad", "LGV"),
+    ("gamma", "Relación de calores esp. γ", ("adimensional",), "gamma", "GV"),
+    ("Z1", "Factor de compresibilidad Z1", ("adimensional",), "Z", "G"),
+    ("Pv", "Presión de vapor", ("presion",), "Pv", "L"),
+    ("xT", "Factor de caída crítica (xT)", ("adimensional",), "xT", "GVS"),
+    ("FL", "Factor de recuperación (FL)", ("adimensional",), "FL", "LGVS"),
+    ("Fd", "Modificador de estilo (Fd)", ("adimensional",), "Fd", "LGVS"),
+    ("Kc", "Coef. cavitación del trim (Kc)", ("adimensional",), "Kc", "L"),
+    ("#", "Datos de salida para ruido", None, None, "GVS"),
+    ("T2", "Temperatura de salida T2", ("temperatura",), "T2", "GVS"),
+    ("Z2", "Factor de compresibilidad Z2", ("adimensional",), "Z", "G"),
+    ("rho2", "Densidad de salida ρ2", ("densidad",), "rho2", "V"),
+]
+# Propiedades del fluido que se calculan con la biblioteca cuando el fluido es conocido
+PROPIEDADES = ("SG", "mu", "Pv", "M", "rho1", "gamma", "Z1", "T2", "Z2", "rho2")
 fmt = E.fmt
 
 
@@ -306,6 +343,9 @@ class FilaUnidad:
     def magnitud(self) -> str:
         return self.mag_de[self.unidad.currentText()]
 
+    def widgets(self) -> list:
+        return [self.lbl, self.btn, self.unidad, *self.edits]
+
     def _cambio_unidad(self, nueva: str):
         ant, self._ant = self._ant, nueva
         if self.mag_de.get(ant) != self.mag_de.get(nueva):
@@ -354,9 +394,12 @@ class FilaUnidad:
 class FilaSalida:
     def __init__(self, clave, etiqueta, ayuda_clave, magnitud, cifras, grid, r, abrir_ayuda):
         self.clave, self.magnitud, self.cifras = clave, magnitud, cifras
+        self.fila = r
+        self.extra: list = []
         self.lbl = QLabel(etiqueta)
         grid.addWidget(self.lbl, r, 0)
-        grid.addWidget(boton_ir(abrir_ayuda, ayuda_clave), r, 1)
+        self.btn = boton_ir(abrir_ayuda, ayuda_clave)
+        grid.addWidget(self.btn, r, 1)
         self.lbl_unidad = QLabel("")
         grid.addWidget(self.lbl_unidad, r, 2)
         self.celdas = []
@@ -370,30 +413,63 @@ class FilaSalida:
             grid.addWidget(e, r, 3 + j)
             self.celdas.append(e)
 
+    def widgets(self) -> list:
+        return [self.lbl, self.btn, self.lbl_unidad, *self.celdas, *self.extra]
+
 
 SALIDAS = [
-    # clave, etiqueta, ayuda, magnitud (None = adimensional), cifras
-    ("Cv", "Coeficiente de flujo (Cv)", "kv_cv", None, 4),
-    ("apertura", "Apertura estimada", "apertura", "%", 3),
-    ("Kapp", "Coef. cavitación de la aplicación (Kapp)", "Kapp", None, 3),
-    ("dP", "Presión diferencial ΔP", "dP", "presion_dif", 4),
-    ("dP_P1", "Relación de caída de presión ΔP/P1", "dP_P1", None, 3),
-    ("dPchoked", "ΔP para flujo estrangulado (ΔP choked)", "dPchoked", "presion_dif", 4),
-    ("dPcav", "ΔP para cavitación (ΔP cav)", "dPcav", "presion_dif", 4),
-    ("FF", "Factor de relación de presión crítica (FF)", "FF", None, 3),
-    ("FP", "Factor de corrección por tuberías (Fp)", "FP", None, 3),
-    ("FLP", "Factor de recuperación combinado (FLp)", "FLP", None, 3),
-    ("visc", "Viscosidad", "viscosidad", "visc", 4),
-    ("D1", "Diámetro interno aguas arriba", "D_interno", "longitud", 4),
-    ("D2", "Diámetro interno aguas abajo", "D_interno", "longitud", 4),
-    ("Rev", "Número de Reynolds (Rev)", "Rev", None, 4),
-    ("rho", "Densidad de entrada ρ1", "rho", "densidad", 4),
-    ("caudal_otro", "Flujo másico", "flujo_masico", "caudal_otro", 4),
-    ("Lp", "Presión sonora a 1 m (LpAe,1m)", "ruido", "dB(A)", 3),
-    ("v1", "Velocidad del fluido aguas arriba", "velocidad_tuberia", "velocidad", 3),
-    ("v2", "Velocidad del fluido aguas abajo", "velocidad_tuberia", "velocidad", 3),
-    ("condicion", "Condición hidrodinámica", "cavitacion", "texto", 0),
+    # clave, etiqueta, ayuda, magnitud (None = adimensional), cifras, tipos; «#» = título de sección
+    ("#", "Resultados de dimensionamiento", None, None, 0, "GVS"),
+    ("Cv", "Coeficiente de flujo (Cv)", "kv_cv", None, 4, "LGVS"),
+    ("apertura", "Apertura estimada", "apertura", "%", 3, "LGVS"),
+    ("caudal_otro", "Flujo másico", "flujo_masico", "caudal_otro", 4, "LGVS"),
+    ("Kapp", "Coef. cavitación de la aplicación (Kapp)", "Kapp", None, 3, "L"),
+    ("dP", "Presión diferencial ΔP", "dP", "presion_dif", 4, "LGVS"),
+    ("dP_P1", "Relación de caída de presión ΔP/P1", "dP_P1", None, 3, "LGVS"),
+    ("dPchoked", "ΔP para flujo estrangulado (ΔP choked)", "dPchoked", "presion_dif", 4, "LGVS"),
+    ("dPcav", "ΔP para cavitación (ΔP cav)", "dPcav", "presion_dif", 4, "L"),
+    ("FF", "Factor de relación de presión crítica (FF)", "FF", None, 3, "L"),
+    ("FP", "Factor de corrección por tuberías (Fp)", "FP", None, 3, "LGVS"),
+    ("FLP", "Factor de recuperación combinado (FLp)", "FLP", None, 3, "LGVS"),
+    ("xTP", "Factor xT ajustado por accesorios (xTP)", "xTP", None, 3, "GVS"),
+    ("M", "Masa molar / grav. específica", "M", "masa_molar", 4, "S"),
+    ("rho", "Densidad de entrada ρ1", "rho", "densidad", 4, "LGS"),
+    ("gamma", "Relación de calores específicos γ", "gamma", None, 4, "S"),
+    ("visc", "Viscosidad", "viscosidad", "visc", 4, "LGVS"),
+    ("Y", "Factor de expansión (Y)", "Y", None, 3, "GVS"),
+    ("sobrecalentamiento2", "Sobrecalentamiento a P2", "sobrecalentamiento", "temperatura_dif", 3, "S"),
+    ("Rev", "Número de Reynolds (Rev)", "Rev", None, 4, "LGVS"),
+    ("D1", "Diámetro interno aguas arriba", "D_interno", "longitud", 4, "LGVS"),
+    ("D2", "Diámetro interno aguas abajo", "D_interno", "longitud", 4, "LGVS"),
+    ("tipo_calculo", "Tipo de cálculo", "tipo_calculo", "texto", 0, "GVS"),
+    ("Lp", "Presión sonora a 1 m (LpAe,1m)", "ruido", "dB(A)", 3, "L"),
+    ("v1", "Velocidad del fluido aguas arriba", "velocidad_tuberia", "velocidad", 3, "L"),
+    ("v2", "Velocidad del fluido aguas abajo", "velocidad_tuberia", "velocidad", 3, "L"),
+    ("condicion", "Condición hidrodinámica", "cavitacion", "texto", 0, "L"),
+    ("#", "Resultados de ruido (IEC 60534-8-3)", None, None, 0, "GVS"),
+    ("nivel_trim", "Nivel de trim de bajo ruido requerido", "nivel_trim", "texto", 0, "GVS"),
+    ("Lp_trim", "Ruido del trim LpA a 1 m", "ruido_componentes", "dB(A)", 3, "GVS"),
+    ("Lp_salida", "Ruido de la salida LpA a 1 m", "ruido_componentes", "dB(A)", 3, "GVS"),
+    ("Lp_g", "Ruido de la válvula LpA a 1 m", "ruido", "dB(A)", 3, "GVS"),
+    ("Lp_Rn", "Ruido de la válvula LpA a Rn", "Rn", "dB(A)", 3, "GVS"),
+    ("rho2", "Densidad de salida ρ2", "rho2", "densidad", 4, "GS"),
+    ("#", "Resultados de velocidad", None, None, 0, "GVS"),
+    ("Ma1", "Mach aguas arriba", "mach", None, 3, "GVS"),
+    ("Ma_valvula", "Mach en la salida de la válvula", "mach", None, 3, "GVS"),
+    ("Ma2", "Mach aguas abajo", "mach", None, 3, "GVS"),
+    ("v1_g", "Velocidad del fluido aguas arriba", "velocidad_tuberia", "velocidad", 3, "GVS"),
+    ("v_valvula", "Velocidad en la salida de la válvula", "velocidad_tuberia", "velocidad", 3, "GVS"),
+    ("v2_g", "Velocidad del fluido aguas abajo", "velocidad_tuberia", "velocidad", 3, "GVS"),
+    ("c1", "Vel. del sonido aguas arriba", "velocidad_sonido", "velocidad", 4, "GVS"),
+    ("c_valvula", "Vel. del sonido salida de válvula", "velocidad_sonido", "velocidad", 4, "GVS"),
+    ("c2", "Vel. del sonido aguas abajo", "velocidad_sonido", "velocidad", 4, "GVS"),
 ]
+# Claves de resultado que se muestran con otro nombre (filas repetidas en otra sección)
+ALIAS_SALIDA = {"Lp_g": "Lp", "v1_g": "v1", "v2_g": "v2"}
+# Etiquetas que cambian según el tipo de fluido
+ETIQUETA_SALIDA = {("dP_P1", "L"): "Relación de caída de presión ΔP/P1",
+                   **{("dP_P1", t): "Relación de caída de presión x = ΔP/P1" for t in "GVS"},
+                   ("M", "S"): "Masa molar"}
 
 
 def titulo_seccion(texto: str, color: str) -> QLabel:
@@ -448,6 +524,7 @@ class VentanaPrincipal(QMainWindow):
         self._cambio_cuerpo()
         self._cambio_fluido()
         self.aplicar_sistema("SI")
+        self._cambio_tipo_fluido()
         self._actualizar_vistas()
         self.statusBar().showMessage("Cargue los datos de instalación y de dimensionamiento y presione "
                                      "Calcular. «Ir» o F1 muestran la explicación de cada dato a la derecha.")
@@ -476,7 +553,7 @@ class VentanaPrincipal(QMainWindow):
         producto = QLabel(E.PRODUCTO)
         producto.setStyleSheet("font-size:20pt;font-weight:800")
         sub = QLabel("Dimensionamiento y verificación independiente de válvulas de control · "
-                     "IEC 60534 · ANSI/ISA-75.01 · Líquidos")
+                     "IEC 60534 · ANSI/ISA-75.01 · Líquidos, gases y vapores")
         sub.setStyleSheet("font-size:9pt;color:#dce8f4")
         izq.addWidget(empresa)
         izq.addWidget(producto)
@@ -558,14 +635,17 @@ class VentanaPrincipal(QMainWindow):
         return widget
 
     def _fila(self, grid, r, etiqueta, widget, clave, unidad: QWidget | None = None, ancho=300):
-        grid.addWidget(QLabel(etiqueta), r, 0)
-        grid.addWidget(boton_ir(self.abrir_ayuda, clave), r, 1)
+        lbl = QLabel(etiqueta)
+        grid.addWidget(lbl, r, 0)
+        btn = boton_ir(self.abrir_ayuda, clave)
+        grid.addWidget(btn, r, 1)
         if ancho:
             widget.setFixedWidth(ancho)
         grid.addWidget(widget, r, 2)
         if unidad is not None:
             grid.addWidget(unidad, r, 3)
         widget.setProperty("ayuda", clave)
+        return [lbl, btn, widget] + ([unidad] if unidad is not None else [])
 
     def _scroll(self, w):
         sc = QScrollArea()
@@ -684,16 +764,23 @@ class VentanaPrincipal(QMainWindow):
     def _tab_dimensionamiento(self) -> QWidget:
         cont = QWidget()
         lay = QVBoxLayout(cont)
-        lay.addWidget(titulo_seccion("DATOS DE ENTRADA — LÍQUIDOS", AZUL))
+        self.lbl_titulo_dim = titulo_seccion("DATOS DE ENTRADA — LÍQUIDOS", AZUL)
+        lay.addWidget(self.lbl_titulo_dim)
 
         g = QGroupBox("Fluido, tubería y válvula")
         grid = QGridLayout(g)
+        self.vis_g1: list[tuple[list, str]] = []      # (widgets, tipos en que se ven)
         r = 0
+        self.cb_tipo_fluido = self._registrar("tipo_fluido", Combo())
+        for k, t in CG.TIPOS.items():
+            self.cb_tipo_fluido.addItem(t, k)
+        self.cb_tipo_fluido.currentIndexChanged.connect(self._cambio_tipo_fluido)
+        self._fila(grid, r, "Tipo de fluido", self.cb_tipo_fluido, "tipo_fluido"); r += 1
         self.cb_fluido = self._registrar("fluido", Combo())
         self.cb_fluido.addItems([USUARIO, *propiedades.FLUIDOS.keys()])
         self.cb_fluido.setCurrentText("Agua / vapor de agua")
         self.cb_fluido.currentIndexChanged.connect(self._cambio_fluido)
-        self._fila(grid, r, "Fluido", self.cb_fluido, "fluido"); r += 1
+        self.vis_g1.append((self._fila(grid, r, "Fluido", self.cb_fluido, "fluido"), "LGV")); r += 1
         self.cb_tipo_caudal = self._registrar("tipo_caudal", Combo())
         self.cb_tipo_caudal.addItems(["Volumétrico", "Másico"])
         self.cb_tipo_caudal.currentIndexChanged.connect(self._cambio_tipo_caudal)
@@ -717,48 +804,64 @@ class VentanaPrincipal(QMainWindow):
         self._fila(grid, r, "Diámetro de válvula", self.cb_tamano, "tamano"); r += 1
         self.cb_trim = self._registrar("trim", Combo())
         self.cb_trim.currentIndexChanged.connect(self._cambio_trim)
-        self._fila(grid, r, "Tipo de trim hidrodinámico", self.cb_trim, "trim", ancho=420); r += 1
+        self.lbl_trim = self._fila(grid, r, "Tipo de trim hidrodinámico", self.cb_trim, "trim", ancho=420)[0]; r += 1
         self.cb_caract = self._registrar("caracteristica", Combo())
         for k, t in E.CARACTERISTICA.items():
             self.cb_caract.addItem(t, k)
         self._fila(grid, r, "Característica inherente", self.cb_caract, "caracteristica"); r += 1
+        # Datos de ruido aerodinámico (compresibles)
+        sub = QLabel("<b>Datos para ruido aerodinámico (IEC 60534-8-3)</b>")
+        grid.addWidget(sub, r, 0, 1, 4)
+        self.vis_g1.append(([sub], "GVS")); r += 1
+        self.cb_trim_ruido = self._registrar("trim_ruido", Combo())
+        for k, (t, _) in CG.TRIMS_RUIDO.items():
+            self.cb_trim_ruido.addItem(t, k)
+        self.vis_g1.append((self._fila(grid, r, "Trim para ruido aerodinámico", self.cb_trim_ruido, "trim_ruido",
+                                       ancho=420), "GVS")); r += 1
+        self.f_Rn = FilaUnidad("Rn", "Distancia para ruido Rn", ("distancia",), grid, r, self.abrir_ayuda, 1, "Rn")
+        self.f_Rn.edits[0].setText("1")
+        self.vis_g1.append((self.f_Rn.widgets(), "GVS")); r += 1
+        self.f_area = FilaUnidad("area_salida", "Área de salida de la válvula", ("area",), grid, r, self.abrir_ayuda,
+                                 1, "area_salida")
+        self.f_area.edits[0].setPlaceholderText("nominal")
+        self.vis_g1.append((self.f_area.widgets(), "GVS")); r += 1
         grid.setColumnStretch(4, 1)
         lay.addWidget(g)
 
         g = QGroupBox("Condiciones de operación (deje en blanco los casos que no use)")
         grid = QGridLayout(g)
         encabezados_casos(grid)
-        defs = [("caudal", "Caudal", ("caudal_vol",), "caudal"),
-                ("P1", "Presión de entrada", ("presion",), "P1"),
-                ("P2", "Presión de salida", ("presion",), "P2"),
-                ("T1", "Temperatura de entrada", ("temperatura",), "T1"),
-                ("SG", "Gravedad específica", ("adimensional",), "SG"),
-                ("mu", "Viscosidad dinámica", ("viscosidad_din",), "viscosidad"),
-                ("Pv", "Presión de vapor", ("presion",), "Pv"),
-                ("FL", "Factor de recuperación (FL)", ("adimensional",), "FL"),
-                ("Fd", "Modificador de estilo (Fd)", ("adimensional",), "Fd"),
-                ("Kc", "Coef. cavitación del trim (Kc)", ("adimensional",), "Kc")]
         self.filas: dict[str, FilaUnidad] = {}
-        for i, (k, et, mags, ay) in enumerate(defs, start=1):
-            self.filas[k] = FilaUnidad(k, et, mags, grid, i, self.abrir_ayuda, ayuda_clave=ay)
-        for k in NO_APLICA_CIERRE:
+        self.tipos_fila: dict[str, str] = {}
+        r = 1
+        for k, et, mags, ay, tipos in ENTRADAS:
+            if k == "#":
+                sub = QLabel(f"<b>{et}</b>")
+                grid.addWidget(sub, r, 0, 1, 3)
+                self.vis_g1.append(([sub], tipos))
+            else:
+                self.filas[k] = FilaUnidad(k, et, mags, grid, r, self.abrir_ayuda, ayuda_clave=ay)
+                self.tipos_fila[k] = tipos
+            r += 1
+        for k in self.filas:
+            if k in ("P1", "P2", "T1"):
+                continue
             e = self.filas[k].edits[CIERRE]
             e.setReadOnly(True)
             e.setFocusPolicy(Qt.NoFocus)
             e.setStyleSheet(f"background:{FONDO_NO_APLICA}")
             e.setToolTip("No aplica: en Tight Shutoff la válvula está cerrada")
         self.filas["caudal"].edits[CIERRE].setText("0")
-        r = len(defs) + 1
-        self.f_Pc = FilaUnidad("Pc", "Presión crítica", ("presion",), grid, r, self.abrir_ayuda, 1); r += 1
+        self.f_Pc = FilaUnidad("Pc", "Presión crítica", ("presion",), grid, r, self.abrir_ayuda, 1)
+        self.vis_g1.append((self.f_Pc.widgets(), "L"))
         self.btn_prop = QPushButton("Calcular propiedades del fluido")
         self.btn_prop.clicked.connect(self._boton_propiedades)
-        grid.addWidget(self.btn_prop, r - 1, 4, 1, 3)
-        nota = QLabel("FL, Fd y Kc: típicos del trim, uno por caso para reflejar la carrera de cada uno. "
-                      "Reemplácelos por los certificados del fabricante. Kc en blanco = estimado según "
-                      "IEC 60534-8-4.")
-        nota.setWordWrap(True)
-        nota.setStyleSheet("color:#55606d;font-style:italic")
-        grid.addWidget(nota, r, 0, 1, 8)
+        grid.addWidget(self.btn_prop, r, 4, 1, 3)
+        r += 1
+        self.lbl_nota_dim = QLabel()
+        self.lbl_nota_dim.setWordWrap(True)
+        self.lbl_nota_dim.setStyleSheet("color:#55606d;font-style:italic")
+        grid.addWidget(self.lbl_nota_dim, r, 0, 1, 8)
         grid.setColumnStretch(8, 1)
         lay.addWidget(g)
 
@@ -783,8 +886,19 @@ class VentanaPrincipal(QMainWindow):
         grid = QGridLayout(g)
         encabezados_casos(grid, primera="Resultado", ancho=ANCHO_SALIDA)
         self.salidas: dict[str, FilaSalida] = {}
-        for i, (k, et, ay, mag, cif) in enumerate(SALIDAS, start=1):
-            self.salidas[k] = FilaSalida(k, et, ay, mag, cif, grid, i, self.abrir_ayuda)
+        self.vis_salidas: list[tuple[list, str]] = []
+        r = 1
+        for k, et, ay, mag, cif, tipos in SALIDAS:
+            if k == "#":
+                sub = QLabel(et)
+                sub.setStyleSheet(f"color:{VERDE};font-weight:700;padding-top:6px")
+                grid.addWidget(sub, r, 0, 1, 3)
+                self.vis_salidas.append(([sub], tipos))
+            else:
+                fs = FilaSalida(k, et, ay, mag, cif, grid, r, self.abrir_ayuda)
+                self.salidas[k] = fs
+                self.vis_salidas.append((fs.widgets(), tipos))
+            r += 1
         self.cb_visc = self._registrar("visc_salida", Combo())
         self.cb_visc.addItems(["Dinámica", "Cinemática"])
         self.cb_visc.currentIndexChanged.connect(lambda: self.res and self._mostrar_salidas())
@@ -796,7 +910,8 @@ class VentanaPrincipal(QMainWindow):
         h.addStretch()
         w = QWidget()
         w.setLayout(h)
-        grid.addWidget(w, list(self.salidas).index("visc") + 1, 0)
+        grid.addWidget(w, fs.fila, 0)
+        fs.extra.append(w)
         grid.setColumnStretch(8, 1)
         lay.addWidget(g)
 
@@ -850,6 +965,12 @@ class VentanaPrincipal(QMainWindow):
     def cuerpo(self):
         return CUERPOS[self.cb_cuerpo.currentData()]
 
+    def tipo(self) -> str:
+        return self.cb_tipo_fluido.currentData() or "liquido"
+
+    def letra(self) -> str:
+        return LETRA[self.tipo()]
+
     def _cambio_cuerpo(self):
         c = self.cuerpo()
         self.cb_trim.blockSignals(True)
@@ -873,33 +994,86 @@ class VentanaPrincipal(QMainWindow):
             return
         e = ESTILOS[k]
         for j in FLUYEN:
-            self.filas["FL"].edits[j].setText(f"{e.FL:g}".replace(".", ","))
-            self.filas["Fd"].edits[j].setText(f"{e.Fd:g}".replace(".", ","))
+            for clave, val in (("FL", e.FL), ("Fd", e.Fd), ("xT", e.xT)):
+                self.filas[clave].edits[j].setText(f"{val:g}".replace(".", ","))
             kc = KC_TIPICO.get(k)
             self.filas["Kc"].edits[j].setText(f"{kc:g}".replace(".", ",") if kc else "")
         self.cb_caract.setCurrentIndex(self.cb_caract.findData(e.caracteristica))
         self.cb_trim.setToolTip(e.nota or e.nombre)
 
+    def _cambio_tipo_fluido(self):
+        """Muestra solo las entradas y resultados del tipo de fluido elegido."""
+        t, L = self.tipo(), self.letra()
+        self.lbl_titulo_dim.setText(f"DATOS DE ENTRADA — {TITULO_TIPO[t]}")
+        self.lbl_trim.setText("Tipo de trim" if t != "liquido" else "Tipo de trim hidrodinámico")
+        for k, f in self.filas.items():
+            ver = L in self.tipos_fila[k]
+            for w in f.widgets():
+                w.setVisible(ver)
+        for ws, tipos in self.vis_g1 + self.vis_salidas:
+            for w in ws:
+                w.setVisible(L in tipos)
+        for k, fs in self.salidas.items():
+            et = ETIQUETA_SALIDA.get((k, L))
+            if et:
+                fs.lbl.setText(et)
+        if t == "steam":
+            self.cb_tipo_caudal.setCurrentIndex(1)
+        self.cb_tipo_caudal.setEnabled(t != "steam")
+        if t == "gas" and self.cb_fluido.currentText() == "Agua / vapor de agua":
+            self.cb_fluido.setCurrentText("Aire")
+        elif t == "liquido" and self.cb_fluido.currentText() == "Aire":
+            self.cb_fluido.setCurrentText("Agua / vapor de agua")
+        self._unidades_caudal(convertir=False)
+        self._cambio_fluido()
+        self.lbl_nota_dim.setText(NOTA_TIPO[t])
+        self.T1_opcional()
+        if self.res is not None and self.res.dim.tipo != t:
+            self.res = None
+            self._limpiar_resultados()
+
+    def T1_opcional(self):
+        tip = ("En vapor de agua, T1 en blanco = vapor saturado seco a P1." if self.tipo() == "steam" else "")
+        for e in self.filas["T1"].edits:
+            e.setPlaceholderText("saturado" if tip else "")
+        self.filas["T1"].lbl.setToolTip(tip)
+
+    def _limpiar_resultados(self):
+        self.lbl_resumen.setText("Sin cálculo.")
+        self.lista_alertas.clear()
+        self.detalle_alerta.clear()
+        for fs in self.salidas.values():
+            for c in fs.celdas:
+                c.clear()
+        self._actualizar_vistas()
+
     def _cambio_fluido(self):
+        t = self.tipo()
         manual = self.cb_fluido.currentText() == USUARIO
-        self.btn_prop.setEnabled(not manual)
-        for k in ("SG", "mu", "Pv"):
-            self.filas[k].solo_lectura(not manual, FLUYEN)
+        self.btn_prop.setEnabled(not manual and t != "steam")
+        auto = {"liquido": ("SG", "mu", "Pv"), "gas": ("M", "mu", "gamma", "Z1", "T2", "Z2"),
+                "vapor": ("M", "rho1", "mu", "gamma", "T2", "rho2"), "steam": ()}[t]
+        for k in PROPIEDADES:
+            self.filas[k].solo_lectura(k in auto and not manual, FLUYEN)
         self.f_Pc.solo_lectura(not manual)
 
-    def _cambio_tipo_caudal(self):
-        """Pasa el caudal ingresado al otro tipo usando la gravedad específica (no borra datos)."""
-        f = self.filas["caudal"]
+    def _magnitud_caudal(self) -> str:
         vol = self.cb_tipo_caudal.currentIndex() == 0
-        mag = "caudal_vol" if vol else "caudal_masico"
+        if self.tipo() == "liquido":
+            return "caudal_vol" if vol else "caudal_masico"
+        return "caudal_gas_std" if vol and self.tipo() != "steam" else "caudal_masico"
+
+    def _unidades_caudal(self, convertir: bool):
+        f = self.filas["caudal"]
+        mag = self._magnitud_caudal()
+        if f.magnitud() == mag:
+            return
         previos = []
         for j in FLUYEN:
             try:
-                q = f.valor_base(j)
-                sg = leer_numero(self.filas["SG"].edits[j].text())
+                previos.append((j, f.valor_base(j), self._densidad_ref(j)))
             except ValueError:
-                q, sg = None, None
-            previos.append((j, q, sg))
+                previos.append((j, None, None))
         f.unidad.blockSignals(True)
         f.unidad.clear()
         f.mag_de = {}
@@ -909,12 +1083,26 @@ class VentanaPrincipal(QMainWindow):
         f.unidad.setCurrentText(U.SISTEMAS[self.sistema][mag])
         f._ant = f.unidad.currentText()
         f.unidad.blockSignals(False)
-        for j, q, sg in previos:
-            if q is None or not sg:
+        if not convertir:
+            return
+        a_masico = mag == "caudal_masico"
+        for j, q, rho in previos:
+            if q is None or not rho:
                 f.edits[j].setText("")
                 continue
-            rho = sg * RHO_AGUA_15C
-            f.poner_base(j, q * rho if not vol else q / rho)
+            f.poner_base(j, q * rho if a_masico else q / rho)
+
+    def _densidad_ref(self, j: int) -> float | None:
+        """Densidad que relaciona el caudal volumétrico con el másico: real (líquido) o normal (gas)."""
+        if self.tipo() == "liquido":
+            sg = leer_numero(self.filas["SG"].edits[j].text())
+            return sg * RHO_AGUA_15C if sg else None
+        M = self.filas["M"].valor_base(j)
+        return CG.densidad_normal(M) if M else None
+
+    def _cambio_tipo_caudal(self):
+        """Pasa el caudal ingresado al otro tipo (no borra datos)."""
+        self._unidades_caudal(convertir=True)
 
     def aplicar_sistema(self, sistema: str):
         self.sistema = sistema
@@ -926,14 +1114,21 @@ class VentanaPrincipal(QMainWindow):
         man = "bar g" if sistema == "SI" else "psig"
         F = self.filas
         F["caudal"].elegir(pref[F["caudal"].magnitud()])
-        F["P1"].elegir(man)
-        F["P2"].elegir(man)
+        for k in ("P1", "P2"):
+            F[k].elegir(man)
         F["Pv"].elegir(pref["presion"])
-        F["T1"].elegir(pref["temperatura"])
+        for k in ("T1", "T2"):
+            F[k].elegir(pref["temperatura"])
+        for k in ("rho1", "rho2"):
+            F[k].elegir(pref["densidad"])
         F["mu"].elegir("cP")
+        if F["M"].unidad.currentText() != "SG (aire = 1)":
+            F["M"].elegir(pref["masa_molar"])
         self.f_Pc.elegir(pref["presion"])
         self.f_Pd.elegir(man)
         self.f_Td.elegir(pref["temperatura"])
+        self.f_Rn.elegir(pref["distancia"])
+        self.f_area.elegir(pref["area"])
         self._copiar_tuberias()
         if self.res is not None:
             self.calcular(silencioso=True)
@@ -946,10 +1141,15 @@ class VentanaPrincipal(QMainWindow):
             up = F["P1"].unidad.currentText()
             u["presion"] = up
             u["presion_dif"] = DIF.get(up, u["presion_dif"])
-            u["presion_abs"] = F["Pv"].unidad.currentText()
+            u["presion_abs"] = F["Pv"].unidad.currentText() if self.tipo() == "liquido" else DIF_ABS.get(up, up)
             u["temperatura"] = F["T1"].unidad.currentText()
+            u["temperatura_dif"] = {"K": "K", "°C": "°C", "°F": "°F", "°R": "°F"}[u["temperatura"]]
             u[F["caudal"].magnitud()] = F["caudal"].unidad.currentText()
             u["viscosidad_din"] = F["mu"].unidad.currentText()
+            u["masa_molar"] = F["M"].unidad.currentText()
+            u["densidad"] = F["rho1"].unidad.currentText()
+            u["distancia"] = self.f_Rn.unidad.currentText()
+            u["area"] = self.f_area.unidad.currentText()
         return E.Presentacion(u)
 
     # ---------------------------------------------------------- lectura
@@ -974,21 +1174,39 @@ class VentanaPrincipal(QMainWindow):
             self.calcular_propiedades()
         except (ValueError, propiedades.ErrorPropiedades) as e:
             QMessageBox.warning(self, "Propiedades", str(e))
+        except ErrorDatos as e:
+            QMessageBox.warning(self, "Propiedades", "\n".join(a.mensaje for a in e.alertas))
 
     def calcular_propiedades(self):
         fluido = self.cb_fluido.currentText()
-        if fluido == USUARIO:
+        t = self.tipo()
+        if fluido == USUARIO or t == "steam":
             return
         F = self.filas
         for j in self._activos():
-            P1, T1 = F["P1"].valor_base(j), F["T1"].valor_base(j)
+            P1, P2, T1 = F["P1"].valor_base(j), F["P2"].valor_base(j), F["T1"].valor_base(j)
             if P1 is None or T1 is None:
                 raise ValueError(f"Caso {CASOS[j]}: ingrese P1 y T1 para obtener las propiedades.")
-            p = propiedades.liquido(fluido, P1, T1)
-            F["SG"].edits[j].setText(_num(p.rho / RHO_AGUA_15C))
-            F["mu"].poner_base(j, p.mu)
-            F["Pv"].poner_base(j, p.Pv)
-            self.f_Pc.poner_base(0, p.Pc)
+            if t == "liquido":
+                p = propiedades.liquido(fluido, P1, T1)
+                F["SG"].edits[j].setText(_num(p.rho / RHO_AGUA_15C))
+                F["mu"].poner_base(j, p.mu)
+                F["Pv"].poner_base(j, p.Pv)
+                self.f_Pc.poner_base(0, p.Pc)
+                continue
+            if P2 is None:
+                raise ValueError(f"Caso {CASOS[j]}: ingrese P2 para obtener las condiciones de salida.")
+            e = CG.resolver_estado(CG.CasoGas(CASOS[j], 1.0, None, P1, P2, T1), t, fluido)
+            F["M"].poner_base(j, e.M)
+            F["mu"].poner_base(j, e.mu)
+            F["gamma"].edits[j].setText(_num(e.gamma))
+            F["T2"].poner_base(j, e.T2)
+            if t == "gas":
+                F["Z1"].edits[j].setText(_num(e.Z1))
+                F["Z2"].edits[j].setText(_num(e.Z2))
+            else:
+                F["rho1"].poner_base(j, e.rho1)
+                F["rho2"].poner_base(j, e.rho2)
 
     def _leer(self):
         ident = Identificacion(**{k: ed.text().strip() for k, ed in self.ed_ident.items()})
@@ -999,11 +1217,12 @@ class VentanaPrincipal(QMainWindow):
             ruido_permitido=self._float(self.ed_ruido, "ruido permitido"), conexion=self.cb_conexion.currentText(),
             P_diseno=self.f_Pd.valor_base(0), T_diseno=self.f_Td.valor_base(0), cierre=self.cb_cierre.currentText())
         F = self.filas
+        t = self.tipo()
         activos = self._activos()
         if not activos:
             raise ValueError("Cargue al menos un caso de operación con caudal (mínimo, normal, máximo o "
                              "transitorio).")
-        vol = self.cb_tipo_caudal.currentIndex() == 0
+        vol = self._magnitud_caudal() != "caudal_masico"
         casos = []
         for j in activos:
             def req(k):
@@ -1011,10 +1230,24 @@ class VentanaPrincipal(QMainWindow):
                 if v is None:
                     raise ValueError(f"Caso {CASOS[j]}: falta «{F[k].lbl.text()}».")
                 return v
+
+            def opc(k):
+                return F[k].valor_base(j)
             q = req("caudal")
-            casos.append(CasoLiquido(CASOS[j], q if vol else None, None if vol else q, req("P1"), req("P2"),
-                                     req("T1"), req("SG"), req("mu"), req("Pv"), req("FL"), req("Fd"),
-                                     F["Kc"].valor_base(j), criterio=j != 4))
+            if t == "liquido":
+                casos.append(CasoLiquido(CASOS[j], q if vol else None, None if vol else q, req("P1"), req("P2"),
+                                         req("T1"), req("SG"), req("mu"), req("Pv"), req("FL"), req("Fd"),
+                                         F["Kc"].valor_base(j), criterio=j != 4))
+                continue
+            gas, vap = t == "gas", t == "vapor"
+            casos.append(CasoGas(
+                CASOS[j], None if vol else q, q if vol else None, req("P1"), req("P2"),
+                opc("T1") if t == "steam" else req("T1"),
+                M=None if t == "steam" else req("M"), mu=None if t == "steam" else req("mu"),
+                gamma=None if t == "steam" else req("gamma"), Z1=req("Z1") if gas else None,
+                rho1=req("rho1") if vap else None, xT=req("xT"), FL=req("FL"), Fd=req("Fd"),
+                T2=opc("T2"), Z2=opc("Z2") if gas else None, rho2=opc("rho2") if vap else None,
+                criterio=j != 4))
         cierre = None
         if self._columna_usada(CIERRE):
             P1, P2 = F["P1"].valor_base(CIERRE), F["P2"].valor_base(CIERRE)
@@ -1022,12 +1255,18 @@ class VentanaPrincipal(QMainWindow):
                 raise ValueError("Caso Tight Shutoff: cargue la presión de entrada y la de salida con la "
                                  "válvula cerrada.")
             cierre = CasoCierre(CASOS[CIERRE], P1, P2, F["T1"].valor_base(CIERRE))
-        Pc = self.f_Pc.valor_base(0)
-        if Pc is None:
-            raise ValueError("Falta la presión crítica del líquido.")
         fluido = None if self.cb_fluido.currentText() == USUARIO else self.cb_fluido.currentText()
-        dim = Dimensionamiento(casos, Pc, self.cb_trim.currentData(), self.cb_tamano.currentData(),
-                               self.cb_caract.currentData(), fluido, cierre)
+        if t == "liquido":
+            Pc = self.f_Pc.valor_base(0)
+            if Pc is None:
+                raise ValueError("Falta la presión crítica del líquido.")
+            return ident, inst, Dimensionamiento(casos, Pc, self.cb_trim.currentData(), self.cb_tamano.currentData(),
+                                                 self.cb_caract.currentData(), fluido, cierre)
+        ruido_g = RuidoAerodinamico(self.cb_trim_ruido.currentData(), self.f_Rn.valor_base(0) or 1.0,
+                                    self.f_area.valor_base(0))
+        dim = Dimensionamiento(casos, None, self.cb_trim.currentData(), self.cb_tamano.currentData(),
+                               self.cb_caract.currentData(), "Agua / vapor de agua" if t == "steam" else fluido,
+                               cierre, tipo=t, ruido=ruido_g)
         return ident, inst, dim
 
     def calcular(self, silencioso: bool = False):
@@ -1095,10 +1334,18 @@ class VentanaPrincipal(QMainWindow):
         res, pr = self.res, self.presentacion()
         nombres = [rc.caso.nombre for rc in res.informe.casos]
         cin = self.cb_visc.currentIndex() == 1
-        vol = all(c.Q is not None for c in res.dim.casos)
-        otro = "caudal_masico" if vol else "caudal_vol"
-        fo = self.salidas["caudal_otro"]
-        fo.lbl.setText("Flujo másico" if vol else "Caudal volumétrico")
+        t = res.dim.tipo
+        if t == "liquido":
+            vol = all(c.Q is not None for c in res.dim.casos)
+            otro, clave_otro = ("caudal_masico", "W") if vol else ("caudal_vol", "Q")
+            et_otro = "Flujo másico" if vol else "Caudal volumétrico"
+        elif t == "steam":
+            otro, clave_otro, et_otro = "caudal_vol", "Q1", "Caudal volumétrico real (entrada)"
+        else:
+            vol = all(c.QN is not None for c in res.dim.casos)
+            otro, clave_otro = ("caudal_masico", "W") if vol else ("caudal_gas_std", "QN")
+            et_otro = "Flujo másico" if vol else "Caudal volumétrico estándar"
+        self.salidas["caudal_otro"].lbl.setText(et_otro)
         for k, fs in self.salidas.items():
             mag = fs.magnitud
             if k == "visc":
@@ -1114,7 +1361,7 @@ class VentanaPrincipal(QMainWindow):
                         txt = pr.v(c.dP, "presion_dif", fs.cifras)
                     elif k == "dP_P1":
                         txt = fmt(c.dP / c.P1, fs.cifras)
-                    elif k == "condicion":
+                    elif k in ("condicion", "tipo_calculo"):
                         txt = "cierre"
                 elif caso in nombres:
                     s = res.salidas[nombres.index(caso)]
@@ -1123,9 +1370,9 @@ class VentanaPrincipal(QMainWindow):
                     elif k == "apertura":
                         v = s["apertura"] * 100
                     elif k == "caudal_otro":
-                        v = s["W"] if vol else s["Q"]
+                        v = s[clave_otro]
                     else:
-                        v = s.get(k)
+                        v = s.get(ALIAS_SALIDA.get(k, k))
                     if mag == "texto":
                         txt = v or ""
                     elif mag in pr.u:
@@ -1134,6 +1381,7 @@ class VentanaPrincipal(QMainWindow):
                         txt = fmt(v, fs.cifras)
                 c = fs.celdas[j]
                 c.setText(txt)
+                c.setToolTip(txt if mag == "texto" else "")
                 if mag == "texto":
                     c.setAlignment(Qt.AlignLeft)
                     c.setCursorPosition(0)
@@ -1227,7 +1475,7 @@ class VentanaPrincipal(QMainWindow):
 
     # ------------------------------------------------------------ archivo
     def _todas_las_filas(self):
-        return [*self.filas.values(), self.f_Pc, self.f_Pd, self.f_Td]
+        return [*self.filas.values(), self.f_Pc, self.f_Pd, self.f_Td, self.f_Rn, self.f_area]
 
     def _estado(self) -> dict:
         s = {"version": __version__, "sistema": self.sistema, "campos": {}, "filas": {}}
@@ -1264,9 +1512,10 @@ class VentanaPrincipal(QMainWindow):
     def nuevo(self):
         for f in self._todas_las_filas():
             for e in f.edits:
-                if not e.isReadOnly() or f.clave in ("SG", "mu", "Pv", "Pc"):
+                if not e.isReadOnly() or f.clave in (*PROPIEDADES, "Pc"):
                     e.clear()
         self.filas["caudal"].edits[CIERRE].setText("0")
+        self.f_Rn.edits[0].setText("1")
         for ed in self.ed_ident.values():
             ed.clear()
         self.ed_ident["revision"].setText("0")

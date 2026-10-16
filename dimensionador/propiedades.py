@@ -116,8 +116,9 @@ def gas(fluido: str, P1_kPa: float, T1_K: float | None, saturado: bool = False) 
                     args = ("P", P1_kPa * 1000, "Q", 1)
         rho = CP.PropsSI("D", *args, n)
         M = CP.PropsSI("M", n) * 1000
-        cp = CP.PropsSI("Cpmass", *args, n)
-        cv = CP.PropsSI("Cvmass", *args, n)
+        # Exponente isoentrópico κ = ρ·c²/P: es el γ que corresponde usar en gases reales y vapores
+        # (en gas ideal κ = cp/cv) y hace que c = √(κ·P/ρ) sea la velocidad del sonido real.
+        kappa = rho * CP.PropsSI("A", *args, n) ** 2 / (P1_kPa * 1000)
         Z = CP.PropsSI("Z", *args, n)
         mu = CP.PropsSI("V", *args, n)
         fase = CP.PhaseSI(*args, n)
@@ -125,7 +126,7 @@ def gas(fluido: str, P1_kPa: float, T1_K: float | None, saturado: bool = False) 
         raise
     except Exception as e:
         raise ErrorPropiedades(f"No se pudieron obtener las propiedades de {fluido}: {e}") from None
-    return PropiedadesGas(rho, M, cp / cv, Z, mu, fase)
+    return PropiedadesGas(rho, M, kappa, Z, mu, fase)
 
 
 def temperatura_saturacion(fluido: str, P_kPa: float) -> float:

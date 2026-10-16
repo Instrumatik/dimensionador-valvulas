@@ -13,7 +13,7 @@ import io
 import math
 from dataclasses import dataclass, field
 
-from . import __version__, tuberias, unidades as U
+from . import __version__, compresible as CG, tuberias, unidades as U
 from .modelos import Severidad
 from .proyecto import FUGA_CIERRE, REF_CIERRE, Resultado
 
@@ -207,6 +207,8 @@ def _valvula_resumen(res: Resultado):
 # Memoria de cálculo
 # ---------------------------------------------------------------------------
 def memoria(res: Resultado, pr: Presentacion) -> Documento:
+    if res.dim.compresible:
+        return memoria_compresible(res, pr)
     doc = Documento("Memoria de cálculo", "memoria", res)
     d, s = res.dim, res.salidas
     casos = _casos(res)
@@ -272,6 +274,8 @@ def memoria(res: Resultado, pr: Presentacion) -> Documento:
 # Hoja de datos
 # ---------------------------------------------------------------------------
 def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
+    if res.dim.compresible:
+        return hoja_datos_compresible(res, pr)
     doc = Documento("Hoja de datos", "hoja_datos", res)
     i, d, s = res.inst, res.dim, res.salidas
     casos = _casos(res)
@@ -351,10 +355,16 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
                ["Ruido permitido", f"{fmt(i.ruido_permitido, 3)} dB(A)"]], anchos=[35, 65])
     doc.tabla(_tuberias(res, pr), ["Tubería", "NPS", "Cédula", "Diámetro interior", "Espesor"])
     doc.h2("3. Datos de dimensionamiento")
-    doc.tabla(_tabla_entradas(res, pr), ["Dato", "Unidad", *casos])
+    doc.p(f"Tipo de fluido: {CG.TIPOS[res.dim.tipo]}. Fluido: {_nombre_fluido(res)}.")
+    doc.tabla(_entradas(res, pr), ["Dato", "Unidad", *casos])
+    if res.dim.compresible:
+        _datos_ruido(doc, res, pr)
     _tabla_cierre(doc, res, pr)
     doc.h2("4. Resultados")
-    doc.tabla(_tabla_salidas(res, pr), ["Resultado", "Unidad", *casos], resaltar_col=2)
+    if res.dim.compresible:
+        _salidas_compresible(doc, res, pr)
+    else:
+        doc.tabla(_tabla_salidas(res, pr), ["Resultado", "Unidad", *casos], resaltar_col=2)
     doc.grafico()
     doc.h2("5. Alertas y fenómenos")
     if not res.alertas:
@@ -374,7 +384,8 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
     doc.h2("7. Características recomendadas de la válvula")
     doc.tabla([[t, x] for t, x in res.recomendaciones], ["Aspecto", "Recomendación"], anchos=[25, 75])
     doc.h2("8. Recomendaciones finales")
-    finales = ["Solicitar al fabricante los valores certificados de Cv, FL, Fd y Kc del trim ofertado y "
+    factores = "Cv, xT, FL y Fd" if res.dim.compresible else "Cv, FL, Fd y Kc"
+    finales = [f"Solicitar al fabricante los valores certificados de {factores} del trim ofertado y "
                "repetir la verificación con esos datos."]
     if peor >= Severidad.CRITICA:
         finales.insert(0, "No emitir la compra hasta resolver las condiciones críticas indicadas en la sección 5.")
@@ -385,10 +396,271 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
     doc.lista(finales)
     doc.h2("9. Alcance y referencias")
     doc.lista(["IEC 60534-2-1:2011 / ANSI/ISA-75.01.01: ecuaciones de dimensionamiento.",
-               "IEC 60534-8-4: ruido hidrodinámico e inicio de cavitación.",
+               *_referencias_fluido(res),
                "ANSI/FCI 70-2 / IEC 60534-4: clases de cierre.",
                "ASME B16.34: clases de presión-temperatura. ASME B36.10M / B36.19M: tuberías.",
                f"Calculado con {PRODUCTO} {__version__} de {EMPRESA}. Software independiente de fabricantes."])
+    return doc
+
+
+# ---------------------------------------------------------------------------
+# Gas, vapor y vapor de agua
+# ---------------------------------------------------------------------------
+def _nombre_fluido(res: Resultado) -> str:
+    if res.dim.tipo == "steam":
+        return "Agua, vapor (propiedades IAPWS-95)"
+    return res.dim.fluido or "Definido por el usuario"
+
+
+def _referencias_fluido(res: Resultado) -> list[str]:
+    if not res.dim.compresible:
+        return ["IEC 60534-8-4: ruido hidrodinámico e inicio de cavitación."]
+    refs = ["IEC 60534-8-3:2010: ruido aerodinámico (trim, salida de la válvula y transmisión por la tubería).",
+            "IEC 60534-2-1, Anexo A: Fd de trims multiorificio (Fd = 1/√No)."]
+    if res.dim.tipo == "steam":
+        refs.append("IAPWS-95 (formulación científica del agua y el vapor), mediante la biblioteca CoolProp.")
+    elif res.dim.fluido:
+        refs.append("Propiedades del fluido: ecuaciones de estado de referencia mediante la biblioteca CoolProp.")
+    return refs
+
+
+def _entradas(res: Resultado, pr: Presentacion):
+    return _tabla_entradas_compresible(res, pr) if res.dim.compresible else _tabla_entradas(res, pr)
+
+
+def _flujo_volumetrico_g(res: Resultado) -> bool:
+    return res.dim.tipo != "steam" and all(c.QN is not None for c in res.dim.casos)
+
+
+def _tabla_entradas_compresible(res: Resultado, pr: Presentacion):
+    d, s, t = res.dim, res.salidas, res.dim.tipo
+    filas = []
+    if _flujo_volumetrico_g(res):
+        filas.append(_fila("Caudal volumétrico estándar", "", [c.QN for c in d.casos], pr, "caudal_gas_std"))
+    else:
+        filas.append(_fila("Caudal másico", "", [x["W"] for x in s], pr, "caudal_masico"))
+    filas += [_fila("Presión de entrada P1", "", [c.P1 for c in d.casos], pr, "presion"),
+              _fila("Presión de salida P2", "", [c.P2 for c in d.casos], pr, "presion")]
+    T1 = [pr.v(x["T1"], "temperatura") + (" (sat.)" if x.get("saturado") else "") for x in s]
+    filas.append(["Temperatura de entrada T1", pr.un("temperatura"), *T1])
+    if t in ("gas", "vapor"):
+        filas.append(_fila("Masa molar / grav. específica", "", [x["M"] for x in s], pr, "masa_molar"))
+    if t == "vapor":
+        filas.append(_fila("Densidad de entrada ρ1", "", [x["rho"] for x in s], pr, "densidad"))
+    if t in ("gas", "vapor"):
+        filas += [_fila("Viscosidad dinámica μ", "", [x["mu"] for x in s], pr, "viscosidad_din"),
+                  _fila("Relación de calores específicos γ", "-", [x["gamma"] for x in s])]
+    if t == "gas":
+        filas.append(_fila("Factor de compresibilidad Z1", "-", [x["Z1"] for x in s]))
+    filas += [_fila("Factor de caída de presión crítica xT", "-", [c.xT for c in d.casos], cifras=3),
+              _fila("Factor de recuperación FL", "-", [c.FL for c in d.casos], cifras=3),
+              _fila("Modificador de estilo Fd", "-", [c.Fd for c in d.casos], cifras=3),
+              _fila("Temperatura de salida T2", "", [x["T2"] for x in s], pr, "temperatura")]
+    if t == "gas":
+        filas.append(_fila("Factor de compresibilidad Z2", "-", [x["Z2"] for x in s]))
+    if t == "vapor":
+        filas.append(_fila("Densidad de salida ρ2", "", [x["rho2"] for x in s], pr, "densidad"))
+    return filas
+
+
+def _datos_ruido(doc: Documento, res: Resultado, pr: Presentacion):
+    r, s = res.dim.ruido, res.salidas
+    doc.tabla([["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[r.trim][0]],
+               ["Distancia Rn desde la pared de la tubería", pr.vu(r.Rn, "distancia", 3)],
+               ["Área de salida de la válvula", pr.vu(s[0]["A_salida"], "area") +
+                ("" if r.area_salida else " (área del diámetro nominal)")],
+               ["Condición de salida T2, ρ2", s[0]["origen_salida"] or "dato del usuario"]], anchos=[40, 60])
+
+
+def _salidas_compresible(doc: Documento, res: Resultado, pr: Presentacion, completa: bool = True):
+    s, t = res.salidas, res.dim.tipo
+    casos = _casos(res)
+    enc = ["Resultado", "Unidad", *casos]
+    if _flujo_volumetrico_g(res):
+        otro = _fila("Flujo másico", "", [x["W"] for x in s], pr, "caudal_masico")
+    elif t == "steam":
+        otro = _fila("Caudal volumétrico real (entrada)", "", [x["Q1"] for x in s], pr, "caudal_vol")
+    else:
+        otro = _fila("Caudal volumétrico estándar", "", [x["QN"] for x in s], pr, "caudal_gas_std")
+    dim = [_fila("Coeficiente de caudal Cv", "-", [x["Cv"] for x in s]),
+           _fila("Apertura estimada", "%", [x["apertura"] * 100 for x in s], cifras=3),
+           otro,
+           _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
+           _fila("Relación de caída de presión x = ΔP/P1", "-", [x["x"] for x in s], cifras=3),
+           _fila("ΔP de flujo estrangulado (ΔP choked)", "", [x["dPchoked"] for x in s], pr, "presion_dif"),
+           _fila("Factor de tubería Fp", "-", [x["FP"] for x in s], cifras=3),
+           _fila("Factor de recuperación combinado FLp", "-", [x["FLP"] for x in s], cifras=3),
+           _fila("Factor xT ajustado xTP", "-", [x["xTP"] for x in s], cifras=3)]
+    if completa:
+        if t == "steam":
+            dim += [_fila("Masa molar", "", [x["M"] for x in s], pr, "masa_molar"),
+                    _fila("Relación de calores específicos γ", "-", [x["gamma"] for x in s])]
+        if t in ("gas", "steam"):
+            dim.append(_fila("Densidad de entrada ρ1", "", [x["rho"] for x in s], pr, "densidad"))
+        if t in ("gas", "vapor"):
+            dim.append(_fila("Viscosidad cinemática ν", "", [x["nu"] for x in s], pr, "viscosidad_cin"))
+        dim.append(_fila("Factor de expansión Y", "-", [x["Y"] for x in s], cifras=3))
+        if t == "steam":
+            dim.append(_fila("Sobrecalentamiento a P2", "", [x["sobrecalentamiento2"] for x in s], pr,
+                             "temperatura_dif", 3))
+        dim += [_fila("Número de Reynolds Rev", "-", [x["Rev"] for x in s]),
+                _fila("Diámetro interno aguas arriba", "", [x["D1"] for x in s], pr, "longitud"),
+                _fila("Diámetro interno aguas abajo", "", [x["D2"] for x in s], pr, "longitud")]
+    dim.append(_fila("Tipo de cálculo", "", [x["tipo_calculo"] for x in s]))
+    doc.h3("Dimensionamiento")
+    doc.tabla(dim, enc, resaltar_col=2)
+    rui = [_fila("Nivel de trim de bajo ruido requerido", "", [x["nivel_trim"] for x in s]),
+           _fila("Ruido del trim LpA a 1 m", "dB(A)", [x["Lp_trim"] for x in s], cifras=3),
+           _fila("Ruido de la salida LpA a 1 m", "dB(A)", [x["Lp_salida"] for x in s], cifras=3),
+           _fila("Ruido de la válvula LpA a 1 m", "dB(A)", [x["Lp"] for x in s], cifras=3),
+           _fila(f"Ruido de la válvula LpA a Rn ({pr.vu(res.dim.ruido.Rn, 'distancia', 3)})", "dB(A)",
+                 [x["Lp_Rn"] for x in s], cifras=3)]
+    if t in ("gas", "steam"):
+        rui.append(_fila("Densidad de salida ρ2", "", [x["rho2"] for x in s], pr, "densidad"))
+    doc.h3("Ruido aerodinámico (IEC 60534-8-3)")
+    doc.tabla(rui, enc, resaltar_col=2)
+    if completa:
+        vel = [_fila("Número de Mach aguas arriba", "-", [x["Ma1"] for x in s], cifras=3),
+               _fila("Número de Mach en la salida de la válvula", "-", [x["Ma_valvula"] for x in s], cifras=3),
+               _fila("Número de Mach aguas abajo", "-", [x["Ma2"] for x in s], cifras=3),
+               _fila("Velocidad aguas arriba", "", [x["v1"] for x in s], pr, "velocidad", 3),
+               _fila("Velocidad en la salida de la válvula", "", [x["v_valvula"] for x in s], pr, "velocidad", 3),
+               _fila("Velocidad aguas abajo", "", [x["v2"] for x in s], pr, "velocidad", 3),
+               _fila("Velocidad del sonido aguas arriba", "", [x["c1"] for x in s], pr, "velocidad"),
+               _fila("Velocidad del sonido en la salida", "", [x["c_valvula"] for x in s], pr, "velocidad"),
+               _fila("Velocidad del sonido aguas abajo", "", [x["c2"] for x in s], pr, "velocidad")]
+        doc.h3("Velocidades")
+        doc.tabla(vel, enc, resaltar_col=2)
+
+
+def memoria_compresible(res: Resultado, pr: Presentacion) -> Documento:
+    doc = Documento("Memoria de cálculo", "memoria", res)
+    d, s, t = res.dim, res.salidas, res.dim.tipo
+    casos = _casos(res)
+    doc.h1("Memoria de cálculo de válvula de control")
+    _identificacion(doc)
+    doc.h2("1. Bases de cálculo")
+    bases = [f"Fluido compresible ({CG.TIPOS[t].lower()}): dimensionamiento según IEC 60534-2-1:2011 / "
+             "ANSI/ISA-75.01.01 (cláusulas 6, 7, 8 y 9), con factor de expansión Y, factor de relación de "
+             "calores específicos Fγ y corrección por accesorios (FP, xTP).",
+             "Ruido aerodinámico según IEC 60534-8-3:2010 a 1 m aguas abajo y a 1 m de la pared de la tubería, "
+             "separado en ruido del trim y de la salida de la válvula, y referido a la distancia Rn.",
+             "Diámetros interiores y espesores de tubería según ASME B36.10M / B36.19M.",
+             "Factores xT, FL y Fd por caso: típicos de IEC 60534-2-1 (Tabla 2) o ingresados por el usuario.",
+             "Capacidad nominal (Cv a carrera total): típica del estilo."]
+    if t == "steam":
+        bases.insert(1, "Propiedades del vapor de agua según IAPWS-95; condición de salida por expansión "
+                        "isoentálpica (estrangulamiento).")
+    doc.lista(bases)
+    doc.h2("2. Datos de entrada")
+    doc.p(f"Fluido: {_nombre_fluido(res)}.")
+    doc.tabla(_tabla_entradas_compresible(res, pr), ["Dato", "Unidad", *casos])
+    _datos_ruido(doc, res, pr)
+    _tabla_cierre(doc, res, pr)
+    doc.tabla([["Válvula", _valvula_resumen(res)],
+               ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)]],
+              anchos=[35, 65])
+    doc.tabla(_tuberias(res, pr), ["Tubería", "NPS", "Cédula", "Diámetro interior", "Espesor"])
+
+    doc.h2("3. Cálculo")
+    pd = pr.un("presion_dif")
+    filas = [
+        ["x = ΔP/P1", "-", *[fmt(x["x"], 4) for x in s]],
+        ["Fγ = γ/1,40", "-", *[fmt(x["Fgamma"], 4) for x in s]],
+        ["Fp = 1/√(1 + Σζ/N2·(C/d²)²)", "-", *[fmt(x["FP"], 4) for x in s]],
+        ["xTP = (xT/Fp²)/(1 + xT·ζi/N5·(C/d²)²)", "-", *[fmt(x["xTP"], 4) for x in s]],
+        ["xchoked = Fγ·xTP", "-", *[fmt(x["xchoked"], 4) for x in s]],
+        ["ΔPchoked = xchoked·P1", pd, *[pr.v(x["dPchoked"], "presion_dif") for x in s]],
+        ["Y = 1 − mín(x, xchoked)/(3·xchoked)", "-", *[fmt(x["Y"], 4) for x in s]],
+        ["ρ1 (dato, P1·M/(Z1·R·T1) o IAPWS-95)", pr.un("densidad"), *[pr.v(x["rho"], "densidad") for x in s]],
+        ["Kv = W/(N6·Fp·Y·√(mín(x, xchoked)·P1·ρ1))", "m³/h", *[fmt(x["Kv"]) for x in s]],
+        ["Rev = N4·Fd·Q/(ν·√(C·FL))·(FL²·C²/(N2·D⁴) + 1)^¼", "-", *[fmt(x["Rev"]) for x in s]],
+        ["FR (factor de Reynolds)", "-", *[fmt(x["FR"], 3) for x in s]],
+        ["Cv = Kv/0,865 (÷FR si Rev < 10⁴)", "-", *[fmt(x["Cv"]) for x in s]],
+        ["Apertura para Cv requerido", "%", *[fmt(x["apertura"] * 100, 3) for x in s]],
+        ["c = √(γ·P/ρ) aguas arriba / aguas abajo", pr.un("velocidad"),
+         *[f"{pr.v(x['c1'], 'velocidad')} / {pr.v(x['c2'], 'velocidad')}" for x in s]],
+        ["Ma = v/c en la salida de la válvula", "-", *[fmt(x["Ma_valvula"], 3) for x in s]],
+        ["LpAe,1m trim / salida (IEC 60534-8-3)", "dB(A)",
+         *[f"{fmt(x['Lp_trim'], 3)} / {fmt(x['Lp_salida'], 3)}" for x in s]],
+        ["LpAe,1m de la válvula", "dB(A)", *[fmt(x["Lp"], 3) for x in s]],
+        ["LpA a Rn = LpAe,1m − 10·lg((De + 2·Rn)/(De + 2))", "dB(A)", *[fmt(x["Lp_Rn"], 3) for x in s]],
+    ]
+    doc.tabla(filas, ["Ecuación", "Unidad", *casos], resaltar_col=2)
+    doc.nota("Constantes de IEC 60534-2-1, Tabla 1 (Kv en m³/h, P en kPa, ρ en kg/m³, W en kg/h, d en mm): "
+             "N2 = 1,6·10⁻³; N4 = 7,07·10⁻²; N5 = 1,8·10⁻³; N6 = 3,16. De = Di + 2·tp (diámetro exterior de la "
+             "tubería de salida). Cv = Kv / 0,865.")
+    doc.h2("4. Resultados")
+    _salidas_compresible(doc, res, pr, completa=False)
+    doc.grafico()
+    doc.nota("Curva de Cv en función de la apertura de la válvula seleccionada (característica inherente) con "
+             "los puntos de operación de cada caso.")
+    doc.h2("5. Conclusión")
+    doc.p(f"Válvula seleccionada: {_valvula_resumen(res)}")
+    criticas = [a for _, a in res.alertas if a.severidad >= Severidad.ADVERTENCIA]
+    if criticas:
+        doc.p("Condiciones a resolver: " + "; ".join(sorted({a.titulo for a in criticas})) +
+              ". Ver el informe técnico.")
+    else:
+        doc.p("No se detectaron condiciones que requieran acción.")
+    return doc
+
+
+def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
+    doc = Documento("Hoja de datos", "hoja_datos", res)
+    i, d, s = res.inst, res.dim, res.salidas
+    casos = _casos(res)
+    doc.h1("Hoja de datos de válvula de control")
+    _identificacion(doc)
+    doc.h2("Condiciones de servicio")
+    doc.tabla([["Fluido", _nombre_fluido(res), "Estado", CG.TIPOS[d.tipo]]], anchos=[18, 32, 18, 32])
+    filas = _tabla_entradas_compresible(res, pr) + [
+        _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
+        _fila("Cv requerido", "-", [x["Cv"] for x in s]),
+        _fila("Apertura", "%", [x["apertura"] * 100 for x in s], cifras=3),
+        _fila("Tipo de cálculo", "", [x["tipo_calculo"] for x in s]),
+        _fila("Ruido de la válvula LpA a 1 m", "dB(A)", [x["Lp"] for x in s], cifras=3),
+        _fila("Nivel de trim de bajo ruido", "", [x["nivel_trim"] for x in s]),
+        _fila("Mach en la salida de la válvula", "-", [x["Ma_valvula"] for x in s], cifras=3),
+        _fila("Velocidad aguas abajo", "", [x["v2"] for x in s], pr, "velocidad", 3),
+    ]
+    doc.tabla(filas, ["Dato", "Unidad", *casos])
+    _tabla_cierre(doc, res, pr)
+    doc.h2("Línea")
+    doc.tabla(_tuberias(res, pr), ["Tubería", "NPS", "Cédula", "Diámetro interior", "Espesor"])
+    doc.h2("Cuerpo")
+    doc.tabla([
+        ["Estilo", res.cuerpo.nombre],
+        ["Diámetro", f"{tuberias.texto_nps(res.nps_valvula)} (DN {res.informe.DN})"],
+        ["Rating", f"CL{i.rating} (ASME B16.34)"],
+        ["Conexión a proceso", i.conexion],
+        ["Área de salida", pr.vu(s[0]["A_salida"], "area")],
+        ["Presión de diseño", pr.vu(res.P_diseno, "presion")],
+        ["Temperatura de diseño", pr.vu(res.T_diseno, "temperatura")],
+        ["Material del cuerpo", "A definir (versión futura)"],
+        ["Ruido admisible", f"{fmt(i.ruido_permitido, 3)} dB(A)"],
+    ], anchos=[35, 65])
+    doc.h2("Internos")
+    rec = dict(res.recomendaciones)
+    doc.tabla([
+        ["Tipo de trim", res.trim.nombre],
+        ["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[d.ruido.trim][0]],
+        ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
+        ["Cv nominal (típico del tamaño y trim)", fmt(res.Cv_nominal)],
+        ["Guía y obturador", rec.get("Tipo de guía y obturador", "")],
+        ["Clase de cierre", f"{i.cierre} ({REF_CIERRE})"],
+        ["Fuga admisible", FUGA_CIERRE[i.cierre]],
+        ["Material de internos", "A definir (versión futura)"],
+    ], anchos=[35, 65])
+    doc.h2("Actuador y accesorios")
+    doc.tabla([["Actuador", "A definir (próxima versión: fuerza / par)"],
+               ["Posicionador y accesorios", "A definir"]], anchos=[35, 65])
+    doc.h2("Notas")
+    notas = [f"[{NOMBRE_SEV[a.severidad]}] {caso}: {a.titulo}" for caso, a in res.alertas
+             if a.severidad >= Severidad.ADVERTENCIA]
+    doc.lista(notas or ["Sin condiciones que requieran acción."])
+    doc.nota("Factores de válvula típicos y genéricos (no corresponden a ningún fabricante). Verificar con los "
+             "datos certificados de la válvula ofertada.")
     return doc
 
 

@@ -42,10 +42,14 @@ def _suma_db(niveles):
 # ---------------------------------------------------------------------------
 def ruido_gas(m_kgs, P1_kPa, P2_kPa, T1, rho1, gamma, M, Kv, d_m, Di_m, tp_m, Fd, FL_eff,
               rho_pared=7800.0, c_pared=5000.0, P_aire=101325.0, c_aire=343.0,
-              An=-3.8, Stp=0.2, T2=None, beta=0.93, memoria: Memoria | None = None) -> dict:
+              An=-3.8, Stp=0.2, T2=None, beta=0.93, rho2=None, c2=None,
+              memoria: Memoria | None = None) -> dict:
     """Devuelve dict con LpAe1m [dB(A)], régimen, fp, Lpi, espectro, etc.
 
     FL_eff: FLP/FP si hay reductores, FL en caso contrario.
+    rho2, c2: densidad y velocidad del sonido aguas abajo. Si se omiten se usan las
+        expresiones de la norma para gas ideal: ρ2 = ρ1·P2/P1 y c2 = √(γ·R·T2/M).
+    d_m: diámetro de salida de la válvula (ruido de salida y corrección ΔTL).
     An: corrección de eficiencia acústica de la válvula (−3,8 válvulas
         convencionales de un solo pasaje según la norma).
     """
@@ -117,8 +121,8 @@ def ruido_gas(m_kgs, P1_kPa, P2_kPa, T1, rho1, gamma, M, Kv, d_m, Di_m, tp_m, Fd
     Wa = mem.agregar("Wa", "Potencia acústica generada", eta * Wm, "W", "η·Wm", REF8_3)
     mem.agregar("fp", "Frecuencia de pico", fp, "Hz", "", REF8_3)
 
-    rho2 = rho1 * P2 / P1
-    c2 = math.sqrt(k * R * T2 / M)
+    rho2 = rho2 or rho1 * P2 / P1
+    c2 = c2 or math.sqrt(k * R * T2 / M)
     M2 = 4 * m_kgs / (math.pi * Di_m ** 2 * rho2 * c2)
     mem.agregar("M2", "Mach en la tubería de salida", M2, "-", "4·m/(π·Di²·ρ2·c2)", REF8_3)
     Lg = 16 * math.log10(1 / (1 - min(M2, 0.3)))
@@ -143,10 +147,11 @@ def ruido_gas(m_kgs, P1_kPa, P2_kPa, T1, rho1, gamma, M, Kv, d_m, Di_m, tp_m, Fd
     else:
         dTL = 9.0
     distancia = 10 * math.log10((Di_m + 2 * tp_m + 2) / (Di_m + 2 * tp_m))
-    espectro = []
+    espectro, esp_trim, esp_salida = [], [], []
     for fi, A in zip(FRECUENCIAS, PONDERACION_A):
         r = fi / fp
         Lpif = Lpi - 8 - 10 * math.log10((1 + (0.5 * r) ** 2.5) * (1 + (0.5 / r) ** 1.7))
+        Lpif_trim = Lpif
         if LpiR is not None:
             rR = fi / fpR
             LpiRf = LpiR - 8 - 10 * math.log10((1 + (0.5 * rR) ** 2.5) * (1 + (0.5 / rR) ** 1.7))
@@ -162,10 +167,32 @@ def ruido_gas(m_kgs, P1_kPa, P2_kPa, T1, rho1, gamma, M, Kv, d_m, Di_m, tp_m, Fd
         TL = 10 * math.log10(8.25e-7 * (c2 / (tp_m * fi)) ** 2 * Gx / den * P_aire / P_STD) - dTL
         Le = Lpif + TL - distancia
         espectro.append((fi, Le, Le + A))
+        esp_trim.append(Lpif_trim + TL - distancia + A)
+        if LpiR is not None:
+            esp_salida.append(LpiRf + TL - distancia + A)
+    L_trim = _suma_db(esp_trim)
+    L_salida = _suma_db(esp_salida) if esp_salida else None
+    mem.agregar("LpAe,trim", "Ruido generado en el trim (ponderado A, a 1 m)", L_trim, "dB(A)",
+                "Σ bandas, fuente: chorro en la vena contracta", REF8_3)
+    if L_salida is not None:
+        mem.agregar("LpAe,salida", "Ruido generado en la salida de la válvula (a 1 m)", L_salida, "dB(A)",
+                    "Σ bandas, fuente: expansión a la salida (M2 > 0,3)", REF8_3)
     LpAe = mem.agregar("LpAe,1m", "Nivel de ruido ponderado A a 1 m", _suma_db([e[2] for e in espectro]),
                        "dB(A)", "Σ bandas de 1/3 de octava (Lpi + TL − dist + A)", REF8_3)
-    return {"LpAe1m": LpAe, "regimen": regimen, "regimen_nombre": nombres[regimen], "fp": fp,
-            "Lpi": Lpi, "M2": M2, "eta": eta, "espectro": espectro, "memoria": mem}
+    return {"LpAe1m": LpAe, "LpAe_trim": L_trim, "LpAe_salida": L_salida, "regimen": regimen,
+            "regimen_nombre": nombres[regimen], "fp": fp, "Lpi": Lpi, "M2": M2, "eta": eta,
+            "rho2": rho2, "c2": c2, "espectro": espectro, "memoria": mem}
+
+
+def correccion_distancia(Di_m: float, tp_m: float, r_m: float) -> float:
+    """Diferencia de nivel entre 1 m y r m de la pared de la tubería (fuente lineal).
+
+    IEC 60534-8-3 da el nivel a 1 m de la pared con el término −10·lg((Di + 2tp + 2)/(Di + 2tp));
+    a una distancia r el término es −10·lg((Di + 2tp + 2r)/(Di + 2tp)). La corrección a sumar
+    al nivel a 1 m es por lo tanto −10·lg((Di + 2tp + 2r)/(Di + 2tp + 2)).
+    """
+    De = Di_m + 2 * tp_m
+    return -10 * math.log10((De + 2 * r_m) / (De + 2))
 
 
 # ---------------------------------------------------------------------------

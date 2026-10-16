@@ -24,6 +24,7 @@ class Caso:
     fluido: str | None = None      # nombre para propiedades (flashing)
     FL: float | None = None        # factores a la carrera de este caso (sustituyen a los de la selección)
     Fd: float | None = None
+    xT: float | None = None
     Kc: float | None = None        # inicio de cavitación del trim a las condiciones del caso (directo)
     criterio: bool = True          # participa del criterio de selección de tamaño
 
@@ -101,8 +102,8 @@ def _valvula(sel: Seleccion, d_pulg: float) -> Valvula:
 
 def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> ResultadoCaso:
     e = caso.estado
-    if caso.FL or caso.Fd:
-        v = replace(v, FL=caso.FL or v.FL, Fd=caso.Fd or v.Fd)
+    if caso.FL or caso.Fd or caso.xT:
+        v = replace(v, FL=caso.FL or v.FL, Fd=caso.Fd or v.Fd, xT=caso.xT or v.xT)
     if isinstance(e, Bifasico):
         r = dimensionar_bifasico(e, v)
         alertas = list(r.alertas)
@@ -214,6 +215,7 @@ def dimensionar(casos: list[Caso], sel: Seleccion) -> Informe:
                                  "Ingrese al menos un caso de operación.")])
     tabla = []
     elegido = None
+    evaluados = []
     tamanos = [t for t in TAMANOS if sel.tamanos is None or t[0] in sel.tamanos] if sel.d_pulg is None else [
         next((t for t in TAMANOS if abs(t[0] - sel.d_pulg) < 1e-6), (sel.d_pulg, _dn(sel.d_pulg), None))]
     for d_pulg, dn, _ in tamanos:
@@ -224,6 +226,7 @@ def dimensionar(casos: list[Caso], sel: Seleccion) -> Informe:
                 continue
         v = _valvula(sel, d_pulg)
         Kv_nom = sel.Kv_nominal if (sel.Kv_nominal and sel.d_pulg) else kv_nominal(sel.estilo, d_pulg)
+        evaluados.append((d_pulg, dn))
         try:
             rcs = [_calcular_caso(c, v, sel, Kv_nom) for c in casos]
         except CapacidadInsuficiente:
@@ -240,7 +243,8 @@ def dimensionar(casos: list[Caso], sel: Seleccion) -> Informe:
             elegido = (d_pulg, dn, Kv_nom, v, rcs)
     generales = []
     if elegido is None:
-        d_pulg, dn = tamanos[-1][0], tamanos[-1][1]
+        # El mayor diámetro evaluado (no mayor que la línea en selección automática)
+        d_pulg, dn = (evaluados or [(tamanos[-1][0], tamanos[-1][1])])[-1]
         v = _valvula(sel, d_pulg)
         Kv_nom = kv_nominal(sel.estilo, d_pulg)
         try:

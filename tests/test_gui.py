@@ -120,3 +120,72 @@ def test_fecha_con_calendario(app):
     w2._cargar(estado)
     assert w2.ed_ident["fecha"].date() == QDate(2026, 3, 5)
     assert f.lineEdit().isReadOnly()
+
+
+def _tipo(w, clave):
+    w.cb_tipo_fluido.setCurrentIndex(w.cb_tipo_fluido.findData(clave))
+
+
+def test_gas_definido_por_usuario(app, tmp_path):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _tipo(w, "gas")
+    assert w.filas["SG"].lbl.isHidden() and not w.filas["Z1"].lbl.isHidden()
+    assert w.filas["xT"].edits[1].text()            # xT típico del trim
+    w.cb_fluido.setCurrentText("Definido por el usuario")
+    w.cb_nps["entrada"].setCurrentText('4"')
+    w.cb_nps["salida"].setCurrentText('4"')
+    w.cb_tamano.setCurrentIndex(w.cb_tamano.findData(4))
+    w.cb_tipo_caudal.setCurrentIndex(0)             # volumétrico estándar
+    F = w.filas
+    assert F["caudal"].magnitud() == "caudal_gas_std"
+    for k, v in (("caudal", "3800"), ("P1", "6,8"), ("P2", "3,1"), ("T1", "160"), ("M", "44,01"),
+                 ("mu", "0,0159"), ("gamma", "1,30"), ("Z1", "0,988"), ("xT", "0,60"), ("FL", "0,85"),
+                 ("Fd", "0,42")):
+        F[k].edits[1].setText(v)
+    F["P1"].elegir("bar a", convertir=False)
+    F["P2"].elegir("bar a", convertir=False)
+    w.calcular()
+    assert w.res is not None and w.res.dim.tipo == "gas"
+    assert w.res.salidas[0]["Kv"] == pytest.approx(62.7, rel=3e-3)    # IEC 60534-2-1, ejemplo 3
+    assert w.salidas["caudal_otro"].lbl.text() == "Flujo másico"
+    assert w.salidas["Y"].celdas[1].text().startswith("0,674")
+    assert w.salidas["Lp_g"].celdas[1].text() and w.salidas["Ma2"].celdas[1].text()
+    assert w.salidas["nivel_trim"].celdas[1].text()
+    # Pasar a másico convierte con la densidad normal
+    w.cb_tipo_caudal.setCurrentIndex(1)
+    assert F["caudal"].magnitud() == "caudal_masico"
+    assert float(F["caudal"].edits[1].text().replace(",", ".")) == pytest.approx(7461.3, rel=1e-3)
+    ruta = w.exportar_word("todos", str(tmp_path / "gas.docx"))
+    import docx
+    texto = "\n".join(c.text for t in docx.Document(ruta).tables for r in t.rows for c in r.cells)
+    assert "Factor de expansión Y" in texto and "Ruido de la válvula LpA a Rn" in texto
+    assert "Kapp" not in texto
+    # Guardar y abrir conserva el tipo de fluido
+    w2 = VentanaPrincipal()
+    w2._cargar(w._estado())
+    assert w2.tipo() == "gas"
+    w2.calcular()
+    assert w2.res.salidas[0]["Kv"] == pytest.approx(w.res.salidas[0]["Kv"], rel=1e-6)
+
+
+def test_steam_y_vuelta_a_liquido(app):
+    pytest.importorskip("CoolProp")
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _tipo(w, "steam")
+    assert not w.cb_tipo_caudal.isEnabled() and w.filas["caudal"].magnitud() == "caudal_masico"
+    F = w.filas
+    for j, (W, p1, p2, t1) in enumerate([(5000, 10, 6, ""), (12000, 10, 5, "250")]):
+        F["caudal"].edits[j].setText(str(W))
+        F["P1"].edits[j].setText(str(p1))
+        F["P2"].edits[j].setText(str(p2))
+        F["T1"].edits[j].setText(t1)
+    w.calcular()
+    assert w.res is not None and w.res.dim.tipo == "steam"
+    assert "sat." in w.salidas["tipo_calculo"].celdas[0].text()
+    assert w.salidas["sobrecalentamiento2"].celdas[0].text()
+    assert w.salidas["caudal_otro"].lbl.text().startswith("Caudal volumétrico real")
+    assert "IAPWS" in w.vistas["memoria"].toPlainText()
+    _tipo(w, "liquido")
+    assert w.res is None and not w.filas["Kc"].lbl.isHidden() and w.filas["xT"].lbl.isHidden()

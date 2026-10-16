@@ -1,5 +1,6 @@
-"""Flujo de trabajo de la versión 2 (líquidos): datos de instalación +
-datos de dimensionamiento -> resultados, alertas y recomendaciones.
+"""Flujo de trabajo de la versión 2: datos de instalación + datos de
+dimensionamiento -> resultados, alertas y recomendaciones, para líquidos,
+gases, vapores y vapor de agua (estos tres en ``compresible.py``).
 
 Todos los valores se reciben y devuelven en unidades base (kPa abs, K,
 m³/h, kg/h, kg/m³, Pa·s, mm, m/s). Las unidades de presentación las
@@ -10,9 +11,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field, replace
 
-from . import asme_b16_34, tuberias
+from . import asme_b16_34, compresible as CG, tuberias
 from .estilos import ANTICAVITACION, CUERPOS, ESTILOS, TAMANOS, apertura_requerida
-from .iec60534_2_1 import RHO_AGUA_15C, Liquido
+from .iec60534_2_1 import RHO_AGUA_15C, Liquido, factor_FLP
+from . import ruido
 from .modelos import _n, Alerta, ErrorDatos, Severidad, fdP, fP, fT, fV
 from .servicio import Caso, Informe, Seleccion, dimensionar
 
@@ -93,10 +95,14 @@ class CasoCierre:
         return self.P1 - self.P2
 
 
+CasoGas = CG.CasoGas
+RuidoAerodinamico = CG.RuidoAerodinamico
+
+
 @dataclass
 class Dimensionamiento:
-    casos: list[CasoLiquido]
-    Pc: float                          # kPa abs
+    casos: list                        # CasoLiquido (líquido) o CasoGas (gas, vapor, steam)
+    Pc: float | None                   # kPa abs (solo líquidos)
     trim: str                          # clave de ESTILOS
     nps_valvula: float | None = None   # None = selección automática
     caracteristica: str = "isoporcentual"
@@ -104,6 +110,12 @@ class Dimensionamiento:
     cierre: CasoCierre | None = None
     Cv_nominal: float | None = None    # None = típico del estilo
     c_sonido: float | None = None      # m/s; None = calculada o 1 400 m/s
+    tipo: str = "liquido"              # liquido, gas, vapor, steam (ver compresible.TIPOS)
+    ruido: RuidoAerodinamico = field(default_factory=RuidoAerodinamico)
+
+    @property
+    def compresible(self) -> bool:
+        return self.tipo != "liquido"
 
 
 @dataclass
@@ -156,7 +168,38 @@ def caudal_relativo(h: float, caracteristica: str, R: float) -> float:
     return math.sqrt(h)
 
 
+def _tuberias_inst(inst: Instalacion):
+    errores: list[Alerta] = []
+    D1 = D2 = tp1 = tp2 = None
+    try:
+        D1 = tuberias.diametro_interior(inst.nps_entrada, inst.sch_entrada)
+        tp1 = tuberias.espesor(inst.nps_entrada, inst.sch_entrada)
+    except tuberias.ErrorTuberia as e:
+        errores.append(Alerta("dato_tuberia", Severidad.ERROR, "Tubería de entrada no definida", str(e)))
+    try:
+        D2 = tuberias.diametro_interior(inst.nps_salida, inst.sch_salida)
+        tp2 = tuberias.espesor(inst.nps_salida, inst.sch_salida)
+    except tuberias.ErrorTuberia as e:
+        errores.append(Alerta("dato_tuberia", Severidad.ERROR, "Tubería de salida no definida", str(e)))
+    return D1, D2, tp1, tp2, errores
+
+
+def _validar_factores(c, errores, gas: bool):
+    if not 0.3 <= c.FL <= 1.0:
+        errores.append(Alerta("dato_FL", Severidad.ERROR, "FL fuera de rango",
+                              f"Caso {c.nombre}: FL = {_n(c.FL)}; el factor de recuperación está entre 0,3 y 1,0."))
+    if not 0.01 <= c.Fd <= 1.0:
+        errores.append(Alerta("dato_Fd", Severidad.ERROR, "Fd fuera de rango",
+                              f"Caso {c.nombre}: Fd = {_n(c.Fd)}; el modificador de estilo está entre 0,01 y 1,0."))
+    if gas and not 0.05 <= c.xT <= 1.0:
+        errores.append(Alerta("dato_xT", Severidad.ERROR, "xT fuera de rango",
+                              f"Caso {c.nombre}: xT = {_n(c.xT)}; el factor de caída de presión crítica está "
+                              "entre 0,05 y 1,0."))
+
+
 def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) -> Resultado:
+    if dim.compresible:
+        return _calcular_compresible(ident, inst, dim)
     errores: list[Alerta] = []
     try:
         D1 = tuberias.diametro_interior(inst.nps_entrada, inst.sch_entrada)
@@ -325,11 +368,21 @@ def _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2):
                          f"Las válvulas {cuerpo.nombre.lower()} se fabrican habitualmente entre "
                          f"{_n(cuerpo.nps_min)}\" y {_n(cuerpo.nps_max)}\"."))
 
+    # Validez de las ecuaciones de IEC 60534-2-1 (C/d² < 0,04 con Kv y d en mm)
+    rel = max(x["Kv"] for x in salidas) / (d * 25.4) ** 2
+    if rel > 0.04:
+        al.append(Alerta("fuera_validez_cd2", Severidad.ADVERTENCIA, "Coeficiente alto para el diámetro",
+                         f"Kv/d² = {_n(rel, 3)} supera 0,04 (Cv/d² > 0,047 con d en mm): fuera del rango de "
+                         "validez de las ecuaciones de IEC 60534-2-1. El resultado es aproximado y la válvula "
+                         "está cerca de su capacidad máxima.",
+                         remedios=["Seleccionar un diámetro de válvula mayor."],
+                         referencia="IEC 60534-2-1:2011, cláusula 1 (alcance)"))
+
     # Clase de cierre
     al += _verificar_cierre(inst, cuerpo, T_d)
 
-    # Velocidad en tuberías
-    for donde, clave in (("entrada", "v1"), ("salida", "v2")):
+    # Velocidad en tuberías (líquidos; en compresibles se evalúa el número de Mach)
+    for donde, clave in (() if dim.compresible else (("entrada", "v1"), ("salida", "v2"))):
         v = max(s[clave] for s in salidas)
         if v > V_TUBERIA_LIQ:
             inten = min(100.0, (v / V_TUBERIA_LIQ - 1) * 100)
@@ -385,6 +438,8 @@ def _verificar_cierre(inst, cuerpo, T_d) -> list[Alerta]:
 
 def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
     """Características óptimas de la válvula a partir de los resultados (texto para el informe)."""
+    if res.dim.compresible:
+        return recomendaciones_compresible(res)
     s = res.salidas
     inst, dim = res.inst, res.dim
     cuerpo, trim = res.cuerpo, res.trim
@@ -481,4 +536,177 @@ def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
                 "El cálculo de fuerza o par del actuador se incorporará en una próxima versión. Debe "
                 f"vencer la ΔP de cierre {dp_cierre} y asegurar la carga de asiento de la clase "
                 f"{inst.cierre}."))
+    return rec
+
+
+# ---------------------------------------------------------------------------
+# Gas, vapor y vapor de agua
+# ---------------------------------------------------------------------------
+def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) -> Resultado:
+    D1, D2, tp1, tp2, errores = _tuberias_inst(inst)
+    if not dim.casos:
+        errores.append(Alerta("sin_casos", Severidad.ERROR, "Sin casos de operación",
+                              "Cargue al menos un caso de operación con caudal."))
+    for c in dim.casos:
+        _validar_factores(c, errores, gas=True)
+        if c.W is None and c.QN is None:
+            errores.append(Alerta("dato_caudal", Severidad.ERROR, "Falta el caudal", f"Caso {c.nombre}."))
+    if dim.ruido.trim not in CG.TRIMS_RUIDO:
+        errores.append(Alerta("dato_trim_ruido", Severidad.ERROR, "Trim para ruido no reconocido", dim.ruido.trim))
+    if dim.ruido.Rn <= 0:
+        errores.append(Alerta("dato_Rn", Severidad.ERROR, "Distancia Rn inválida",
+                              "La distancia para el ruido debe ser mayor que cero."))
+    if dim.cierre is not None and dim.cierre.P2 >= dim.cierre.P1:
+        errores.append(Alerta("dato_cierre", Severidad.ERROR, "Condición de cierre inválida",
+                              "En el caso Tight Shutoff la presión de entrada debe ser mayor que la de salida."))
+    if errores:
+        raise ErrorDatos(errores)
+    fluido = "Agua / vapor de agua" if dim.tipo == "steam" else dim.fluido
+    estados = [CG.resolver_estado(c, dim.tipo, fluido) for c in dim.casos]
+
+    cuerpo = CUERPOS[inst.cuerpo]
+    estilo = replace(ESTILOS[dim.trim], caracteristica=dim.caracteristica)
+    tamanos = tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= cuerpo.nps_max)
+    c0 = dim.casos[0]
+    sel = Seleccion(estilo, d_pulg=dim.nps_valvula,
+                    Kv_nominal=dim.Cv_nominal * 0.865 if dim.Cv_nominal else None,
+                    D1_mm=D1, D2_mm=D2, FL=c0.FL, Fd=c0.Fd, xT=c0.xT, tp_mm=tp2,
+                    limite_ruido=inst.ruido_permitido, tamanos=tamanos, calcular_ruido=False,
+                    verificar_clase=False)
+    casos = [Caso(c.nombre, CG.estado_gas(c, e), fluido, FL=c.FL, Fd=c.Fd, xT=c.xT, criterio=c.criterio)
+             for c, e in zip(dim.casos, estados)]
+    inf = dimensionar(casos, sel)
+
+    d_mm = inf.d_pulg * 25.4
+    A_out = dim.ruido.area_salida or _area(d_mm) * 1e6
+    d_out = math.sqrt(4 * A_out / math.pi)
+    salidas, alertas = [], []
+    for c, e, rc in zip(dim.casos, estados, inf.casos):
+        r, x = rc.resultado, rc.resultado.extra
+        v = replace(inf.valvula, FL=c.FL, Fd=c.Fd, xT=c.xT)
+        FLP = factor_FLP(r.Kv, v)
+        W = x["W"]
+        Q1 = W / e.rho1                       # m³/h reales a la entrada
+        Q2 = W / e.rho2
+        c1 = CG.sonido(e.gamma, c.P1, e.rho1)
+        c2 = CG.sonido(e.gamma, c.P2, e.rho2)
+        v1 = Q1 / 3600 / _area(D1)
+        v2 = Q2 / 3600 / _area(D2)
+        v_out = Q2 / 3600 / (A_out * 1e-6)
+        FL_eff = FLP / r.FP
+        # Ruido con el trim elegido y nivel mínimo de trim de bajo ruido que cumple el límite
+        niveles = {}
+        for k, (_, Fd_k) in CG.TRIMS_RUIDO.items():
+            try:
+                niveles[k] = CG.ruido_caso(W, c, e, r.Kv, FL_eff, Fd_k or c.Fd, d_out, D2, tp2, dim.ruido.Rn)
+            except (ValueError, ZeroDivisionError, OverflowError):
+                niveles[k] = None
+        rr = niveles.get(dim.ruido.trim)
+        requerido = next((CG.NIVEL_CORTO[k] for k, n in niveles.items()
+                          if n is not None and n["LpAe1m"] <= inst.ruido_permitido),
+                         "Multietapa o silenciador")
+        al = [a for a in rc.alertas if a.codigo not in ("mach_salida", "ruido_no_calculado")]
+        if rr is None:
+            al.append(Alerta("ruido_no_calculado", Severidad.INFO, "Ruido no calculado",
+                             "No se pudo estimar el ruido con IEC 60534-8-3 para estas condiciones."))
+        else:
+            al += ruido.evaluar_ruido(rr["LpAe1m"], True, inst.ruido_permitido)
+            r.memoria.agregar("—", "Predicción de ruido " + ruido.REF8_3, float("nan"))
+            r.memoria.pasos.extend(rr["memoria"].pasos)
+        al += CG.alertas_velocidad(v_out / c2, v1 / c1, v2 / c2, dim.tipo)
+        alertas += [(c.nombre, a) for a in al]
+        rc.alertas = al
+        salidas.append({
+            "Cv": r.Cv, "Kv": r.Kv, "apertura": rc.apertura, "FL": c.FL, "Fd": c.Fd, "xT": c.xT,
+            "W": W, "QN": W / CG.densidad_normal(e.M), "Q1": Q1,
+            "dP": c.P1 - c.P2, "dP_P1": x["x"], "x": x["x"], "FP": r.FP, "FLP": FLP, "xTP": x["xTP"],
+            "Fgamma": x["Fgamma"], "xchoked": x["xchoked"], "dPchoked": x["xchoked"] * c.P1,
+            "Y": x["Y"], "rho": e.rho1, "rho2": e.rho2, "M": e.M, "SG": e.M / CG.M_AIRE,
+            "gamma": e.gamma, "Z1": e.Z1, "Z2": e.Z2, "T1": e.T1, "T2": e.T2,
+            "mu": e.mu, "nu": e.mu / e.rho1, "Rev": r.Rev, "FR": r.FR, "D1": D1, "D2": D2,
+            "bloqueado": r.bloqueado, "regimen_flujo": r.regimen,
+            "tipo_calculo": CG.tipo_calculo(dim.tipo, r.bloqueado, r.regimen, e),
+            "condicion": "flujo crítico" if r.bloqueado else "subcrítico",
+            "sobrecalentamiento2": e.sobrecalentamiento2, "saturado": e.saturado, "origen_salida": e.origen,
+            "nivel_trim": requerido,
+            "Lp": rr["LpAe1m"] if rr else None, "Lp_trim": rr["LpAe_trim"] if rr else None,
+            "Lp_salida": rr["LpAe_salida"] if rr else None, "Lp_Rn": rr["LpAe_Rn"] if rr else None,
+            "regimen_ruido": rr["regimen_nombre"] if rr else "",
+            "Ma1": v1 / c1, "Ma_valvula": v_out / c2, "Ma2": v2 / c2,
+            "v1": v1, "v_valvula": v_out, "v2": v2, "c1": c1, "c_valvula": c2, "c2": c2,
+            "d_salida": d_out, "A_salida": A_out,
+        })
+    alertas = [("General", a) for a in inf.alertas_generales] + alertas
+    P_ops = [c.P1 for c in dim.casos] + ([dim.cierre.P1] if dim.cierre else [])
+    T_ops = [e.T1 for e in estados] + ([dim.cierre.T1] if dim.cierre and dim.cierre.T1 else [])
+    P_d = inst.P_diseno or max(P_ops)
+    T_d = inst.T_diseno or max(T_ops)
+    generales, rating_adm = _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2)
+    alertas = [("General", a) for a in generales] + alertas
+    alertas.sort(key=lambda t: -t[1].severidad)
+    Cv_nom = inf.Kv_nominal / 0.865
+    curva = [(h, Cv_nom * caudal_relativo(h / 100, estilo.caracteristica, estilo.rangeabilidad))
+             for h in range(0, 101, 2)]
+    res = Resultado(ident, inst, dim, inf, salidas, alertas, [], D1, D2, tp1, tp2, Cv_nom,
+                    rating_adm, P_d, T_d, curva)
+    res.recomendaciones = recomendaciones(res)
+    return res
+
+
+def recomendaciones_compresible(res: Resultado) -> list[tuple[str, str]]:
+    s, inst, dim = res.salidas, res.inst, res.dim
+    cuerpo, trim = res.cuerpo, res.trim
+    rec: list[tuple[str, str]] = []
+    Cv_max = max(x["Cv"] for x in s)
+    h = [x["apertura"] for x in s]
+    rec.append(("Coeficiente de caudal",
+                f"Cv requerido máximo {_n(Cv_max, 1)}. Se recomienda una válvula con Cv nominal de al "
+                f"menos {_n(Cv_max / 0.85, 1)} (apertura ≤ 85 % en el caso máximo). Con la válvula "
+                f"de {_n(res.nps_valvula)}\" (Cv nominal típico {_n(res.Cv_nominal, 1)}) la apertura queda "
+                f"entre {_n(min(h) * 100, 0)} % y {_n(max(h) * 100, 0)} %."))
+    Ma = max(x["Ma_valvula"] for x in s)
+    txt = f"Cuerpo {cuerpo.nombre.lower()}, rating CL{inst.rating}, conexión {inst.conexion}."
+    if Ma > CG.MACH_SALIDA_VALVULA:
+        txt += (f" El Mach en la salida de la válvula llega a {_n(Ma, 2)}: conviene un cuerpo de mayor "
+                "diámetro o con salida expandida.")
+    rec.append(("Estilo de cuerpo", txt))
+    Lp = [x["Lp"] for x in s if x["Lp"] is not None]
+    req = [x["nivel_trim"] for x in s]
+    orden = list(CG.NIVEL_CORTO.values()) + ["Multietapa o silenciador"]
+    peor = max(req, key=orden.index) if req else "No requerido"
+    if peor == "No requerido":
+        t = f"Internos estándar ({trim.nombre.lower()}): el ruido cumple el límite sin trim de bajo ruido."
+    elif peor == "Multietapa o silenciador":
+        t = ("Ningún trim de una etapa cumple el límite de ruido: se requieren internos multietapa, "
+             "difusor o silenciador aguas abajo, o repartir la caída de presión.")
+    else:
+        t = (f"Se requiere trim de bajo ruido: jaula multiorificio {peor.lower()} "
+             f"({CG.TRIMS_RUIDO['multiorificio_' + peor[-1]][0].split('(')[-1].rstrip(')')}).")
+    rec.append(("Internos (trim) y ruido", t))
+    if "jaula" in dim.trim or "multietapa" in dim.trim:
+        guia = "Obturador guiado por jaula, balanceado en diámetros grandes o con ΔP alta."
+    elif cuerpo.rotativa:
+        guia = f"{cuerpo.guia}."
+    else:
+        guia = "Obturador contorneado guiado superior (o superior y por puerto en diámetros grandes)."
+    rec.append(("Tipo de guía y obturador", guia))
+    rec.append(("Asiento y clase de cierre", f"{inst.cierre}: fuga admisible {FUGA_CIERRE[inst.cierre]}"))
+    dps = [x["dP"] for x in s]
+    if len(s) > 1 and min(dps) > 0 and max(dps) / min(dps) > 2:
+        car = "La caída de presión varía mucho entre casos: se recomienda característica isoporcentual."
+    else:
+        car = ("La caída de presión varía poco entre casos: la característica lineal da una ganancia "
+               "más uniforme.")
+    rec.append(("Característica inherente", car + f" Seleccionada: {dim.caracteristica}."))
+    if Lp:
+        rec.append(("Ruido", f"Nivel máximo estimado {_n(max(Lp), 1)} dB(A) a 1 m de la tubería "
+                    f"(límite {_n(inst.ruido_permitido, 0)} dB(A), IEC 60534-8-3)."
+                    + (" Cumple." if max(Lp) <= inst.ruido_permitido else " No cumple.")))
+    if any(x["bloqueado"] for x in s):
+        rec.append(("Flujo crítico", "En al menos un caso el flujo está estrangulado (sónico en la vena "
+                    "contracta): el caudal no aumenta al bajar P2 y el ruido es alto."))
+    dp_cierre = (f"{fdP(dim.cierre.dP)} (caso {dim.cierre.nombre})" if dim.cierre else
+                 f"{fdP(max(dps))} (máxima de operación; cargue el caso Tight Shutoff con la presión de cierre real)")
+    rec.append(("Actuador", "El cálculo de fuerza o par del actuador se incorporará en una próxima versión. "
+                f"Debe vencer la ΔP de cierre {dp_cierre} y asegurar la carga de asiento de la clase {inst.cierre}."))
     return rec

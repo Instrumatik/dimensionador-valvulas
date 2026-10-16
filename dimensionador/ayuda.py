@@ -62,17 +62,21 @@ _e("kv_cv", "Coeficiente de caudal Kv y Cv",
 # ---------------------------------------------------------------------------
 # Datos del fluido
 # ---------------------------------------------------------------------------
-_e("tipo_fluido", "Tipo de servicio",
-   "<p>Define qué ecuaciones se aplican:</p><ul>"
-   "<li><b>Líquido</b>: fluido incompresible. Se evalúan flujo crítico por vaporización, "
-   "cavitación y flashing.</li>"
-   "<li><b>Gas</b>: fluido compresible. Se aplica el factor de expansión Y y se evalúa flujo "
-   "crítico (sónico) y número de Mach.</li>"
-   "<li><b>Vapor de agua</b>: es un gas; el programa obtiene sus propiedades de las tablas "
-   "IAPWS-95, sobrecalentado o saturado seco.</li></ul>"
-   "<p>Si el líquido entra ya parcialmente vaporizado (mezcla líquido-vapor a la entrada), es un "
-   "servicio bifásico y requiere el módulo bifásico.</p>",
-   relacionadas=["fluido", "flashing"])
+_e("tipo_fluido", "Tipo de fluido",
+   "<p>Define qué ecuaciones, entradas y resultados se usan. Al cambiarlo, el programa muestra solo los "
+   "datos que corresponden a ese tipo y los entregables se arman con ellos.</p><ul>"
+   "<li><b>Líquido</b>: fluido incompresible. Flujo crítico por vaporización, cavitación (Kc, Kapp), "
+   "flashing y ruido hidrodinámico (IEC 60534-8-4).</li>"
+   "<li><b>Gas</b>: fluido compresible no condensable (aire, gas natural, N₂…). Se ingresa la masa molar "
+   "o gravedad específica, γ y el factor de compresibilidad Z; la densidad se calcula con P·M/(Z·R·T).</li>"
+   "<li><b>Vapor</b>: vapores de proceso (hidrocarburos, solventes, refrigerantes) cerca de su "
+   "saturación, donde conviene ingresar la densidad real en lugar de Z.</li>"
+   "<li><b>Vapor de agua (steam)</b>: propiedades IAPWS-95 automáticas; solo se ingresan caudal másico, "
+   "presiones y temperatura (en blanco = vapor saturado seco).</li></ul>"
+   "<p>En los tres compresibles se aplica el factor de expansión Y, el flujo crítico (sónico), el ruido "
+   "aerodinámico IEC 60534-8-3 y los números de Mach.</p>",
+   referencia="IEC 60534-2-1:2011 cláusulas 5 y 6",
+   relacionadas=["fluido", "xT", "Y", "trim_ruido"], categoria="Conceptos")
 
 _e("fluido", "Fluido",
    "<p>Seleccione el fluido de la lista para que el programa calcule automáticamente densidad, "
@@ -163,15 +167,20 @@ _e("viscosidad", "Viscosidad",
    tipicos="Agua 20 °C: 1 cP; aceite liviano: 10–50 cP; gases: 0,01–0,03 cP",
    relacionadas=["Rev", "FR"])
 
-_e("M", "Masa molar M",
+_e("M", "Masa molar o gravedad específica",
    "<p>Masa de un kilomol del gas (kg/kmol). Para mezclas use el promedio ponderado por fracción "
-   "molar. Se relaciona con la densidad relativa al aire: G = M / 28,96.</p>",
+   "molar. Se relaciona con la gravedad específica respecto del aire: SG = M / 28,96.</p>"
+   "<p>Elija la unidad «SG (aire = 1)» para ingresar la gravedad específica; el programa la convierte "
+   "a masa molar.</p>",
    tipicos="Aire 28,96; gas natural 16–20; vapor de agua 18,015; CO₂ 44,01",
    relacionadas=["rho", "Z"])
 
 _e("gamma", "Relación de calores específicos γ",
    "<p>γ = cp / cv del gas a condiciones de entrada. Afecta la caída de presión a la que el gas "
-   "llega a velocidad sónica a través del factor Fγ = γ / 1,40.</p>",
+   "llega a velocidad sónica a través del factor Fγ = γ / 1,40.</p><p>Con un fluido de la lista y en "
+   "vapor de agua el programa usa el <b>exponente isoentrópico</b> κ = ρ·c²/P, que es el valor correcto "
+   "para gases reales y vapores (en gas ideal κ = cp/cv). Cerca de la saturación cp/cv lo sobrestima: "
+   "en vapor saturado a 10 bar cp/cv ≈ 1,41 y κ ≈ 1,29.</p>",
    formula="Fγ = γ / 1,40",
    tipicos="Aire 1,40; gas natural 1,27–1,31; vapor de agua 1,30–1,33; CO₂ 1,30",
    referencia="IEC 60534-2-1 ec. (14)",
@@ -705,9 +714,11 @@ _e("velocidad_tuberia", "Velocidad en tubería",
    "abajo): v = Q/A. La práctica habitual limita la velocidad de líquidos a unos 4,5 m/s (3 m/s con "
    "sólidos) para evitar erosión, ruido y golpe de ariete.</p>", formula="v = Q / (π·DI²/4)",
    relacionadas=["velocidad_liquido"], categoria="Resultados")
-_e("velocidad_sonido", "Velocidad del sonido en el líquido",
-   "<p>Se usa en el cálculo del ruido hidrodinámico (IEC 60534-8-4). Con un fluido de la lista se "
-   "calcula sola; si no, se toma 1 400 m/s salvo que se ingrese otro valor.</p>",
+_e("velocidad_sonido", "Velocidad del sonido",
+   "<p><b>Gas, vapor y vapor de agua:</b> c = √(γ·P/ρ) = √(γ·Z·R·T/M), aguas arriba con P1 y ρ1 y aguas "
+   "abajo (y en la salida de la válvula) con P2 y ρ2. Se usa para el número de Mach y el ruido.</p>"
+   "<p><b>Líquidos:</b> se usa en el ruido hidrodinámico (IEC 60534-8-4); con un fluido de la lista se "
+   "calcula sola, si no se toma 1 400 m/s.</p>",
    relacionadas=["ruido"])
 _e("Cv_nominal", "Cv nominal de la válvula",
    "<p>Cv de la válvula completamente abierta. En blanco se usa un valor típico del estilo "
@@ -755,6 +766,78 @@ _e("cierre_temperatura", "Asiento blando fuera de temperatura",
    relacionadas=["clase_cierre", "T_diseno"], categoria="Fenómenos")
 _e("velocidad_tuberia_alta", "Velocidad alta en tubería", "<p>Ver «Velocidad en tubería».</p>",
    relacionadas=["velocidad_tuberia"], categoria="Fenómenos")
+
+# ---------------------------------------------------------------------------
+# Gas, vapor y vapor de agua (versión 2)
+# ---------------------------------------------------------------------------
+_e("T2", "Temperatura de salida T2",
+   "<p>Temperatura aguas abajo de la válvula. Se usa para la densidad y la velocidad del sonido a la "
+   "salida, que intervienen en el ruido aerodinámico, el número de Mach y la velocidad.</p>"
+   "<p>Con un fluido de la lista y en vapor de agua se calcula por expansión isoentálpica (la entalpía "
+   "se conserva en el estrangulamiento): así aparece el efecto Joule-Thomson y, en vapor de agua, el "
+   "sobrecalentamiento a P2. Con un gas definido por el usuario, en blanco se toma T2 = T1 (gas ideal).</p>",
+   formula="h(P2, T2) = h(P1, T1)", referencia="IEC 60534-8-3:2010",
+   relacionadas=["rho2", "velocidad_sonido", "sobrecalentamiento"])
+_e("rho2", "Densidad de salida ρ2",
+   "<p>Densidad del fluido aguas abajo, a P2 y T2. Gas: ρ2 = P2·M/(Z2·R·T2). Vapor: dato del usuario o, en "
+   "blanco, ρ1·(P2/P1)·(T1/T2). Vapor de agua: IAPWS-95.</p>",
+   referencia="IEC 60534-8-3:2010", relacionadas=["T2", "Z", "velocidad_sonido"])
+_e("trim_ruido", "Trim para ruido aerodinámico",
+   "<p>Tipo de internos que se usa para estimar el ruido. <b>Estándar</b> es un pasaje único (obturador "
+   "contorneado, jaula de ventanas, bola o mariposa), con el Fd de cada caso.</p><p>Las <b>jaulas "
+   "multiorificio</b> dividen el chorro en muchos chorros pequeños: según IEC 60534-2-1 (Anexo A) su "
+   "modificador de estilo es Fd = 1/√No, con No el número de orificios iguales. Con ese Fd la norma "
+   "IEC 60534-8-3 da un chorro de menor diámetro y un ruido de mayor frecuencia, que la pared de la "
+   "tubería atenúa más.</p><ul><li>Nivel 1: unos 50 orificios (Fd ≈ 0,14).</li>"
+   "<li>Nivel 2: unos 200 orificios (Fd ≈ 0,071).</li><li>Nivel 3: unos 800 orificios (Fd ≈ 0,035).</li>"
+   "</ul><p>Las jaulas de varias etapas no están cubiertas por el método de una etapa: si ningún nivel "
+   "cumple el límite el programa indica «Multietapa o silenciador».</p>",
+   referencia="IEC 60534-8-3:2010; IEC 60534-2-1:2011 Anexo A",
+   relacionadas=["nivel_trim", "ruido_componentes", "Fd"], categoria="Datos")
+_e("nivel_trim", "Nivel de trim de bajo ruido requerido",
+   "<p>El programa repite el cálculo de ruido con el trim estándar y con cada nivel de jaula "
+   "multiorificio, e informa el primero que deja el ruido de la válvula a 1 m por debajo del ruido "
+   "permitido (Inst-Valve-Data). «No requerido» significa que el trim estándar ya cumple.</p>",
+   relacionadas=["trim_ruido", "limite_ruido"], categoria="Resultados")
+_e("ruido_componentes", "Ruido del trim y de la salida",
+   "<p>IEC 60534-8-3 separa dos fuentes:</p><ul><li><b>Trim</b>: el chorro que sale de la vena "
+   "contracta, según el régimen de flujo (subsónico, sónico, choques).</li><li><b>Salida de la "
+   "válvula</b>: la expansión del flujo en la salida del cuerpo; la norma la considera cuando el Mach en la "
+   "tubería de salida supera 0,3. Si no corresponde se muestra «—».</li></ul><p>El ruido de la válvula "
+   "es la suma energética de ambas, transmitida a través de la pared de la tubería y medida a 1 m.</p>",
+   formula="LpA = 10·lg(10^(Ltrim/10) + 10^(Lsalida/10))", referencia="IEC 60534-8-3:2010",
+   relacionadas=["ruido", "Rn", "mach"], categoria="Resultados")
+_e("Rn", "Distancia Rn para el ruido",
+   "<p>Distancia desde la pared exterior de la tubería a la que se desea conocer el nivel de ruido "
+   "(por ejemplo, un puesto de trabajo). La norma da el nivel a 1 m; para otra distancia el programa "
+   "aplica la atenuación de una fuente lineal (la tubería):</p>",
+   formula="LpA(Rn) = LpA(1 m) − 10·lg((De + 2·Rn)/(De + 2)), De = Di + 2·tp",
+   tipicos="1 m (valor de la norma)", referencia="IEC 60534-8-3:2010",
+   relacionadas=["ruido_componentes"])
+_e("area_salida", "Área de salida de la válvula",
+   "<p>Área de paso en la brida de salida del cuerpo. Define la velocidad y el número de Mach en la "
+   "salida de la válvula y el diámetro de salida que usa el ruido de salida de IEC 60534-8-3. En blanco "
+   "se toma el área del diámetro nominal de la válvula. Las válvulas con salida expandida o reducida "
+   "tienen otra área: tómela de los datos del fabricante.</p>",
+   relacionadas=["mach", "ruido_componentes"])
+_e("mach", "Número de Mach",
+   "<p>Relación entre la velocidad del fluido y la velocidad del sonido local, Ma = v/c. Se informa "
+   "aguas arriba, en la salida de la válvula y aguas abajo.</p><p>Práctica habitual: en la salida de "
+   "la válvula Ma ≤ 0,3 para servicios sensibles al ruido y ≤ 0,5 como máximo; en tuberías Ma ≤ 0,3 "
+   "(≤ 0,2 en vapor de agua). Valores mayores aumentan el ruido de salida, la vibración y la "
+   "erosión.</p>", formula="Ma = v/c, c = √(γ·P/ρ)", referencia="IEC 60534-8-3:2010",
+   relacionadas=["velocidad_sonido", "area_salida"], categoria="Resultados")
+_e("sobrecalentamiento", "Sobrecalentamiento a P2",
+   "<p>Diferencia entre la temperatura del vapor de agua a la salida (expansión isoentálpica) y la "
+   "temperatura de saturación a P2. Un vapor saturado que se estrangula sale sobrecalentado; si el valor "
+   "es cero el vapor sale húmedo y puede haber erosión por gotas.</p>",
+   formula="ΔTsc = T2 − Tsat(P2)", referencia="IAPWS-95", relacionadas=["T2"], categoria="Resultados")
+_e("tipo_calculo", "Tipo de cálculo",
+   "<p>Resume las ecuaciones aplicadas en cada caso: tipo de fluido (y si el vapor de agua es saturado o "
+   "sobrecalentado), si el flujo es subcrítico o crítico (x ≥ xchoked: el caudal ya no aumenta al bajar "
+   "P2 y se dimensiona con x = xchoked e Y = 2/3) y el régimen de Reynolds.</p>",
+   referencia="IEC 60534-2-1:2011 cláusulas 6 y 9", relacionadas=["xchoked", "Y", "Rev"],
+   categoria="Resultados")
 
 
 def obtener(clave: str) -> EntradaAyuda | None:
