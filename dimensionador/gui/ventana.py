@@ -5,9 +5,9 @@ import html as _html
 import json
 import os
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QDate, QLocale, Qt, QUrl
 from PySide6.QtGui import QAction, QColor, QImage, QKeySequence, QShortcut, QTextDocument
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog, QFrame, QGridLayout,
+from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEdit, QDialog, QFileDialog, QFrame, QGridLayout,
                                QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
                                QMainWindow, QMessageBox, QPushButton, QScrollArea, QSizePolicy,
                                QSplitter, QTabWidget, QTextBrowser, QTreeWidget, QTreeWidgetItem,
@@ -30,6 +30,8 @@ FONDO_SALIDA = "#e3f1e6"
 FONDO_AUTO = "#eef2f6"
 FONDO_NO_APLICA = "#e6e6e6"
 ANCHO_CELDA = 104
+ANCHO_SALIDA = 132
+ANCHO_A4 = 820             # ancho de una hoja A4 en pantalla (96 ppp) más márgenes
 ANCHO_UNIDAD = 92
 COLORES = {Severidad.INFO: "#2f6fb0", Severidad.ADVERTENCIA: "#b07a00",
            Severidad.CRITICA: "#c0392b", Severidad.ERROR: "#7d1f9e"}
@@ -70,6 +72,67 @@ class Combo(QComboBox):
 
     def wheelEvent(self, e):
         e.ignore()   # la rueda desplaza la página, no cambia la selección
+
+
+class Fecha(QDateEdit):
+    """Fecha elegida en un calendario que se abre con un clic, sin escribirla a mano."""
+
+    def __init__(self):
+        super().__init__(QDate.currentDate())
+        self.setDisplayFormat("dd/MM/yyyy")
+        self.lineEdit().setReadOnly(True)
+        self.lineEdit().setCursor(Qt.PointingHandCursor)
+        self.setButtonSymbols(QDateEdit.NoButtons)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setToolTip("Haga clic para elegir la fecha en el calendario")
+        self.calendario = QCalendarWidget()
+        self.calendario.setWindowFlags(Qt.Popup)
+        self.calendario.setGridVisible(True)
+        self.calendario.setLocale(QLocale(QLocale.Spanish, QLocale.Argentina))
+        self.calendario.setFirstDayOfWeek(Qt.Monday)
+        self.calendario.setVerticalHeaderFormat(QCalendarWidget.NoVerticalHeader)
+        self.calendario.clicked.connect(self._elegida)
+        self.calendario.activated.connect(self._elegida)
+        self.lineEdit().installEventFilter(self)
+
+    def eventFilter(self, obj, ev):
+        if obj is self.lineEdit() and ev.type() == ev.Type.MouseButtonPress:
+            self.abrir_calendario()
+            return True
+        return super().eventFilter(obj, ev)
+
+    def mousePressEvent(self, e):
+        self.abrir_calendario()
+
+    def abrir_calendario(self):
+        self.calendario.setSelectedDate(self.date())
+        self.calendario.move(self.mapToGlobal(self.rect().bottomLeft()))
+        self.calendario.show()
+        self.calendario.setFocus()
+
+    def _elegida(self, d: QDate):
+        self.setDate(d)
+        self.calendario.hide()
+
+    def wheelEvent(self, e):
+        e.ignore()
+
+    def keyPressEvent(self, e):
+        # La fecha no se escribe ni se cambia con flechas; Enter o espacio abren el calendario
+        if e.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space, Qt.Key_F4):
+            self.abrir_calendario()
+        elif e.key() in (Qt.Key_Tab, Qt.Key_Backtab):
+            super().keyPressEvent(e)
+
+    def text(self) -> str:
+        return self.date().toString("dd/MM/yyyy")
+
+    def setText(self, t: str):
+        d = QDate.fromString(t, "dd/MM/yyyy")
+        self.setDate(d if d.isValid() else QDate.currentDate())
+
+    def clear(self):
+        self.setDate(QDate.currentDate())
 
 
 # ---------------------------------------------------------------------------
@@ -298,11 +361,12 @@ class FilaSalida:
         grid.addWidget(self.lbl_unidad, r, 2)
         self.celdas = []
         for j in range(len(CASOS)):
-            e = _celda()
+            e = _celda(ANCHO_SALIDA)
             e.setReadOnly(True)
             e.setFocusPolicy(Qt.ClickFocus)
             e.setProperty("ayuda", ayuda_clave)
-            e.setStyleSheet(f"background:{FONDO_SALIDA};color:#123;font-weight:600;border:1px solid #9cc3a4")
+            peso = "font-weight:500;font-size:8pt" if magnitud == "texto" else "font-weight:600"
+            e.setStyleSheet(f"background:{FONDO_SALIDA};color:#123;{peso};border:1px solid #9cc3a4")
             grid.addWidget(e, r, 3 + j)
             self.celdas.append(e)
 
@@ -338,13 +402,13 @@ def titulo_seccion(texto: str, color: str) -> QLabel:
     return l
 
 
-def encabezados_casos(grid, fila=0, primera="Dato"):
+def encabezados_casos(grid, fila=0, primera="Dato", ancho=ANCHO_CELDA):
     grid.addWidget(QLabel(f"<b>{primera}</b>"), fila, 0)
     grid.addWidget(QLabel("<b>Unidad</b>"), fila, 2)
     for j, c in enumerate(CASOS):
         l = QLabel(f"<b>{c}</b>")
         l.setAlignment(Qt.AlignCenter)
-        l.setFixedWidth(ANCHO_CELDA)
+        l.setFixedWidth(ancho)
         l.setProperty("ayuda", "casos")
         grid.addWidget(l, fila, 3 + j)
 
@@ -522,13 +586,11 @@ class VentanaPrincipal(QMainWindow):
                                      ("servicio", "Servicio"), ("documento", "N.º de documento"),
                                      ("revision", "Revisión"), ("preparado", "Preparado por"),
                                      ("fecha", "Fecha"))):
-            ed = self._registrar("id_" + k, QLineEdit())
+            ed = self._registrar("id_" + k, Fecha() if k == "fecha" else QLineEdit())
             if k == "revision":
                 ed.setText("0")
-            if k == "fecha":
-                ed.setPlaceholderText("fecha de hoy")
             self.ed_ident[k] = ed
-            self._fila(grid, r, et, ed, "identificacion", ancho=380)
+            self._fila(grid, r, et, ed, "identificacion", ancho=140 if k == "fecha" else 380)
         grid.setColumnStretch(4, 1)
         lay.addWidget(g)
 
@@ -719,7 +781,7 @@ class VentanaPrincipal(QMainWindow):
         lay.addWidget(self.lbl_resumen)
         g = QGroupBox("Salidas por caso")
         grid = QGridLayout(g)
-        encabezados_casos(grid, primera="Resultado")
+        encabezados_casos(grid, primera="Resultado", ancho=ANCHO_SALIDA)
         self.salidas: dict[str, FilaSalida] = {}
         for i, (k, et, ay, mag, cif) in enumerate(SALIDAS, start=1):
             self.salidas[k] = FilaSalida(k, et, ay, mag, cif, grid, i, self.abrir_ayuda)
@@ -756,6 +818,9 @@ class VentanaPrincipal(QMainWindow):
 
     def _tab_vista(self, codigo) -> QWidget:
         w = QWidget()
+        w.setObjectName("fondo_hoja")
+        w.setAttribute(Qt.WA_StyledBackground, True)
+        w.setStyleSheet("#fondo_hoja{background:white}")
         v = QVBoxLayout(w)
         h = QHBoxLayout()
         b1 = QPushButton("Exportar a Word…")
@@ -768,8 +833,17 @@ class VentanaPrincipal(QMainWindow):
         h.addWidget(b2)
         v.addLayout(h)
         vista = Vista()
+        vista.setFixedWidth(ANCHO_A4)
+        vista.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        vista.setFrameShape(QFrame.Box)
+        vista.setStyleSheet("QTextBrowser{background:white;border:1px solid #c5ccd4}")
+        vista.document().setDocumentMargin(28)
         self.vistas[codigo] = vista
-        v.addWidget(vista, 1)
+        hoja = QHBoxLayout()
+        hoja.setContentsMargins(0, 0, 0, 0)
+        hoja.addWidget(vista)
+        hoja.addStretch(1)
+        v.addLayout(hoja, 1)
         return w
 
     # ------------------------------------------------------------- eventos

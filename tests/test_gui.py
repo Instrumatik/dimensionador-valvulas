@@ -106,3 +106,17 @@ def test_casos_nuevos_y_panel(app):
     ancho = panel.width()
     panel.limpiar()
     assert panel.texto.toPlainText() == "" and panel.width() == ancho
+
+
+def test_fecha_con_calendario(app):
+    from PySide6.QtCore import QDate
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    f = w.ed_ident["fecha"]
+    f.setDate(QDate(2026, 3, 5))
+    assert f.text() == "05/03/2026"
+    estado = w._estado()
+    w2 = VentanaPrincipal()
+    w2._cargar(estado)
+    assert w2.ed_ident["fecha"].date() == QDate(2026, 3, 5)
+    assert f.lineEdit().isReadOnly()
