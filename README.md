@@ -1,4 +1,4 @@
-# Valveselect-N25 — INSTRUMATIK S.A.S.
+# N25 Valves Sizing — INSTRUMATIK S.A.S.
 
 Programa independiente de marcas para dimensionar y verificar válvulas de control
 según IEC 60534-2-1 / ANSI/ISA-75.01.01, con cavitación y ruido IEC 60534-8-4,
@@ -9,13 +9,13 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
 
 ## Flujo de trabajo
 
-1. **Inst-Valve-Data**: identificación del proyecto, estilo de válvula, rating, diámetros y
+1. **1-Sistema**: identificación del proyecto, estilo de válvula, rating, diámetros y
    cédulas de tubería de entrada y salida, ruido permitido, conexión a proceso, presión y
    temperatura de diseño y clase de cierre.
-2. **Dim-Valve-Data**: fluido, caudal volumétrico o másico, P1, P2, T1, gravedad específica,
+2. **2-Cálculos Válvula**: fluido, caudal volumétrico o másico, P1, P2, T1, gravedad específica,
    viscosidad, Pv y Pc para los casos mínimo, normal y máximo; tipo de trim con sus factores
    típicos FL, Fd y Kc (editables), diámetro de válvula y Cv nominal. Los diámetros y cédulas
-   de tubería se copian desde Inst-Valve-Data.
+   de tubería se copian desde 1-Sistema.
 3. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
    alertas, su intensidad y las soluciones posibles.
 4. **Memoria de cálculo**, **Hoja de datos** e **Informe técnico**: vistas previas que se
@@ -37,9 +37,9 @@ python -m dimensionador         # abre el programa
 
 * Automático: flujo `.github/workflows/compilar.yml` (pestaña Actions → «Compilar ejecutables»),
   genera Windows, macOS y Linux y prueba que la ventana abre.
-* Windows local: `compilar_windows.bat`. Resultado: `dist\Valveselect-N25\Valveselect-N25.exe`.
+* Windows local: `compilar_windows.bat`. Resultado: `dist\N25-Valves-Sizing\N25-Valves-Sizing.exe`.
 * macOS / Linux local: `./compilar.sh`.
-* `Valveselect-N25 --prueba` verifica el ejecutable con el ejemplo 1 de IEC 60534-2-1.
+* `N25-Valves-Sizing --prueba` verifica el ejecutable con el ejemplo 1 de IEC 60534-2-1.
 
 ## Licencias y demo
 
@@ -50,5 +50,5 @@ python -m dimensionador         # abre el programa
 * El vencimiento se controla contra la fecha del equipo; si el reloj se atrasa respecto del último
   uso, el programa se bloquea hasta corregir la fecha.
 * Los códigos se crean con `generador_codigos.py` (compilado aparte como
-  «Generador-codigos-Valveselect»), que necesita la clave privada y anota cada código en
+  «Generador-codigos-N25»), que necesita la clave privada y anota cada código en
   `registro_codigos.csv`. La clave privada nunca se sube al repositorio (`*.pem` está ignorado).

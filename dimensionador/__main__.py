@@ -33,7 +33,7 @@ def main():
 
     from .gui.ventana import VentanaPrincipal
     app = QApplication(sys.argv)
-    app.setApplicationName("Valveselect-N25")
+    app.setApplicationName("N25 Valves Sizing")
     app.setStyle("Fusion")
     licencia = None
     if "--prueba-gui" not in sys.argv:

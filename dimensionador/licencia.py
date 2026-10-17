@@ -35,7 +35,7 @@ TOLERANCIA_RELOJ = timedelta(days=1)
 CLAVE_PUBLICA = "j0r879xYdK5VfHHCVTZe235d8BTYmFRBSw8Ak14LZWw"
 
 TERMINOS_DEMO = (
-    "Esta es una versión de demostración de Valveselect-N25, de INSTRUMATIK S.A.S., entregada "
+    "Esta es una versión de demostración de N25 Valves Sizing, de INSTRUMATIK S.A.S., entregada "
     "en forma personal para validar el software. Al usarla usted acepta que:\n"
     "• La licencia es personal e intransferible; no puede copiar ni redistribuir el programa ni su código.\n"
     "• Los resultados y documentos generados son solo para validación y no pueden usarse en proyectos, "
@@ -180,7 +180,7 @@ def carpeta_config() -> str:
         base = os.path.expanduser("~/Library/Application Support")
     else:
         base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
-    return os.path.join(base, "Valveselect-N25")
+    return os.path.join(base, "Valveselect-N25")   # nombre anterior: conserva las licencias ya activadas
 
 
 def _ruta(carpeta: str | None) -> str:

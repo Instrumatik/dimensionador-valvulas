@@ -1,4 +1,4 @@
-"""Ventana principal de Valveselect-N25 (versión 2: líquidos)."""
+"""Ventana principal de N25 Valves Sizing (versión 2: líquidos)."""
 from __future__ import annotations
 
 import html as _html
@@ -25,8 +25,12 @@ CIERRE = 3                      # índice de la columna Tight Shutoff
 FLUYEN = [0, 1, 2, 4]           # casos con caudal
 USUARIO = "Definido por el usuario"
 AZUL = "#0d3b66"
-VERDE = "#2e7d32"
-FONDO_SALIDA = "#e3f1e6"
+# Tablero de resultados: fondo beige claro, celdas blancas y acento azul acero
+ACENTO = "#3d5a80"
+FONDO_TABLERO = "#f7f2e8"
+BORDE_TABLERO = "#e2d8c4"
+BORDE_CELDA = "#d6cab3"
+FONDO_ENCABEZADO = "#ece2cf"
 FONDO_AUTO = "#eef2f6"
 FONDO_NO_APLICA = "#e6e6e6"
 ANCHO_CELDA = 104
@@ -179,7 +183,7 @@ class VentanaAyuda(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Ayuda de {E.PRODUCTO}")
-        self.resize(900, 620)
+        self.resize(1100, 760)
         lay = QHBoxLayout(self)
         izq = QVBoxLayout()
         self.buscar = QLineEdit(placeholderText="Buscar tema…")
@@ -205,7 +209,8 @@ class VentanaAyuda(QDialog):
         f = filtro.lower()
         por_cat: dict[str, list] = {}
         for k, e in ayuda.A.items():
-            if f and f not in e.titulo.lower() and f not in e.texto.lower():
+            g = ayuda.GUIA.get(k, {})
+            if f and f not in " ".join([e.titulo, e.texto, *map(str, g.values())]).lower():
                 continue
             por_cat.setdefault(e.categoria, []).append((e.titulo, k))
         for cat in ["Conceptos", "Datos", "Coeficientes", "Resultados", "Fenómenos"]:
@@ -250,7 +255,7 @@ class PanelInfo(QFrame):
     def __init__(self):
         super().__init__()
         self.setFrameShape(QFrame.StyledPanel)
-        self.setFixedWidth(400)
+        self.setMinimumWidth(420)
         v = QVBoxLayout(self)
         h = QHBoxLayout()
         t = QLabel("<b>Información del parámetro</b>")
@@ -409,7 +414,8 @@ class FilaSalida:
             e.setFocusPolicy(Qt.ClickFocus)
             e.setProperty("ayuda", ayuda_clave)
             peso = "font-weight:500;font-size:8pt" if magnitud == "texto" else "font-weight:600"
-            e.setStyleSheet(f"background:{FONDO_SALIDA};color:#123;{peso};border:1px solid #9cc3a4")
+            e.setStyleSheet(f"QLineEdit{{background:white;color:#1b2a3a;{peso};border:1px solid {BORDE_CELDA};"
+                            "border-radius:3px;padding:2px 4px}")
             grid.addWidget(e, r, 3 + j)
             self.celdas.append(e)
 
@@ -479,13 +485,15 @@ def titulo_seccion(texto: str, color: str) -> QLabel:
     return l
 
 
-def encabezados_casos(grid, fila=0, primera="Dato", ancho=ANCHO_CELDA):
+def encabezados_casos(grid, fila=0, primera="Dato", ancho=ANCHO_CELDA, estilo=""):
     grid.addWidget(QLabel(f"<b>{primera}</b>"), fila, 0)
     grid.addWidget(QLabel("<b>Unidad</b>"), fila, 2)
     for j, c in enumerate(CASOS):
         l = QLabel(f"<b>{c}</b>")
         l.setAlignment(Qt.AlignCenter)
         l.setFixedWidth(ancho)
+        if estilo:
+            l.setStyleSheet(estilo)
         l.setProperty("ayuda", "casos")
         grid.addWidget(l, fila, 3 + j)
 
@@ -515,8 +523,8 @@ class VentanaPrincipal(QMainWindow):
         lay.addWidget(self._encabezado())
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
-        self.tabs.addTab(self._con_panel(self._tab_instalacion(), 0), "Inst-Valve-Data")
-        self.tabs.addTab(self._con_panel(self._tab_dimensionamiento(), 1), "Dim-Valve-Data")
+        self.tabs.addTab(self._con_panel(self._tab_instalacion(), 0), "1-Sistema")
+        self.tabs.addTab(self._con_panel(self._tab_dimensionamiento(), 1), "2-Cálculos Válvula")
         self.vistas: dict[str, Vista] = {}
         for codigo, titulo in (("memoria", "Memoria de cálculo"), ("hoja_datos", "Hoja de datos"),
                                ("informe_tecnico", "Informe técnico")):
@@ -533,14 +541,19 @@ class VentanaPrincipal(QMainWindow):
                                      "Calcular. «Ir» o F1 muestran la explicación de cada dato a la derecha.")
 
     def _con_panel(self, izquierda: QWidget, indice: int) -> QWidget:
-        w = QWidget()
-        h = QHBoxLayout(w)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.addWidget(izquierda, 1)
+        # Divisor arrastrable; la izquierda no baja de su ancho natural, así las celdas no se recortan
+        sp = QSplitter(Qt.Horizontal)
+        sp.setChildrenCollapsible(False)
+        sp.addWidget(izquierda)
         panel = PanelInfo()
         self.paneles[indice] = panel
-        h.addWidget(panel)
-        return w
+        sp.addWidget(panel)
+        sp.setStretchFactor(0, 1)
+        sp.setStretchFactor(1, 0)
+        contenido = izquierda.widget() if isinstance(izquierda, QScrollArea) else izquierda
+        izquierda.setMinimumWidth(min(contenido.sizeHint().width() + 24, 1150))
+        sp.setSizes([10000, 560])
+        return sp
 
     # ------------------------------------------------------------------ encabezado
     def _encabezado(self) -> QWidget:
@@ -653,13 +666,71 @@ class VentanaPrincipal(QMainWindow):
         widget.setProperty("ayuda", clave)
         return [lbl, btn, widget] + ([unidad] if unidad is not None else [])
 
+    def _tarjeta_kpi(self, clave: str, titulo: str) -> QFrame:
+        f = QFrame()
+        f.setObjectName("kpi")
+        f.setStyleSheet(f"#kpi{{background:white;border:1px solid {BORDE_TABLERO};border-top:3px solid {ACENTO};"
+                        "border-radius:6px}")
+        f.setMinimumWidth(170)
+        v = QVBoxLayout(f)
+        v.setContentsMargins(10, 6, 10, 8)
+        v.setSpacing(1)
+        t = QLabel(titulo)
+        t.setStyleSheet("color:#7a705f;font-size:8pt;font-weight:600;letter-spacing:1px")
+        valor = QLabel("—")
+        valor.setStyleSheet("color:#1f3550;font-size:15pt;font-weight:700")
+        nota = QLabel("")
+        nota.setStyleSheet("color:#7a705f;font-size:8pt")
+        for w in (t, valor, nota):
+            v.addWidget(w)
+        self.kpi[clave] = (valor, nota)
+        return f
+
+    def _llenar_kpi(self, vaciar: bool = False):
+        for valor, nota in self.kpi.values():
+            valor.setText("—")
+            valor.setStyleSheet("color:#1f3550;font-size:15pt;font-weight:700")
+            nota.setText("")
+        res = self.res
+        if res is None or vaciar:
+            return
+        pr = self.presentacion()
+        nombres = [rc.caso.nombre for rc in res.informe.casos]
+        sal = res.salidas
+        i = max(range(len(sal)), key=lambda i: sal[i]["Cv"])
+        self.kpi["Cv"][0].setText(fmt(sal[i]["Cv"]))
+        self.kpi["Cv"][1].setText(f"caso {nombres[i]}")
+        ap = [s["apertura"] * 100 for s in sal if s.get("apertura") is not None]
+        if ap:
+            self.kpi["apertura"][0].setText(f"{min(ap):.0f} – {max(ap):.0f} %")
+            self.kpi["apertura"][1].setText("del recorrido, mín. a máx.")
+        ruido = [(s["Lp"], n) for s, n in zip(sal, nombres) if s.get("Lp") is not None]
+        if ruido:
+            lp, n = max(ruido)
+            self.kpi["ruido"][0].setText(f"{fmt(lp, 4)} dB(A)")
+            self.kpi["ruido"][1].setText(f"caso {n}")
+        clave_v = "v2" if res.dim.tipo == "liquido" else "v_valvula"
+        vel = [(s[clave_v], n) for s, n in zip(sal, nombres) if s.get(clave_v) is not None]
+        if vel:
+            v, n = max(vel)
+            self.kpi["velocidad"][0].setText(pr.vu(v, "velocidad", 3))
+            self.kpi["velocidad"][1].setText(("tubería de salida" if clave_v == "v2" else "salida de la válvula")
+                                             + f", caso {n}")
+        peor = res.peor()
+        texto = {Severidad.INFO: "Sin alertas", Severidad.ADVERTENCIA: "Advertencias",
+                 Severidad.CRITICA: "Crítico", Severidad.ERROR: "Datos inválidos"}[peor]
+        self.kpi["estado"][0].setText(texto)
+        self.kpi["estado"][0].setStyleSheet(f"color:{COLORES[peor] if peor != Severidad.INFO else '#2e7d32'};"
+                                            "font-size:15pt;font-weight:700")
+        self.kpi["estado"][1].setText(f"{len(res.alertas)} alerta(s) en total")
+
     def _scroll(self, w):
         sc = QScrollArea()
         sc.setWidgetResizable(True)
         sc.setWidget(w)
         return sc
 
-    # ------------------------------------------------------------ Inst-Valve-Data
+    # ------------------------------------------------------------ 1-Sistema
     def _tab_instalacion(self) -> QWidget:
         cont = QWidget()
         lay = QVBoxLayout(cont)
@@ -728,11 +799,11 @@ class VentanaPrincipal(QMainWindow):
         lay.addWidget(g)
         nota = QLabel("Estos datos definen los diámetros interiores de tubería, los trims compatibles, el límite "
                       "de ruido y las verificaciones de rating, conexión y clase de cierre. Se copian "
-                      "automáticamente a Dim-Valve-Data.")
+                      "automáticamente a 2-Cálculos Válvula.")
         nota.setWordWrap(True)
         nota.setStyleSheet("color:#55606d;font-style:italic;padding:4px")
         lay.addWidget(nota)
-        b = QPushButton("Continuar con Dim-Valve-Data →")
+        b = QPushButton("Continuar con 2-Cálculos Válvula →")
         b.clicked.connect(lambda: self.tabs.setCurrentIndex(1))
         h = QHBoxLayout()
         h.addWidget(b)
@@ -766,7 +837,7 @@ class VentanaPrincipal(QMainWindow):
             except tuberias.ErrorTuberia:
                 self.ed_sch[lado].setText(sch)
 
-    # ------------------------------------------------------------ Dim-Valve-Data
+    # ------------------------------------------------------------ 2-Cálculos Válvula
     def _tab_dimensionamiento(self) -> QWidget:
         cont = QWidget()
         lay = QVBoxLayout(cont)
@@ -798,14 +869,14 @@ class VentanaPrincipal(QMainWindow):
             ed.setFocusPolicy(Qt.NoFocus)
             ed.setStyleSheet(f"background:{FONDO_AUTO}")
             self.ed_tub[lado] = ed
-            self._fila(grid, r, f"Diámetro de tubería de {lado}", ed, "nps", QLabel("desde Inst-Valve-Data")); r += 1
+            self._fila(grid, r, f"Diámetro de tubería de {lado}", ed, "nps", QLabel("desde 1-Sistema")); r += 1
         for lado in ("entrada", "salida"):
             ed = QLineEdit()
             ed.setReadOnly(True)
             ed.setFocusPolicy(Qt.NoFocus)
             ed.setStyleSheet(f"background:{FONDO_AUTO}")
             self.ed_sch[lado] = ed
-            self._fila(grid, r, f"Schedule de tubería de {lado}", ed, "cedula", QLabel("desde Inst-Valve-Data")); r += 1
+            self._fila(grid, r, f"Schedule de tubería de {lado}", ed, "cedula", QLabel("desde 1-Sistema")); r += 1
         self.cb_tamano = self._registrar("tamano", Combo())
         self._fila(grid, r, "Diámetro de válvula", self.cb_tamano, "tamano"); r += 1
         self.cb_trim = self._registrar("trim", Combo())
@@ -889,23 +960,44 @@ class VentanaPrincipal(QMainWindow):
         self.btn_calc.clicked.connect(self.calcular)
         lay.addWidget(self.btn_calc)
 
-        # Resultados
+        # Resultados: tablero beige con indicadores clave y la tabla por caso
         lay.addSpacing(10)
-        lay.addWidget(titulo_seccion("RESULTADOS", VERDE))
+        lay.addWidget(titulo_seccion("RESULTADOS", ACENTO))
+        tablero = QFrame()
+        tablero.setObjectName("tablero")
+        tablero.setStyleSheet(f"#tablero{{background:{FONDO_TABLERO};border:1px solid {BORDE_TABLERO};"
+                              "border-top:none}")
+        tl = QVBoxLayout(tablero)
+        tl.setContentsMargins(12, 12, 12, 12)
+        tl.setSpacing(10)
         self.lbl_resumen = QLabel("Sin cálculo.")
         self.lbl_resumen.setWordWrap(True)
-        self.lbl_resumen.setStyleSheet(f"background:{FONDO_SALIDA};padding:8px;border:1px solid #9cc3a4")
-        lay.addWidget(self.lbl_resumen)
-        g = QGroupBox("Salidas por caso")
+        self.lbl_resumen.setStyleSheet(f"background:white;padding:8px 10px;border:1px solid {BORDE_TABLERO};"
+                                       f"border-left:4px solid {ACENTO};border-radius:4px;color:#1b2a3a")
+        tl.addWidget(self.lbl_resumen)
+        self.kpi: dict[str, tuple[QLabel, QLabel]] = {}
+        fila_kpi = QHBoxLayout()
+        fila_kpi.setSpacing(10)
+        for k, titulo in (("Cv", "CV MÁXIMO REQUERIDO"), ("apertura", "APERTURA"),
+                          ("ruido", "RUIDO MÁXIMO A 1 m"), ("velocidad", "VELOCIDAD MÁX. SALIDA"),
+                          ("estado", "ESTADO")):
+            fila_kpi.addWidget(self._tarjeta_kpi(k, titulo))
+        fila_kpi.addStretch(1)
+        tl.addLayout(fila_kpi)
+        g = QWidget()
         grid = QGridLayout(g)
-        encabezados_casos(grid, primera="Resultado", ancho=ANCHO_SALIDA)
+        grid.setContentsMargins(0, 4, 0, 0)
+        grid.setVerticalSpacing(3)
+        encabezados_casos(grid, primera="Resultado", ancho=ANCHO_SALIDA,
+                          estilo=f"background:{FONDO_ENCABEZADO};color:{ACENTO};border-radius:3px;padding:3px")
         self.salidas: dict[str, FilaSalida] = {}
         self.vis_salidas: list[tuple[list, str]] = []
         r = 1
         for k, et, ay, mag, cif, tipos in SALIDAS:
             if k == "#":
                 sub = QLabel(et)
-                sub.setStyleSheet(f"color:{VERDE};font-weight:700;padding-top:6px")
+                sub.setStyleSheet(f"color:{ACENTO};font-weight:700;padding-top:8px;"
+                                  f"border-bottom:1px solid {BORDE_CELDA}")
                 grid.addWidget(sub, r, 0, 1, 3)
                 self.vis_salidas.append(([sub], tipos))
             else:
@@ -927,7 +1019,8 @@ class VentanaPrincipal(QMainWindow):
         grid.addWidget(w, fs.fila, 0)
         fs.extra.append(w)
         grid.setColumnStretch(8, 1)
-        lay.addWidget(g)
+        tl.addWidget(g)
+        lay.addWidget(tablero)
 
         lay.addWidget(titulo_seccion("ALERTAS", "#8a5a00"))
         sp = QSplitter(Qt.Vertical)
@@ -1054,6 +1147,7 @@ class VentanaPrincipal(QMainWindow):
 
     def _limpiar_resultados(self):
         self.lbl_resumen.setText("Sin cálculo.")
+        self._llenar_kpi()
         self.lista_alertas.clear()
         self.detalle_alerta.clear()
         for fs in self.salidas.values():
@@ -1310,6 +1404,7 @@ class VentanaPrincipal(QMainWindow):
             self.lista_alertas.setCurrentItem(self.lista_alertas.topLevelItem(0))
         self.lbl_resumen.setText("<b style='color:#7d1f9e'>No se pudo calcular: hay datos inválidos. "
                                  "Vea las alertas.</b>")
+        self._llenar_kpi(vaciar=True)
         self.tabs.setCurrentIndex(1)
 
     # ----------------------------------------------------------- mostrar
@@ -1325,6 +1420,7 @@ class VentanaPrincipal(QMainWindow):
             f"Cv máximo requerido: <b>{fmt(max(s['Cv'] for s in res.salidas))}</b> · "
             f"<span style='color:{estado[0]}'><b>{estado[1]}</b></span>")
         self._mostrar_salidas()
+        self._llenar_kpi()
         self.lista_alertas.clear()
         for caso, a in res.alertas:
             inten = ""
@@ -1431,8 +1527,8 @@ class VentanaPrincipal(QMainWindow):
     def _actualizar_vistas(self):
         if self.res is None:
             for v in self.vistas.values():
-                v.setHtml("<p style='color:#55606d'>Todavía no hay cálculo. Complete Inst-Valve-Data y "
-                          "Dim-Valve-Data y presione <b>Calcular</b>.</p>")
+                v.setHtml("<p style='color:#55606d'>Todavía no hay cálculo. Complete 1-Sistema y "
+                          "2-Cálculos Válvula y presione <b>Calcular</b>.</p>")
             return
         img = self._imagen()
         for codigo, v in self.vistas.items():
@@ -1537,6 +1633,7 @@ class VentanaPrincipal(QMainWindow):
         self.res = None
         self.ruta = None
         self.lbl_resumen.setText("Sin cálculo.")
+        self._llenar_kpi()
         self.lista_alertas.clear()
         for fs in self.salidas.values():
             for c in fs.celdas:
@@ -1546,7 +1643,7 @@ class VentanaPrincipal(QMainWindow):
     def guardar(self, como: bool = False):
         ruta = self.ruta
         if como or not ruta:
-            ruta, _ = QFileDialog.getSaveFileName(self, "Guardar proyecto", "", "Proyecto Valveselect (*.valvula)")
+            ruta, _ = QFileDialog.getSaveFileName(self, "Guardar proyecto", "", "Proyecto N25 Valves Sizing (*.valvula)")
         if ruta:
             if not ruta.endswith(".valvula"):
                 ruta += ".valvula"
@@ -1556,7 +1653,7 @@ class VentanaPrincipal(QMainWindow):
             self.statusBar().showMessage(f"Proyecto guardado: {os.path.basename(ruta)}")
 
     def abrir(self):
-        ruta, _ = QFileDialog.getOpenFileName(self, "Abrir proyecto", "", "Proyecto Valveselect (*.valvula)")
+        ruta, _ = QFileDialog.getOpenFileName(self, "Abrir proyecto", "", "Proyecto N25 Valves Sizing (*.valvula)")
         if ruta:
             with open(ruta, encoding="utf-8") as fh:
                 s = json.load(fh)

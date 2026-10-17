@@ -18,7 +18,7 @@ from .modelos import Severidad
 from .proyecto import FUGA_CIERRE, REF_CIERRE, Resultado
 
 EMPRESA = "INSTRUMATIK S.A.S."
-PRODUCTO = "Valveselect-N25"
+PRODUCTO = "N25 Valves Sizing"
 # Texto de marca de agua de la licencia de demostración (None con licencia comercial)
 MARCA_AGUA: str | None = None
 NOMBRE_SEV = {Severidad.INFO: "Información", Severidad.ADVERTENCIA: "Advertencia",

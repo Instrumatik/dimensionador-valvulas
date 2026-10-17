@@ -7,7 +7,10 @@ código de la alerta (fenómeno).
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+
+from .ayuda_guia import GUIA
 
 
 @dataclass
@@ -617,9 +620,9 @@ _e("identificacion", "Identificación del proyecto",
    "el encabezado de la memoria de cálculo, la hoja de datos y el informe técnico.</p>",
    relacionadas=["entregables"], categoria="Conceptos")
 _e("flujo_trabajo", "Flujo de trabajo",
-   "<p>1. En <b>Inst-Valve-Data</b> cargue los datos de instalación: estilo, rating, tuberías, "
+   "<p>1. En <b>1-Sistema</b> cargue los datos de instalación: estilo, rating, tuberías, "
    "conexión, condiciones de diseño, clase de cierre y ruido permitido.</p>"
-   "<p>2. En <b>Dim-Valve-Data</b> cargue las condiciones de operación del líquido (mínimo, normal "
+   "<p>2. En <b>2-Cálculos Válvula</b> cargue las condiciones de operación del líquido (mínimo, normal "
    "y máximo) y revise los factores típicos del trim. Los diámetros y cédulas de tubería se copian "
    "solos desde los datos de instalación.</p><p>3. Presione <b>Calcular</b>. Los resultados aparecen "
    "debajo de las entradas, en celdas verdes, y se actualizan la memoria de cálculo, la hoja de "
@@ -813,7 +816,7 @@ _e("trim_ruido", "Trim para ruido aerodinámico",
 _e("nivel_trim", "Nivel de trim de bajo ruido requerido",
    "<p>El programa repite el cálculo de ruido con el trim estándar y con cada nivel de jaula "
    "multiorificio, e informa el primero que deja el ruido de la válvula a 1 m por debajo del ruido "
-   "permitido (Inst-Valve-Data). «No requerido» significa que el trim estándar ya cumple.</p>",
+   "permitido (1-Sistema). «No requerido» significa que el trim estándar ya cumple.</p>",
    relacionadas=["trim_ruido", "limite_ruido"], categoria="Resultados")
 _e("ruido_componentes", "Ruido del trim y de la salida",
    "<p>IEC 60534-8-3 separa dos fuentes:</p><ul><li><b>Trim</b>: el chorro que sale de la vena "
@@ -867,11 +870,57 @@ def obtener(clave: str) -> EntradaAyuda | None:
     return None
 
 
+# Colores de la guía: beige para el bloque didáctico, azul claro para los umbrales
+_C_GUIA, _C_UMBRAL, _C_ACENTO, _C_TEXTO2 = "#f7f2e8", "#e8f1fa", "#3d5a80", "#6b6355"
+
+
+def _esc(t: str) -> str:
+    """Escapa «<» y «&» del texto, salvo las etiquetas de subíndice y superíndice."""
+    t = t.replace("&", "&amp;").replace("<", "&lt;")
+    return re.sub(r"&lt;(/?su[bp])>", r"<\1>", t)
+
+
+def _guia_html(g: dict) -> str:
+    g = {k: [_esc(x) for x in v] if isinstance(v, list) else _esc(v) for k, v in g.items()}
+
+    def bloque(titulo, cuerpo):
+        return (f"<p style='margin:8px 0 2px 0;color:{_C_ACENTO};font-weight:700'>{titulo}</p>"
+                f"<p style='margin:0'>{cuerpo}</p>")
+
+    def caja(color, titulo, cuerpo, borde=_C_ACENTO):
+        return (f"<table width='100%' cellspacing='0' cellpadding='7' style='margin-top:8px'><tr>"
+                f"<td width='4' bgcolor='{borde}'></td><td bgcolor='{color}'>"
+                f"<b style='color:{_C_ACENTO}'>{titulo}</b><br>{cuerpo}</td></tr></table>")
+
+    lista = lambda xs: "".join(f"<li style='margin-bottom:2px'>{x}</li>" for x in xs)
+    partes = [bloque("¿Qué es?", g["que_es"]), bloque("¿Para qué sirve en el cálculo?", g["que_hace"]),
+              bloque("¿Qué nos dice su valor?", g["que_indica"]),
+              caja(_C_UMBRAL, "Valores umbrales", g["umbrales"])]
+    lados = [("▼ Por debajo del umbral", g["por_debajo"]), ("▲ Por encima del umbral", g["por_encima"])]
+    lados = [(t, x) for t, x in lados if not x.startswith("No aplica")]
+    if lados:
+        celdas = "".join(f"<td width='{100 // len(lados)}%' valign='top' bgcolor='white'>"
+                         f"<b style='color:{_C_ACENTO}'>{t}</b><br>{x}</td>" for t, x in lados)
+        partes.append(f"<table width='100%' cellspacing='6' cellpadding='7' style='margin-top:4px'><tr>{celdas}"
+                      "</tr></table>")
+    partes += [bloque("Cálculos que afecta", " · ".join(g["afecta"])),
+              bloque("Recomendaciones", f"<ul style='margin-top:0'>{lista(g['recomendaciones'])}</ul>"),
+              caja("white", "Ejemplo", g["ejemplo"], borde="#c9a96e")]
+    return (f"<table width='100%' cellspacing='0' cellpadding='10' bgcolor='{_C_GUIA}' "
+            f"style='border:1px solid #e2d8c4'><tr><td>"
+            f"<p style='margin:0 0 4px 0;color:{_C_TEXTO2};font-size:85%;font-weight:700;letter-spacing:1px'>"
+            f"GUÍA PARA APRENDER</p>{''.join(partes)}</td></tr></table>")
+
+
 def html(clave: str) -> str:
     e = obtener(clave)
     if e is None:
         return f"<h2>{clave}</h2><p>Sin ayuda disponible.</p>"
-    partes = [f"<h2>{e.titulo}</h2>", e.texto]
+    partes = [f"<h2 style='color:{_C_ACENTO}'>{e.titulo}</h2>"]
+    g = GUIA.get(clave)
+    if g:
+        partes += [_guia_html(g), f"<h3 style='color:{_C_ACENTO};margin-top:14px'>Fundamento técnico</h3>"]
+    partes.append(e.texto)
     if e.formula:
         partes.append(f"<h4>Fórmula</h4><p style='font-family:monospace;font-size:110%'>{e.formula}</p>")
     if e.tipicos:

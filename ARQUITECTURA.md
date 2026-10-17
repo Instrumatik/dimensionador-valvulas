@@ -1,4 +1,4 @@
-# Valveselect-N25 (INSTRUMATIK S.A.S.): plan y arquitectura
+# N25 Valves Sizing (INSTRUMATIK S.A.S.): plan y arquitectura
 
 Software independiente de marcas para EPC, plantas industriales e ingenieros
 revisores. Todo en español, sin "caja negra": cada dato tiene ayuda y cada
@@ -33,7 +33,7 @@ dimensionador/
   entregables.py    Memoria de cálculo, hoja de datos e informe técnico (HTML y Word .docx)
   grafico.py        Gráfico de Cv vs. apertura (PNG con Qt)
   ayuda.py          Textos de ayuda en español por dato, coeficiente, fenómeno y opción
-  gui/ventana.py    Interfaz PySide6: Inst-Valve-Data, Dim-Valve-Data y vistas de entregables
+  gui/ventana.py    Interfaz PySide6: 1-Sistema, 2-Cálculos Válvula y vistas de entregables
 tests/              Validación contra ejemplos de las normas
 ```
 
@@ -47,7 +47,7 @@ tests/              Validación contra ejemplos de las normas
 | 3. Ruido IEC 60534-8-3 (gases) e IEC 60534-8-4 (líquidos) | Hecho y validado |
 | 4. Bifásico (método de suma de fases), ASME B16.34 grupos 1.1 y 2.2 con materiales ASTM | Hecho |
 | 5. Ejecutables Windows, macOS y Linux por GitHub Actions, con prueba de cálculo y de ventana | Hecho |
-| 6. Versión 2 (solo líquidos): flujo Inst-Valve-Data → Dim-Valve-Data, tuberías por cédula, Kc/Kapp, entregables Word e impresión, marca Valveselect-N25 | Hecho, en validación |
+| 6. Versión 2 (solo líquidos): flujo 1-Sistema → 2-Cálculos Válvula, tuberías por cédula, Kc/Kapp, entregables Word e impresión, marca N25 Valves Sizing | Hecho, en validación |
 
 ## Próximos pasos sugeridos
 

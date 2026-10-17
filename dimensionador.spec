@@ -26,8 +26,8 @@ a = Analysis(
     noarchive=False,
 )
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="Valveselect-N25",
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="N25-Valves-Sizing",
           console=False, icon=None)
-coll = COLLECT(exe, a.binaries, a.datas, name="Valveselect-N25")
+coll = COLLECT(exe, a.binaries, a.datas, name="N25-Valves-Sizing")
 if sys.platform == "darwin":
-    app = BUNDLE(coll, name="Valveselect-N25.app", bundle_identifier="com.instrumatik.valveselect")
+    app = BUNDLE(coll, name="N25-Valves-Sizing.app", bundle_identifier="com.instrumatik.n25valvessizing")

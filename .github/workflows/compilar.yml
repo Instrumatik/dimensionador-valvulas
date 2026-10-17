@@ -32,9 +32,9 @@ jobs:
         timeout-minutes: 5
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "macOS" ]; then EXE=dist/Valveselect-N25.app/Contents/MacOS/Valveselect-N25;
-          elif [ "$RUNNER_OS" = "Windows" ]; then EXE=dist/Valveselect-N25/Valveselect-N25.exe;
-          else EXE=dist/Valveselect-N25/Valveselect-N25; fi
+          if [ "$RUNNER_OS" = "macOS" ]; then EXE=dist/N25-Valves-Sizing.app/Contents/MacOS/N25-Valves-Sizing;
+          elif [ "$RUNNER_OS" = "Windows" ]; then EXE=dist/N25-Valves-Sizing/N25-Valves-Sizing.exe;
+          else EXE=dist/N25-Valves-Sizing/N25-Valves-Sizing; fi
           find dist -path "*plugins/platforms*" -type f
           $EXE --prueba
           # Abre la ventana real (complemento de plataforma de Qt) y la cierra sola
@@ -43,16 +43,16 @@ jobs:
           echo "Ventana abierta y cerrada correctamente"
       - uses: actions/upload-artifact@v4
         with:
-          name: Valveselect-N25-${{ runner.os }}
+          name: N25-Valves-Sizing-${{ runner.os }}
           path: dist/
       - name: Compilar el generador de códigos (uso interno, solo Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           python -m PyInstaller --noconfirm --distpath dist_generador generador.spec
-          dist_generador/Generador-codigos-Valveselect/Generador-codigos-Valveselect.exe --prueba-gui
+          dist_generador/Generador-codigos-N25/Generador-codigos-N25.exe --prueba-gui
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:
-          name: Generador-codigos-Valveselect-Windows
+          name: Generador-codigos-N25-Windows
           path: dist_generador/

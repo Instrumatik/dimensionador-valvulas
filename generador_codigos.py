@@ -1,4 +1,4 @@
-"""Generador de códigos de licencia de Valveselect-N25 (uso exclusivo de INSTRUMATIK S.A.S.).
+"""Generador de códigos de licencia de N25 Valves Sizing (uso exclusivo de INSTRUMATIK S.A.S.).
 
 Necesita el archivo de clave privada (clave_privada_valveselect.pem). Cada código generado se
 anota en «registro_codigos.csv», en la misma carpeta que la clave.
@@ -20,7 +20,7 @@ from dimensionador import licencia as L
 class Generador(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Generador de códigos · Valveselect-N25")
+        self.setWindowTitle("Generador de códigos · N25 Valves Sizing")
         self.resize(640, 560)
         self.cfg = QSettings("INSTRUMATIK", "Generador-Valveselect")
         lay = QVBoxLayout(self)
@@ -126,7 +126,7 @@ class Generador(QWidget):
         hasta = f"hasta el {vence:%d/%m/%Y}" if vence else "sin vencimiento"
         self.txt.setPlainText(
             f"Hola {nombre}:\n\n"
-            f"Este es tu código de {L.NOMBRE_TIPO[tipo].lower()} de Valveselect-N25, válido {hasta}:\n\n"
+            f"Este es tu código de {L.NOMBRE_TIPO[tipo].lower()} de N25 Valves Sizing, válido {hasta}:\n\n"
             f"{codigo}\n\n"
             "Al abrir el programa por primera vez, pega el código completo en la ventana de activación.\n"
             + ("Los documentos que generes llevarán una marca de agua de demostración. "
@@ -144,7 +144,7 @@ class Generador(QWidget):
             return
         para = self.ed_correo.text().strip()
         enc = lambda t: QUrl.toPercentEncoding(t).data().decode()
-        url = QUrl(f"mailto:{enc(para)}?subject={enc('Tu código de Valveselect-N25')}&body={enc(texto)}")
+        url = QUrl(f"mailto:{enc(para)}?subject={enc('Tu código de N25 Valves Sizing')}&body={enc(texto)}")
         if not QDesktopServices.openUrl(url):
             QApplication.clipboard().setText(texto)
             QMessageBox.information(self, "Abrir en el correo",
