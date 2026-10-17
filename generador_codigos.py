@@ -49,10 +49,13 @@ class Generador(QWidget):
         self.ed_contacto.setPlaceholderText("Correo para comentarios de los usuarios")
         form.addRow("Nombre del usuario", self.ed_nombre)
         form.addRow("Empresa", self.ed_empresa)
+        self.ed_correo = QLineEdit()
+        self.ed_correo.setPlaceholderText("Correo del ingeniero (para enviarle el código)")
+        form.addRow("Correo del usuario", self.ed_correo)
         form.addRow("Tipo de licencia", self.cb_tipo)
         form.addRow("Validez", self.sp_dias)
         form.addRow("Fecha de emisión", self.de_emision)
-        form.addRow("Contacto", self.ed_contacto)
+        form.addRow("Tu correo para comentarios", self.ed_contacto)
         lay.addLayout(form)
         b = QPushButton("Generar código")
         b.clicked.connect(self.generar)
@@ -61,9 +64,14 @@ class Generador(QWidget):
         self.txt = QPlainTextEdit()
         self.txt.setReadOnly(True)
         lay.addWidget(self.txt)
+        fila = QHBoxLayout()
         b = QPushButton("Copiar mensaje")
         b.clicked.connect(lambda: QApplication.clipboard().setText(self.txt.toPlainText()))
-        lay.addWidget(b)
+        fila.addWidget(b)
+        b = QPushButton("Abrir en el correo")
+        b.clicked.connect(self.abrir_correo)
+        fila.addWidget(b)
+        lay.addLayout(fila)
         self._cambio_tipo()
 
     def _cambio_tipo(self):
@@ -112,9 +120,9 @@ class Generador(QWidget):
         with open(registro, "a", newline="", encoding="utf-8-sig") as f:
             w = csv.writer(f, delimiter=";")
             if nuevo:
-                w.writerow(["Fecha", "Id", "Tipo", "Nombre", "Empresa", "Vence", "Código"])
+                w.writerow(["Fecha", "Id", "Tipo", "Nombre", "Empresa", "Vence", "Código", "Correo"])
             w.writerow([date.today().isoformat(), lic.id, L.NOMBRE_TIPO[tipo], lic.nombre, lic.empresa,
-                        vence.isoformat() if vence else "sin vencimiento", codigo])
+                        vence.isoformat() if vence else "sin vencimiento", codigo, self.ed_correo.text().strip()])
         hasta = f"hasta el {vence:%d/%m/%Y}" if vence else "sin vencimiento"
         self.txt.setPlainText(
             f"Hola {nombre}:\n\n"
@@ -125,6 +133,23 @@ class Generador(QWidget):
                "Tus comentarios nos ayudan a validar el software: puedes enviarlos desde "
                "Ayuda > Enviar comentarios.\n" if tipo == "demo" else "")
             + "\nINSTRUMATIK S.A.S.")
+
+
+    def abrir_correo(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        texto = self.txt.toPlainText()
+        if not texto:
+            QMessageBox.information(self, "Abrir en el correo", "Primero genere un código.")
+            return
+        para = self.ed_correo.text().strip()
+        enc = lambda t: QUrl.toPercentEncoding(t).data().decode()
+        url = QUrl(f"mailto:{enc(para)}?subject={enc('Tu código de Valveselect-N25')}&body={enc(texto)}")
+        if not QDesktopServices.openUrl(url):
+            QApplication.clipboard().setText(texto)
+            QMessageBox.information(self, "Abrir en el correo",
+                                    "No hay un programa de correo configurado en este equipo. El mensaje se "
+                                    "copió al portapapeles: péguelo en su correo web o en WhatsApp.")
 
 
 def main():
