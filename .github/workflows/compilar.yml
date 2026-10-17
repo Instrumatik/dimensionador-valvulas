@@ -68,7 +68,7 @@ jobs:
           path: artefactos
       - name: Armar el paquete
         run: |
-          VER=$(python3 -c "import re;print(re.search(r'\"(.+)\"', open('dimensionador/__init__.py').read()).group(1))")
+          VER=$(grep -oP '__version__ = "\K[^"]+' dimensionador/__init__.py)
           P="N25-Valves-Sizing-v$VER"
           mkdir -p "$P/1_Programa" "$P/2_Generador_de_codigos_USO_INTERNO" "$P/3_Kit_de_validacion"
           for so in Windows macOS Linux; do
