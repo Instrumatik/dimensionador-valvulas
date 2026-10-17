@@ -528,7 +528,8 @@ def _salidas_compresible(doc: Documento, res: Resultado, pr: Presentacion, compl
                _fila("Velocidad aguas abajo", "", [x["v2"] for x in s], pr, "velocidad", 3),
                _fila("Velocidad del sonido aguas arriba", "", [x["c1"] for x in s], pr, "velocidad"),
                _fila("Velocidad del sonido en la salida", "", [x["c_valvula"] for x in s], pr, "velocidad"),
-               _fila("Velocidad del sonido aguas abajo", "", [x["c2"] for x in s], pr, "velocidad")]
+               _fila("Velocidad del sonido aguas abajo", "", [x["c2"] for x in s], pr, "velocidad"),
+               _fila("Área de salida de la válvula usada", "", [x["A_salida"] for x in s], pr, "area", 4)]
         doc.h3("Velocidades")
         doc.tabla(vel, enc, resaltar_col=2)
 

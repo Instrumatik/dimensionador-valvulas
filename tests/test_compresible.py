@@ -138,3 +138,17 @@ def test_gas_con_fluido_de_biblioteca_completa_propiedades():
     assert s["M"] == pytest.approx(16.04, abs=0.01)
     assert s["T2"] < 300           # efecto Joule-Thomson del metano
     assert 0.9 < s["Z1"] < 1.0
+
+
+def test_salida_sonica_se_limita_a_mach_1_y_avisa():
+    def calc(A):
+        r = calcular(Identificacion(), Instalacion(nps_entrada=4, nps_salida=4),
+                     Dimensionamiento([_co2()], None, TRIM, nps_valvula=4, tipo="gas",
+                                      ruido=RuidoAerodinamico(area_salida=A)))
+        return r.salidas[0], {a.codigo for _, a in r.alertas}
+    s, cod = calc(None)
+    assert s["Ma_valvula"] < 1 and not {"salida_sonica", "area_salida_rango"} & cod
+    # Un área en in² ingresada como mm² (12,57 en vez de 8107): Mach 1, v = c y dos alertas
+    s, cod = calc(12.57)
+    assert s["Ma_valvula"] == pytest.approx(1.0) and s["v_valvula"] == pytest.approx(s["c_valvula"])
+    assert {"salida_sonica", "area_salida_rango"} <= cod

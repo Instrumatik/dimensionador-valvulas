@@ -443,6 +443,22 @@ _e("mach_salida", "Velocidad alta de gas a la salida",
    "Se corrige con un diámetro de válvula o de salida mayor, o repartiendo la caída de presión.</p>",
    referencia="IEC 60534-8-3", relacionadas=["gas_bloqueado"], categoria="Fenómenos")
 
+_e("salida_sonica", "Flujo sónico en la salida de la válvula",
+   "<p>Un gas no puede superar la velocidad del sonido en la sección más estrecha por la que "
+   "pasa. Si con la presión P2 y el área de salida la velocidad calculada resulta mayor que la "
+   "del sonido, la salida de la válvula se bloquea a Mach 1: la presión en la salida sube por "
+   "encima de P2 y el gas termina de expandirse en la tubería, con ruido y vibración intensos. "
+   "El programa informa entonces Mach 1 y v = c, e indica el área mínima para una salida "
+   "subsónica. Si el área fue ingresada a mano, verifique primero su unidad.</p>",
+   referencia="IEC 60534-8-3", relacionadas=["mach_salida", "area_salida"], categoria="Fenómenos")
+
+_e("area_salida_rango", "Área de salida fuera del rango esperado",
+   "<p>El área de salida ingresada difiere mucho del área del diámetro nominal de la válvula "
+   "(menos de 0,2 o más de 1,6 veces). Suele indicar una unidad equivocada, por ejemplo un "
+   "valor en in² ingresado con la unidad mm². El área afecta la velocidad y el Mach en la "
+   "salida de la válvula y el ruido aerodinámico.</p>",
+   relacionadas=["area_salida", "salida_sonica"], categoria="Fenómenos")
+
 _e("velocidad_liquido", "Velocidad alta de líquido",
    "<p>Velocidades elevadas en la salida de la válvula causan erosión, vibración y golpe de "
    "ariete al cerrar. Referencias usuales: hasta 9 m/s (30 ft/s) para líquidos limpios en la "

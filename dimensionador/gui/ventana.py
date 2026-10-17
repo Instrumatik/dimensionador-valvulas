@@ -463,6 +463,7 @@ SALIDAS = [
     ("c1", "Vel. del sonido aguas arriba", "velocidad_sonido", "velocidad", 4, "GVS"),
     ("c_valvula", "Vel. del sonido salida de válvula", "velocidad_sonido", "velocidad", 4, "GVS"),
     ("c2", "Vel. del sonido aguas abajo", "velocidad_sonido", "velocidad", 4, "GVS"),
+    ("A_salida", "Área de salida de la válvula usada", "area_salida", "area", 4, "GVS"),
 ]
 # Claves de resultado que se muestran con otro nombre (filas repetidas en otra sección)
 ALIAS_SALIDA = {"Lp_g": "Lp", "v1_g": "v1", "v2_g": "v2"}
@@ -820,11 +821,19 @@ class VentanaPrincipal(QMainWindow):
                                        ancho=420), "GVS")); r += 1
         self.f_Rn = FilaUnidad("Rn", "Distancia para ruido Rn", ("distancia",), grid, r, self.abrir_ayuda, 1, "Rn")
         self.f_Rn.edits[0].setText("1")
-        self.vis_g1.append((self.f_Rn.widgets(), "GVS")); r += 1
+        nota_rn = QLabel("Para todas las condiciones")
+        nota_rn.setStyleSheet("color:#555")
+        grid.addWidget(nota_rn, r, 4)
+        self.vis_g1.append((self.f_Rn.widgets() + [nota_rn], "GVS")); r += 1
         self.f_area = FilaUnidad("area_salida", "Área de salida de la válvula", ("area",), grid, r, self.abrir_ayuda,
                                  1, "area_salida")
         self.f_area.edits[0].setPlaceholderText("nominal")
-        self.vis_g1.append((self.f_area.widgets(), "GVS")); r += 1
+        self.f_area.edits[0].setToolTip("En blanco: área del diámetro nominal de la válvula. "
+                                         "Verifique la unidad seleccionada a la izquierda.")
+        nota_area = QLabel("Para todas las condiciones")
+        nota_area.setStyleSheet("color:#555")
+        grid.addWidget(nota_area, r, 4)
+        self.vis_g1.append((self.f_area.widgets() + [nota_area], "GVS")); r += 1
         grid.setColumnStretch(4, 1)
         lay.addWidget(g)
 

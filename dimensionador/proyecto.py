@@ -578,9 +578,18 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
     inf = dimensionar(casos, sel)
 
     d_mm = inf.d_pulg * 25.4
-    A_out = dim.ruido.area_salida or _area(d_mm) * 1e6
+    A_nom = _area(d_mm) * 1e6
+    A_out = dim.ruido.area_salida or A_nom
     d_out = math.sqrt(4 * A_out / math.pi)
     salidas, alertas = [], []
+    if dim.ruido.area_salida and not 0.2 <= A_out / A_nom <= 1.6:
+        alertas.append(("General", Alerta(
+            "area_salida_rango", Severidad.ADVERTENCIA, "Área de salida fuera del rango esperado",
+            f"El área de salida ingresada ({_n(A_out, 0)} mm² = {_n(A_out / 645.16, 2)} in²) es "
+            f"{_n(A_out / A_nom, 2)} veces el área del diámetro nominal de la válvula "
+            f"({_n(A_nom, 0)} mm² = {_n(A_nom / 645.16, 2)} in²). Verifique la unidad seleccionada.",
+            remedios=["Revisar la unidad del área (mm², cm² o in²).",
+                             "Dejar el campo en blanco para usar el área del diámetro nominal."])))
     for c, e, rc in zip(dim.casos, estados, inf.casos):
         r, x = rc.resultado, rc.resultado.extra
         v = replace(inf.valvula, FL=c.FL, Fd=c.Fd, xT=c.xT)
@@ -593,6 +602,32 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
         v1 = Q1 / 3600 / _area(D1)
         v2 = Q2 / 3600 / _area(D2)
         v_out = Q2 / 3600 / (A_out * 1e-6)
+        sonico = v_out > c2
+        if sonico:
+            # Un gas no supera la velocidad del sonido en la sección mínima: la salida se bloquea
+            # a Mach 1 y la presión en ella sube por encima de P2.
+            A_min = Q2 / 3600 / c2 * 1e6
+            al_sonico = Alerta(
+                "salida_sonica", Severidad.CRITICA, "Flujo sónico en la salida de la válvula",
+                f"Con P2 y el área de salida usada ({_n(A_out, 0)} mm²) la velocidad sería "
+                f"{_n(v_out, 0)} m/s, mayor que la del sonido ({_n(c2, 0)} m/s). La salida queda bloqueada "
+                f"a Mach 1 y se informa v = c. Área mínima para salida subsónica: {_n(A_min, 0)} mm² "
+                f"({_n(A_min / 645.16, 2)} in²).", 100.0, "severa",
+                ["Verificar el área de salida y su unidad.",
+                 "Seleccionar una válvula de mayor diámetro o con salida expandida.",
+                 "Repartir la caída de presión en etapas."],
+                "IEC 60534-8-3 (Mach en la salida de la válvula ≤ 1)")
+            v_out = c2
+        tub_sonica = v2 > c2
+        if tub_sonica:
+            al_tub = Alerta(
+                "salida_sonica", Severidad.CRITICA, "Flujo sónico en la tubería aguas abajo",
+                f"Con P2 la velocidad en la tubería de salida sería {_n(v2, 0)} m/s, mayor que la del sonido "
+                f"({_n(c2, 0)} m/s): la tubería no puede conducir el caudal a esa presión. Se informa Mach 1.",
+                100.0, "severa", ["Aumentar el diámetro de la tubería aguas abajo.",
+                                  "Revisar el caudal y la presión de salida."],
+                "IEC 60534-8-3")
+            v2 = c2
         FL_eff = FLP / r.FP
         # Ruido con el trim elegido y nivel mínimo de trim de bajo ruido que cumple el límite
         niveles = {}
@@ -614,6 +649,10 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
             r.memoria.agregar("—", "Predicción de ruido " + ruido.REF8_3, float("nan"))
             r.memoria.pasos.extend(rr["memoria"].pasos)
         al += CG.alertas_velocidad(v_out / c2, v1 / c1, v2 / c2, dim.tipo)
+        if sonico:
+            al = [a for a in al if a.codigo != "mach_salida"] + [al_sonico]
+        if tub_sonica:
+            al.append(al_tub)
         alertas += [(c.nombre, a) for a in al]
         rc.alertas = al
         salidas.append({
