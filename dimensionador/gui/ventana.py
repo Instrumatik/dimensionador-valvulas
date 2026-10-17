@@ -6,7 +6,7 @@ import json
 import os
 
 from PySide6.QtCore import QDate, QLocale, Qt, QUrl
-from PySide6.QtGui import QAction, QColor, QImage, QKeySequence, QShortcut, QTextDocument
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QImage, QKeySequence, QShortcut, QTextDocument
 from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEdit, QDialog, QFileDialog, QFrame, QGridLayout,
                                QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
                                QMainWindow, QMessageBox, QPushButton, QScrollArea, QSizePolicy,
@@ -625,6 +625,7 @@ class VentanaPrincipal(QMainWindow):
         for codigo, titulo in docs:
             self._accion(mw, titulo + "…", lambda _=False, c=codigo: self.exportar_word(c))
             self._accion(mp, titulo + "…", lambda _=False, c=codigo: self.imprimir(c))
+        self._accion(ent, "Selección de trim y manual (PDF)…", self.exportar_manual_trim)
         m.addSeparator()
         self._accion(m, "Salir", self.close, QKeySequence.Quit)
         mu = mb.addMenu("&Unidades")
@@ -633,6 +634,7 @@ class VentanaPrincipal(QMainWindow):
         ma = mb.addMenu("A&yuda")
         self._accion(ma, "Flujo de trabajo", lambda: self.ayuda.mostrar("flujo_trabajo"))
         self._accion(ma, "Índice de ayuda", lambda: self.ayuda.mostrar("kv_cv"))
+        self._accion(ma, "Manual de selección de trim (PDF)…", self.exportar_manual_trim)
         ma.addSeparator()
         self._accion(ma, "Enviar comentarios…", self.enviar_comentarios)
         self._accion(ma, "Licencia…", self.ver_licencia)
@@ -707,8 +709,13 @@ class VentanaPrincipal(QMainWindow):
             valor.setText("—")
             valor.setStyleSheet("color:#1f3550;font-size:15pt;font-weight:700")
             nota.setText("")
+        self.lbl_trim_rec.setText("")
         if res is None or vaciar:
             return
+        from .. import seleccion_trim
+        sel = seleccion_trim.seleccionar(res)
+        self.lbl_trim_rec.setText(f"<b>Trim recomendado:</b> {_html.escape(sel.trim)} "
+                                  f"<span style='color:#5b6b7d'>(caso más exigente: {_html.escape(sel.caso_critico.caso)})</span>")
         pr = self.presentacion()
         nombres = [rc.caso.nombre for rc in res.informe.casos]
         sal = res.salidas
@@ -999,6 +1006,16 @@ class VentanaPrincipal(QMainWindow):
             fila_kpi.addWidget(self._tarjeta_kpi(k, titulo))
         fila_kpi.addStretch(1)
         tl.addLayout(fila_kpi)
+        fila_trim = QHBoxLayout()
+        self.lbl_trim_rec = QLabel("")
+        self.lbl_trim_rec.setWordWrap(True)
+        self.lbl_trim_rec.setStyleSheet("color:#1b2a3a")
+        b = QPushButton("Selección de trim y manual (PDF)…")
+        b.setToolTip("Genera un PDF con la selección de trim para este cálculo y el manual técnico completo")
+        b.clicked.connect(lambda: self.exportar_manual_trim())
+        fila_trim.addWidget(self.lbl_trim_rec, 1)
+        fila_trim.addWidget(b)
+        tl.addLayout(fila_trim)
         g = QWidget()
         grid = QGridLayout(g)
         grid.setContentsMargins(0, 4, 0, 0)
@@ -1556,6 +1573,22 @@ class VentanaPrincipal(QMainWindow):
             QMessageBox.information(self, "Sin cálculo", "Primero realice un cálculo.")
             return False
         return True
+
+    def exportar_manual_trim(self, ruta: str | None = None):
+        """PDF del manual de selección de trim; con un cálculo hecho, empieza por la selección de esta válvula."""
+        from .. import manual_trim
+        base = (self.res.ident.tag or "valvula").replace("/", "-").replace("\\", "-") if self.res else ""
+        nombre = f"{base}_seleccion_de_trim.pdf" if base else "Manual_seleccion_de_trim.pdf"
+        if not ruta:
+            ruta, _ = QFileDialog.getSaveFileName(self, "Guardar manual de selección de trim", nombre, "PDF (*.pdf)")
+        if not ruta:
+            return
+        if not ruta.lower().endswith(".pdf"):
+            ruta += ".pdf"
+        manual_trim.exportar_pdf(ruta, self.res, self.presentacion() if self.res else None)
+        self.statusBar().showMessage(f"PDF guardado: {ruta}")
+        QDesktopServices.openUrl(QUrl.fromLocalFile(ruta))
+        return ruta
 
     def exportar_word(self, codigo: str, ruta: str | None = None):
         if not self._hay_calculo():

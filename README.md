@@ -41,6 +41,15 @@ python -m dimensionador         # abre el programa
 * macOS / Linux local: `./compilar.sh`.
 * `N25-Valves-Sizing --prueba` verifica el ejecutable con el ejemplo 1 de IEC 60534-2-1.
 
+## Selección de trim
+
+Con cada cálculo el tablero de resultados muestra el trim recomendado (estándar, jaula caracterizada,
+jaula de 60 o 120 orificios, multietapa con número orientativo de etapas, o angular para flashing).
+«Selección de trim y manual (PDF)…» (en el tablero, en Inicio > Entregables o en Ayuda) genera un PDF
+con el razonamiento para la válvula calculada y el manual técnico completo de selección de trim. Los
+criterios están en `dimensionador/seleccion_trim.py` y el texto del manual en
+`dimensionador/manual_trim_texto.py`.
+
 ## Licencias y demo
 
 * Al abrirse, el programa pide un código de licencia (`VS1-…`) firmado con la clave privada de
