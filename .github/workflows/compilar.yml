@@ -56,3 +56,31 @@ jobs:
         with:
           name: Generador-codigos-N25-Windows
           path: dist_generador/
+
+  # Un solo paquete con los programas, el generador de códigos y el kit de validación
+  paquete:
+    needs: compilar
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefactos
+      - name: Armar el paquete
+        run: |
+          VER=$(python3 -c "import re;print(re.search(r'\"(.+)\"', open('dimensionador/__init__.py').read()).group(1))")
+          P="N25-Valves-Sizing-v$VER"
+          mkdir -p "$P/1_Programa" "$P/2_Generador_de_codigos_USO_INTERNO" "$P/3_Kit_de_validacion"
+          for so in Windows macOS Linux; do
+            (cd "artefactos/N25-Valves-Sizing-$so" && zip -qry "../../$P/1_Programa/N25-Valves-Sizing-$so.zip" .)
+          done
+          (cd artefactos/Generador-codigos-N25-Windows && zip -qry "../../$P/2_Generador_de_codigos_USO_INTERNO/Generador-codigos-N25-Windows.zip" .)
+          cp -r kit_validacion/* "$P/3_Kit_de_validacion/"
+          cp README.md "$P/LEEME_tecnico.md"
+          cp distribucion/LEEME.txt "$P/LEEME.txt"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          echo "P=$P" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Paquete-completo-${{ env.P }}
+          path: ${{ env.P }}/

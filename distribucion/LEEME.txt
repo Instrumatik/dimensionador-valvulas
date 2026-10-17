@@ -1,0 +1,21 @@
+N25 VALVES SIZING - INSTRUMATIK S.A.S.
+Paquete completo de la versión
+
+1_Programa
+   N25-Valves-Sizing-Windows.zip   Descomprimir y abrir N25-Valves-Sizing\N25-Valves-Sizing.exe
+   N25-Valves-Sizing-macOS.zip     Descomprimir y abrir N25-Valves-Sizing.app
+   N25-Valves-Sizing-Linux.zip     Descomprimir y ejecutar N25-Valves-Sizing/N25-Valves-Sizing
+   No requiere instalación. Al abrirlo por primera vez pide el código de licencia (VS1-...).
+
+2_Generador_de_codigos_USO_INTERNO
+   Generador-codigos-N25-Windows.zip
+   Solo para INSTRUMATIK. Necesita la clave privada (.pem), que NO forma parte de este paquete
+   y nunca debe compartirse. No entregar esta carpeta a los usuarios.
+
+3_Kit_de_validacion
+   Guía del programa de validación (Word y PDF), planilla de comparación y la carpeta «casos»
+   con los proyectos .valvula (en el programa: Inicio > Abrir proyecto).
+   Esta carpeta, junto con el programa, es lo que se entrega a los ingenieros que validan.
+
+LEEME_tecnico.md
+   Descripción técnica del programa, compilación y licencias.

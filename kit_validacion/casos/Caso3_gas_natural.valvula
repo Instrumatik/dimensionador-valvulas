@@ -1,0 +1,243 @@
+{
+ "version": "0.4.1",
+ "sistema": "SI",
+ "campos": {
+  "id_proyecto": "Kit de validación",
+  "id_cliente": "",
+  "id_tag": "CASO-3",
+  "id_servicio": "",
+  "id_documento": "",
+  "id_revision": "0",
+  "id_preparado": "",
+  "id_fecha": "17/10/2026",
+  "cuerpo": "Globo",
+  "rating": "CL300",
+  "nps_entrada": "6\"",
+  "nps_salida": "8\"",
+  "sch_entrada": "40",
+  "sch_salida": "40",
+  "ruido": "85",
+  "conexion": "RF bridada",
+  "cierre": "ANSI Clase IV",
+  "tipo_fluido": "Gas",
+  "fluido": "Metano",
+  "tipo_caudal": "Másico",
+  "tamano": "Automático",
+  "trim": "Globo, obturador contorneado, isoporcentual, flujo tiende a abrir",
+  "caracteristica": "Isoporcentual",
+  "trim_ruido": "Estándar (pasaje único)",
+  "visc_salida": "Dinámica"
+ },
+ "filas": {
+  "caudal": {
+   "unidad": "kg/h",
+   "valores": [
+    "8000",
+    "20000",
+    "30000",
+    "0",
+    ""
+   ]
+  },
+  "P1": {
+   "unidad": "bar g",
+   "valores": [
+    "40",
+    "38",
+    "36",
+    "",
+    ""
+   ]
+  },
+  "P2": {
+   "unidad": "bar g",
+   "valores": [
+    "30",
+    "22",
+    "15",
+    "",
+    ""
+   ]
+  },
+  "T1": {
+   "unidad": "°C",
+   "valores": [
+    "30",
+    "30",
+    "30",
+    "",
+    ""
+   ]
+  },
+  "SG": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "M": {
+   "unidad": "kg/kmol",
+   "valores": [
+    "16,0428",
+    "16,0428",
+    "16,0428",
+    "",
+    ""
+   ]
+  },
+  "rho1": {
+   "unidad": "kg/m³",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "mu": {
+   "unidad": "cP",
+   "valores": [
+    "0,0120492",
+    "0,0120050",
+    "0,0119618",
+    "",
+    ""
+   ]
+  },
+  "gamma": {
+   "unidad": "-",
+   "valores": [
+    "1,33460",
+    "1,33199",
+    "1,32950",
+    "",
+    ""
+   ]
+  },
+  "Z1": {
+   "unidad": "-",
+   "valores": [
+    "0,935934",
+    "0,938896",
+    "0,941880",
+    "",
+    ""
+   ]
+  },
+  "Pv": {
+   "unidad": "bar a",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "xT": {
+   "unidad": "-",
+   "valores": [
+    "0,75",
+    "0,75",
+    "0,75",
+    "",
+    "0,75"
+   ]
+  },
+  "FL": {
+   "unidad": "-",
+   "valores": [
+    "0,9",
+    "0,9",
+    "0,9",
+    "",
+    "0,9"
+   ]
+  },
+  "Fd": {
+   "unidad": "-",
+   "valores": [
+    "0,46",
+    "0,46",
+    "0,46",
+    "",
+    "0,46"
+   ]
+  },
+  "Kc": {
+   "unidad": "-",
+   "valores": [
+    "0,65",
+    "0,65",
+    "0,65",
+    "",
+    "0,65"
+   ]
+  },
+  "T2": {
+   "unidad": "°C",
+   "valores": [
+    "25,9561",
+    "23,4033",
+    "21,1997",
+    "",
+    ""
+   ]
+  },
+  "Z2": {
+   "unidad": "-",
+   "valores": [
+    "0,948298",
+    "0,960043",
+    "0,971247",
+    "",
+    ""
+   ]
+  },
+  "rho2": {
+   "unidad": "kg/m³",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Pc": {
+   "unidad": "bar a",
+   "valores": [
+    ""
+   ]
+  },
+  "P_diseno": {
+   "unidad": "bar g",
+   "valores": [
+    ""
+   ]
+  },
+  "T_diseno": {
+   "unidad": "°C",
+   "valores": [
+    ""
+   ]
+  },
+  "Rn": {
+   "unidad": "m",
+   "valores": [
+    "1"
+   ]
+  },
+  "area_salida": {
+   "unidad": "mm²",
+   "valores": [
+    ""
+   ]
+  }
+ }
+}
