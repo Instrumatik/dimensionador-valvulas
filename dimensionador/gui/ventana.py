@@ -25,12 +25,12 @@ CIERRE = 3                      # índice de la columna Tight Shutoff
 FLUYEN = [0, 1, 2, 4]           # casos con caudal
 USUARIO = "Definido por el usuario"
 AZUL = "#0d3b66"
-# Tablero de resultados: fondo beige claro, celdas blancas y acento azul acero
+# Tablero de resultados: fondo azul claro, celdas blancas y acento azul acero
 ACENTO = "#3d5a80"
-FONDO_TABLERO = "#f7f2e8"
-BORDE_TABLERO = "#e2d8c4"
-BORDE_CELDA = "#d6cab3"
-FONDO_ENCABEZADO = "#ece2cf"
+FONDO_TABLERO = "#eef2f6"
+BORDE_TABLERO = "#d3dce6"
+BORDE_CELDA = "#c5d0dc"
+FONDO_ENCABEZADO = "#dde5ee"
 FONDO_AUTO = "#eef2f6"
 FONDO_NO_APLICA = "#e6e6e6"
 ANCHO_CELDA = 104
@@ -676,11 +676,11 @@ class VentanaPrincipal(QMainWindow):
         v.setContentsMargins(10, 6, 10, 8)
         v.setSpacing(1)
         t = QLabel(titulo)
-        t.setStyleSheet("color:#7a705f;font-size:8pt;font-weight:600;letter-spacing:1px")
+        t.setStyleSheet("color:#5b6b7d;font-size:8pt;font-weight:600;letter-spacing:1px")
         valor = QLabel("—")
         valor.setStyleSheet("color:#1f3550;font-size:15pt;font-weight:700")
         nota = QLabel("")
-        nota.setStyleSheet("color:#7a705f;font-size:8pt")
+        nota.setStyleSheet("color:#5b6b7d;font-size:8pt")
         for w in (t, valor, nota):
             v.addWidget(w)
         self.kpi[clave] = (valor, nota)
@@ -960,7 +960,7 @@ class VentanaPrincipal(QMainWindow):
         self.btn_calc.clicked.connect(self.calcular)
         lay.addWidget(self.btn_calc)
 
-        # Resultados: tablero beige con indicadores clave y la tabla por caso
+        # Resultados: tablero azul claro con indicadores clave y la tabla por caso
         lay.addSpacing(10)
         lay.addWidget(titulo_seccion("RESULTADOS", ACENTO))
         tablero = QFrame()

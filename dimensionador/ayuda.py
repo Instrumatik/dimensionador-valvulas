@@ -870,8 +870,8 @@ def obtener(clave: str) -> EntradaAyuda | None:
     return None
 
 
-# Colores de la guía: beige para el bloque didáctico, azul claro para los umbrales
-_C_GUIA, _C_UMBRAL, _C_ACENTO, _C_TEXTO2 = "#f7f2e8", "#e8f1fa", "#3d5a80", "#6b6355"
+# Colores de la guía: azul claro para el bloque didáctico y blanco para umbrales y ejemplo
+_C_GUIA, _C_UMBRAL, _C_ACENTO, _C_TEXTO2 = "#eef2f6", "white", "#3d5a80", "#5b6b7d"
 
 
 def _esc(t: str) -> str:
@@ -905,9 +905,9 @@ def _guia_html(g: dict) -> str:
                       "</tr></table>")
     partes += [bloque("Cálculos que afecta", " · ".join(g["afecta"])),
               bloque("Recomendaciones", f"<ul style='margin-top:0'>{lista(g['recomendaciones'])}</ul>"),
-              caja("white", "Ejemplo", g["ejemplo"], borde="#c9a96e")]
+              caja("white", "Ejemplo", g["ejemplo"], borde="#7fa0c4")]
     return (f"<table width='100%' cellspacing='0' cellpadding='10' bgcolor='{_C_GUIA}' "
-            f"style='border:1px solid #e2d8c4'><tr><td>"
+            f"style='border:1px solid #d3dce6'><tr><td>"
             f"<p style='margin:0 0 4px 0;color:{_C_TEXTO2};font-size:85%;font-weight:700;letter-spacing:1px'>"
             f"GUÍA PARA APRENDER</p>{''.join(partes)}</td></tr></table>")
 
