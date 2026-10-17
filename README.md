@@ -22,7 +22,7 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    exportan a Word editable o se imprimen desde *Inicio → Entregables*, por separado o todos
    juntos.
 
-«Ir» o F1 sobre cualquier dato abre su explicación. El selector de unidades (SI / Imperial)
+«Ver» o F1 sobre cualquier dato abre su explicación. El selector de unidades (SI / Imperial)
 cambia todo el programa, incluidos los documentos; cada dato además tiene su propia unidad.
 
 ## Uso (versión de desarrollo)

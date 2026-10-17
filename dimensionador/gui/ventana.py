@@ -37,7 +37,7 @@ ANCHO_CELDA = 104
 ANCHO_SALIDA = 132
 ANCHO_A4 = 820             # ancho de una hoja A4 en pantalla (96 ppp) más márgenes
 ANCHO_UNIDAD = 92
-COLORES = {Severidad.INFO: "#2f6fb0", Severidad.ADVERTENCIA: "#b07a00",
+COLORES = {Severidad.INFO: "#2f6fb0", Severidad.ADVERTENCIA: "#d9771e",
            Severidad.CRITICA: "#c0392b", Severidad.ERROR: "#7d1f9e"}
 NOMBRE_SEV = E.NOMBRE_SEV
 DIF = {"kPa a": "kPa", "kPa g": "kPa", "bar a": "bar", "bar g": "bar", "MPa a": "MPa", "MPa g": "MPa",
@@ -250,7 +250,7 @@ class VentanaAyuda(QDialog):
 
 
 class PanelInfo(QFrame):
-    """Panel fijo a la derecha de cada solapa de datos: muestra la ayuda pedida con «Ir»."""
+    """Panel fijo a la derecha de cada solapa de datos: muestra la ayuda pedida con «Ver»."""
 
     def __init__(self):
         super().__init__()
@@ -298,8 +298,8 @@ class Vista(QTextBrowser):
 # Filas de datos
 # ---------------------------------------------------------------------------
 def boton_ir(abrir_ayuda, clave: str) -> QPushButton:
-    b = QPushButton("Ir")
-    b.setFixedWidth(34)
+    b = QPushButton("Ver")
+    b.setFixedWidth(40)
     b.setToolTip("Ver la explicación de este dato en el panel de la derecha (F1)")
     b.setFocusPolicy(Qt.NoFocus)
     b.setStyleSheet("QPushButton{padding:1px 2px;color:#0d3b66;font-size:8pt}")
@@ -479,6 +479,14 @@ ETIQUETA_SALIDA = {("dP_P1", "L"): "Relación de caída de presión ΔP/P1",
                    ("M", "S"): "Masa molar"}
 
 
+# Barra de alertas según la peor severidad: (fondo, texto, leyenda)
+BARRA_ALERTAS = {None: (ACENTO, "white", ""),
+                 Severidad.INFO: ("#cdebd3", "#1e5e2e", "sin alarmas"),
+                 Severidad.ADVERTENCIA: ("#e8892b", "white", "hay advertencias"),
+                 Severidad.CRITICA: ("#c0392b", "white", "condición crítica"),
+                 Severidad.ERROR: ("#c0392b", "white", "datos inválidos")}
+
+
 def titulo_seccion(texto: str, color: str) -> QLabel:
     l = QLabel(texto)
     l.setStyleSheet(f"background:{color};color:white;font-weight:700;padding:5px 8px;letter-spacing:1px")
@@ -538,7 +546,7 @@ class VentanaPrincipal(QMainWindow):
         self._cambio_tipo_fluido()
         self._actualizar_vistas()
         self.statusBar().showMessage("Cargue los datos de instalación y de dimensionamiento y presione "
-                                     "Calcular. «Ir» o F1 muestran la explicación de cada dato a la derecha.")
+                                     "Calcular. «Ver» o F1 muestran la explicación de cada dato a la derecha.")
 
     def _con_panel(self, izquierda: QWidget, indice: int) -> QWidget:
         # Divisor arrastrable; la izquierda no baja de su ancho natural, así las celdas no se recortan
@@ -686,12 +694,19 @@ class VentanaPrincipal(QMainWindow):
         self.kpi[clave] = (valor, nota)
         return f
 
+    def _color_alertas(self, severidad):
+        fondo, texto, leyenda = BARRA_ALERTAS[severidad]
+        self.lbl_alertas.setText("ALERTAS" + (f"  ·  {leyenda.upper()}" if leyenda else ""))
+        self.lbl_alertas.setStyleSheet(f"background:{fondo};color:{texto};font-weight:700;padding:5px 8px;"
+                                       "letter-spacing:1px")
+
     def _llenar_kpi(self, vaciar: bool = False):
+        res = self.res
+        self._color_alertas(Severidad.ERROR if vaciar else (res.peor() if res is not None else None))
         for valor, nota in self.kpi.values():
             valor.setText("—")
             valor.setStyleSheet("color:#1f3550;font-size:15pt;font-weight:700")
             nota.setText("")
-        res = self.res
         if res is None or vaciar:
             return
         pr = self.presentacion()
@@ -1022,7 +1037,8 @@ class VentanaPrincipal(QMainWindow):
         tl.addWidget(g)
         lay.addWidget(tablero)
 
-        lay.addWidget(titulo_seccion("ALERTAS", "#8a5a00"))
+        self.lbl_alertas = titulo_seccion("ALERTAS", ACENTO)
+        lay.addWidget(self.lbl_alertas)
         sp = QSplitter(Qt.Vertical)
         self.lista_alertas = QTreeWidget()
         self.lista_alertas.setHeaderLabels(["Severidad", "Caso", "Fenómeno", "Intensidad"])
@@ -1412,7 +1428,7 @@ class VentanaPrincipal(QMainWindow):
         res = self.res
         peor = res.peor()
         estado = {Severidad.INFO: ("#2e7d32", "Sin fenómenos que requieran acción."),
-                  Severidad.ADVERTENCIA: ("#b07a00", "Hay advertencias para revisar."),
+                  Severidad.ADVERTENCIA: ("#d9771e", "Hay advertencias para revisar."),
                   Severidad.CRITICA: ("#c0392b", "Hay condiciones críticas: vea las alertas y el informe técnico."),
                   Severidad.ERROR: ("#7d1f9e", "Hay datos inválidos.")}[peor]
         self.lbl_resumen.setText(
