@@ -86,3 +86,13 @@ def test_marca_de_agua_en_documentos(tmp_path):
     finally:
         E.MARCA_AGUA = None
     assert "DEMO" not in E.a_html(E.memoria(r, pr))
+
+
+def test_clave_privada_como_archivo_o_texto(claves):
+    k, pub = claves
+    pem = L.clave_privada_pem(k)
+    cuerpo = "".join(pem.decode().splitlines()[1:-1])
+    for entrada in (pem, cuerpo, "  " + cuerpo + "\n"):
+        assert L.leer(L.firmar(_lic(), L.cargar_clave_privada(entrada)), pub).nombre == "Juan Pérez"
+    with pytest.raises(L.CodigoInvalido):
+        L.cargar_clave_privada("no es una clave")

@@ -27,7 +27,7 @@ class Generador(QWidget):
         form = QFormLayout()
         fila = QHBoxLayout()
         self.ed_clave = QLineEdit(self.cfg.value("clave", ""))
-        self.ed_clave.setPlaceholderText("Archivo clave_privada_valveselect.pem")
+        self.ed_clave.setPlaceholderText("Archivo clave_privada_valveselect.pem (use «Buscar…»)")
         b = QPushButton("Buscar…")
         b.clicked.connect(self._buscar_clave)
         fila.addWidget(self.ed_clave)
@@ -84,10 +84,16 @@ class Generador(QWidget):
             QMessageBox.warning(self, "Falta el nombre", "Ingrese el nombre del usuario.")
             return
         try:
-            with open(ruta, "rb") as f:
-                clave = L.cargar_clave_privada(f.read())
+            if os.path.isfile(ruta):
+                with open(ruta, "rb") as f:
+                    clave = L.cargar_clave_privada(f.read())
+            else:   # el texto de la clave pegado directamente
+                clave = L.cargar_clave_privada(ruta)
+                ruta = ""
         except (OSError, ValueError) as e:
-            QMessageBox.critical(self, "Clave privada", f"No se pudo leer la clave privada:\n{e}")
+            QMessageBox.critical(self, "Clave privada",
+                                 f"No se pudo leer la clave privada:\n{e}\n\nUse «Buscar…» para elegir el archivo "
+                                 "clave_privada_valveselect.pem.")
             return
         tipo = self.cb_tipo.currentData()
         emision = self.de_emision.date().toPython()
@@ -96,9 +102,12 @@ class Generador(QWidget):
                          emision, vence, secrets.randbits(32))
         codigo = L.firmar(lic, clave)
         L.leer(codigo, clave.public_key())   # verificación de ida y vuelta
-        self.cfg.setValue("clave", ruta)
+        if ruta:   # el texto pegado de la clave no se guarda en la configuración
+            self.cfg.setValue("clave", ruta)
         self.cfg.setValue("contacto", lic.contacto)
-        registro = os.path.join(os.path.dirname(ruta), "registro_codigos.csv")
+        carpeta = os.path.dirname(ruta) if ruta else os.path.join(os.path.expanduser("~"), "Documents")
+        os.makedirs(carpeta, exist_ok=True)
+        registro = os.path.join(carpeta, "registro_codigos.csv")
         nuevo = not os.path.exists(registro)
         with open(registro, "a", newline="", encoding="utf-8-sig") as f:
             w = csv.writer(f, delimiter=";")

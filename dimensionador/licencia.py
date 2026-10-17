@@ -32,7 +32,7 @@ DIAS_TIPO = {"demo": 30, "anual": 365, "propietaria": None}
 TOLERANCIA_RELOJ = timedelta(days=1)
 
 # Clave pública de INSTRUMATIK S.A.S. (la privada no forma parte del programa)
-CLAVE_PUBLICA = "vUC7J3CtRotVOKp7iUR3z8pWphdhrInOzK8-Dw8yZGw"
+CLAVE_PUBLICA = "j0r879xYdK5VfHHCVTZe235d8BTYmFRBSw8Ak14LZWw"
 
 TERMINOS_DEMO = (
     "Esta es una versión de demostración de Valveselect-N25, de INSTRUMATIK S.A.S., entregada "
@@ -155,8 +155,16 @@ def clave_privada_pem(k: Ed25519PrivateKey) -> bytes:
                            serialization.NoEncryption())
 
 
-def cargar_clave_privada(pem: bytes) -> Ed25519PrivateKey:
-    k = serialization.load_pem_private_key(pem, None)
+def cargar_clave_privada(pem: bytes | str) -> Ed25519PrivateKey:
+    """Acepta el archivo .pem completo o solo su texto en base 64 (sin las líneas BEGIN/END)."""
+    texto = pem.decode("ascii", "ignore") if isinstance(pem, bytes) else pem
+    if "BEGIN" not in texto:
+        cuerpo = "".join(texto.split())
+        texto = f"-----BEGIN PRIVATE KEY-----\n{cuerpo}\n-----END PRIVATE KEY-----\n"
+    try:
+        k = serialization.load_pem_private_key(texto.encode("ascii"), None)
+    except ValueError:
+        raise CodigoInvalido("El texto no corresponde a una clave privada válida.") from None
     if not isinstance(k, Ed25519PrivateKey):
         raise CodigoInvalido("El archivo no contiene una clave Ed25519.")
     return k
