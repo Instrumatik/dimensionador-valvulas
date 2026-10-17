@@ -494,9 +494,11 @@ def encabezados_casos(grid, fila=0, primera="Dato", ancho=ANCHO_CELDA):
 # Ventana principal
 # ---------------------------------------------------------------------------
 class VentanaPrincipal(QMainWindow):
-    def __init__(self):
+    def __init__(self, licencia=None):
         super().__init__()
-        self.setWindowTitle(f"{E.PRODUCTO} — {E.EMPRESA}  ·  versión {__version__}")
+        self.licencia = licencia
+        E.MARCA_AGUA = licencia.marca_agua if licencia else None
+        self.setWindowTitle(f"{E.PRODUCTO} — {E.EMPRESA}  ·  versión {__version__}" + self._texto_licencia())
         self.resize(1400, 900)
         self.ayuda = VentanaAyuda(self)
         self.res: Resultado | None = None
@@ -610,6 +612,9 @@ class VentanaPrincipal(QMainWindow):
         ma = mb.addMenu("A&yuda")
         self._accion(ma, "Flujo de trabajo", lambda: self.ayuda.mostrar("flujo_trabajo"))
         self._accion(ma, "Índice de ayuda", lambda: self.ayuda.mostrar("kv_cv"))
+        ma.addSeparator()
+        self._accion(ma, "Enviar comentarios…", self.enviar_comentarios)
+        self._accion(ma, "Licencia…", self.ver_licencia)
         self._accion(ma, "Acerca de", self.acerca)
 
     def abrir_ayuda(self, clave: str):
@@ -1561,6 +1566,44 @@ class VentanaPrincipal(QMainWindow):
                 return
             self._cargar(s)
             self.ruta = ruta
+
+    def _texto_licencia(self) -> str:
+        lic = self.licencia
+        if lic is None or not lic.es_demo:
+            return ""
+        from datetime import date
+        return f"  ·  DEMO de {lic.nombre}, quedan {lic.dias_restantes(date.today())} días"
+
+    def ver_licencia(self):
+        from .. import licencia as L
+        lic = self.licencia
+        texto = lic.descripcion() if lic else "Sin licencia (modo de desarrollo)."
+        r = QMessageBox.question(self, "Licencia", texto + "\n\n¿Desea ingresar otro código?",
+                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if r == QMessageBox.Yes:
+            from .activacion import DialogoActivacion
+            dlg = DialogoActivacion(parent=self)
+            if dlg.exec():
+                self.licencia = dlg.verificacion.licencia
+                E.MARCA_AGUA = self.licencia.marca_agua
+                self.setWindowTitle(f"{E.PRODUCTO} — {E.EMPRESA}  ·  versión {__version__}"
+                                    + self._texto_licencia())
+                if self.res is not None:
+                    self._actualizar_vistas()
+                QMessageBox.information(self, "Licencia", self.licencia.descripcion())
+
+    def enviar_comentarios(self):
+        from PySide6.QtGui import QDesktopServices
+        contacto = self.licencia.contacto if self.licencia else ""
+        if not contacto:
+            QMessageBox.information(self, "Enviar comentarios",
+                                    f"Envíe sus comentarios a {E.EMPRESA} por el medio por el que recibió el programa.")
+            return
+        asunto = QUrl.toPercentEncoding(f"Comentarios {E.PRODUCTO} {__version__}").data().decode()
+        cuerpo = QUrl.toPercentEncoding(
+            "Caso o pantalla:\n\nQué esperaba:\n\nQué obtuvo (adjunte capturas o el proyecto .json):\n").data().decode()
+        if not QDesktopServices.openUrl(QUrl(f"mailto:{contacto}?subject={asunto}&body={cuerpo}")):
+            QMessageBox.information(self, "Enviar comentarios", f"Envíe sus comentarios a {contacto}.")
 
     def acerca(self):
         QMessageBox.about(self, "Acerca de",

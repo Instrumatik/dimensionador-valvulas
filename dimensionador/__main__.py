@@ -35,8 +35,22 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Valveselect-N25")
     app.setStyle("Fusion")
-    w = VentanaPrincipal()
+    licencia = None
+    if "--prueba-gui" not in sys.argv:
+        from PySide6.QtWidgets import QMessageBox
+
+        from .gui.activacion import obtener_licencia
+        licencia = obtener_licencia()
+        if licencia is None:
+            return 0
+    w = VentanaPrincipal(licencia)
     w.show()
+    if licencia is not None and licencia.vence is not None:
+        from datetime import date
+        dias = licencia.dias_restantes(date.today())
+        if dias <= 5:
+            QMessageBox.warning(w, "Licencia por vencer",
+                                f"La licencia vence en {dias} días ({licencia.vence:%d/%m/%Y}).")
     if "--prueba-gui" in sys.argv:   # verificación del ejecutable: abre la ventana y cierra
         QTimer.singleShot(1500, app.quit)
     return app.exec()

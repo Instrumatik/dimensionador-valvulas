@@ -19,6 +19,8 @@ from .proyecto import FUGA_CIERRE, REF_CIERRE, Resultado
 
 EMPRESA = "INSTRUMATIK S.A.S."
 PRODUCTO = "Valveselect-N25"
+# Texto de marca de agua de la licencia de demostración (None con licencia comercial)
+MARCA_AGUA: str | None = None
 NOMBRE_SEV = {Severidad.INFO: "Información", Severidad.ADVERTENCIA: "Advertencia",
               Severidad.CRITICA: "Crítica", Severidad.ERROR: "Error de datos"}
 COLOR_SEV = {Severidad.INFO: "2F6FB0", Severidad.ADVERTENCIA: "B07A00",
@@ -694,6 +696,9 @@ def a_html(doc: Documento, src_grafico: str = "grafico://cv", encabezado: bool =
                  f"<td style='border:none;background:#0d3b66;color:white'><b>{EMPRESA}</b> · {PRODUCTO}</td>"
                  f"<td style='border:none;background:#0d3b66;color:white' align='right'>{e(doc.titulo)}"
                  f" · Tag {e(doc.res.ident.tag or '—')} · Rev. {e(doc.res.ident.revision or '—')}</td></tr></table>")
+    if MARCA_AGUA:
+        h.append(f"<p align='center' style='color:#c0392b;font-weight:bold;border:1px solid #c0392b;"
+                 f"padding:4px'>{e(MARCA_AGUA)}</p>")
     for b in doc.bloques:
         t = b.tipo
         if t in ("h1", "h2", "h3"):
@@ -805,6 +810,14 @@ def a_docx(docs: list[Documento], ruta: str, png_grafico: bytes | None = None):
     campo(pie, "PAGE")
     pie.add_run(" de ").font.size = Pt(8)
     campo(pie, "NUMPAGES")
+    if MARCA_AGUA:
+        ROJO = RGBColor(0xC0, 0x39, 0x2B)
+        for par in (sec.header.add_paragraph(), sec.footer.add_paragraph()):
+            par.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r = par.add_run(MARCA_AGUA)
+            r.bold = True
+            r.font.size = Pt(9)
+            r.font.color.rgb = ROJO
     ancho_util = 21.0 - 3.6
 
     for k, doc in enumerate(docs):

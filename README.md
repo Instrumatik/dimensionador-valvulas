@@ -40,3 +40,15 @@ python -m dimensionador         # abre el programa
 * Windows local: `compilar_windows.bat`. Resultado: `dist\Valveselect-N25\Valveselect-N25.exe`.
 * macOS / Linux local: `./compilar.sh`.
 * `Valveselect-N25 --prueba` verifica el ejecutable con el ejemplo 1 de IEC 60534-2-1.
+
+## Licencias y demo
+
+* Al abrirse, el programa pide un código de licencia (`VS1-…`) firmado con la clave privada de
+  INSTRUMATIK (Ed25519). El programa solo contiene la clave pública (`dimensionador/licencia.py`).
+* Tipos: **demo** (30 días, marca de agua con el nombre del usuario en todos los documentos),
+  **anual** (365 días) y **propietaria** (sin vencimiento).
+* El vencimiento se controla contra la fecha del equipo; si el reloj se atrasa respecto del último
+  uso, el programa se bloquea hasta corregir la fecha.
+* Los códigos se crean con `generador_codigos.py` (compilado aparte como
+  «Generador-codigos-Valveselect»), que necesita la clave privada y anota cada código en
+  `registro_codigos.csv`. La clave privada nunca se sube al repositorio (`*.pem` está ignorado).

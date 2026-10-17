@@ -45,3 +45,14 @@ jobs:
         with:
           name: Valveselect-N25-${{ runner.os }}
           path: dist/
+      - name: Compilar el generador de códigos (uso interno, solo Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          python -m PyInstaller --noconfirm --distpath dist_generador generador.spec
+          dist_generador/Generador-codigos-Valveselect/Generador-codigos-Valveselect.exe --prueba-gui
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: Generador-codigos-Valveselect-Windows
+          path: dist_generador/
