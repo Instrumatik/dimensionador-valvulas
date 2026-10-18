@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QVBoxLayout, QWidget)
 
 from .. import __version__, ayuda, compresible as CG, entregables as E, modelos, propiedades, tuberias, unidades as U
-from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, TAMANOS
+from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, NOMBRES_ANTERIORES, TAMANOS
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
 from ..proyecto import (CIERRES, CONEXIONES, RATINGS, CasoCierre, CasoGas, CasoLiquido, Dimensionamiento,
@@ -47,7 +47,7 @@ LETRA = {"liquido": "L", "gas": "G", "vapor": "V", "steam": "S"}
 TITULO_TIPO = {"liquido": "LÍQUIDOS", "gas": "GAS", "vapor": "VAPOR", "steam": "VAPOR DE AGUA (STEAM)"}
 NOTA_TIPO = {
     "liquido": "FL, Fd y Kc: típicos del trim, uno por caso para reflejar la carrera de cada uno. Reemplácelos "
-               "por los certificados del fabricante. Kc en blanco = estimado según IEC 60534-8-4.",
+               "por los certificados del fabricante. Kc: cavitación que daña; en blanco = igual a xFz. xFz: cavitación incipiente (ruido); en blanco = típico de IEC 60534-8-4.",
     "gas": "xT, FL y Fd: típicos del trim, uno por caso; reemplácelos por los certificados. Con un fluido de la "
            "lista, M, μ, γ, Z1, T2 y Z2 se calculan (expansión isoentálpica). Con «Definido por el usuario», "
            "T2 en blanco = T1 y Z2 en blanco = Z1.",
@@ -74,6 +74,7 @@ ENTRADAS = [
     ("FL", "Factor de recuperación (FL)", ("adimensional",), "FL", "LGVS"),
     ("Fd", "Modificador de estilo (Fd)", ("adimensional",), "Fd", "LGVS"),
     ("Kc", "Coef. cavitación del trim (Kc)", ("adimensional",), "Kc", "L"),
+    ("xFz", "Cavitación incipiente xFz (opcional)", ("adimensional",), "xFz", "L"),
     ("#", "Datos de salida para ruido", None, None, "GVS"),
     ("T2", "Temperatura de salida T2", ("temperatura",), "T2", "GVS"),
     ("Z2", "Factor de compresibilidad Z2", ("adimensional",), "Z", "G"),
@@ -113,6 +114,11 @@ class Combo(QComboBox):
 
     def wheelEvent(self, e):
         e.ignore()   # la rueda desplaza la página, no cambia la selección
+
+    def showPopup(self):
+        # la lista se abre con el ancho del texto más largo, para leer las opciones completas
+        self.view().setMinimumWidth(self.view().sizeHintForColumn(0) + 24)
+        super().showPopup()
 
 
 class Fecha(QDateEdit):
@@ -434,6 +440,7 @@ SALIDAS = [
     ("dP_P1", "Relación de caída de presión ΔP/P1", "dP_P1", None, 3, "LGVS"),
     ("dPchoked", "ΔP para flujo estrangulado (ΔP choked)", "dPchoked", "presion_dif", 4, "LGVS"),
     ("dPcav", "ΔP para cavitación (ΔP cav)", "dPcav", "presion_dif", 4, "L"),
+    ("xFzp1", "Inicio de cavitación incipiente (xFzp1)", "xFz", None, 3, "L"),
     ("FF", "Factor de relación de presión crítica (FF)", "FF", None, 3, "L"),
     ("FP", "Factor de corrección por tuberías (Fp)", "FP", None, 3, "LGVS"),
     ("FLP", "Factor de recuperación combinado (FLp)", "FLP", None, 3, "LGVS"),
@@ -903,7 +910,12 @@ class VentanaPrincipal(QMainWindow):
         self._fila(grid, r, "Diámetro de válvula", self.cb_tamano, "tamano"); r += 1
         self.cb_trim = self._registrar("trim", Combo())
         self.cb_trim.currentIndexChanged.connect(self._cambio_trim)
-        self.lbl_trim = self._fila(grid, r, "Tipo de trim hidrodinámico", self.cb_trim, "trim", ancho=420)[0]; r += 1
+        self.lbl_trim = self._fila(grid, r, "Tipo de trim hidrodinámico", self.cb_trim, "trim", ancho=560)[0]; r += 1
+        self.cb_balance = self._registrar("balance", Combo())
+        self.cb_balance.addItem("Desbalanceado", False)
+        self.cb_balance.addItem("Balanceado", True)
+        self.fila_balance = self._fila(grid, r, "Obturador balanceado o desbalanceado", self.cb_balance, "balance")
+        r += 1
         self.cb_caract = self._registrar("caracteristica", Combo())
         for k, t in E.CARACTERISTICA.items():
             self.cb_caract.addItem(t, k)
@@ -1111,6 +1123,9 @@ class VentanaPrincipal(QMainWindow):
     def letra(self) -> str:
         return LETRA[self.tipo()]
 
+    def _balanceado(self) -> bool | None:
+        return None if self.cuerpo().rotativa else self.cb_balance.currentData()
+
     def _cambio_cuerpo(self):
         c = self.cuerpo()
         self.cb_trim.blockSignals(True)
@@ -1118,6 +1133,8 @@ class VentanaPrincipal(QMainWindow):
         for k in c.trims:
             self.cb_trim.addItem(ESTILOS[k].nombre, k)
         self.cb_trim.blockSignals(False)
+        for w in self.fila_balance:
+            w.setVisible(not c.rotativa)
         actual = self.cb_tamano.currentData()
         self.cb_tamano.clear()
         self.cb_tamano.addItem("Automático", None)
@@ -1139,7 +1156,7 @@ class VentanaPrincipal(QMainWindow):
             kc = KC_TIPICO.get(k)
             self.filas["Kc"].edits[j].setText(f"{kc:g}".replace(".", ",") if kc else "")
         self.cb_caract.setCurrentIndex(self.cb_caract.findData(e.caracteristica))
-        self.cb_trim.setToolTip(e.nota or e.nombre)
+        self.cb_trim.setToolTip(e.nombre + (f"\n\n{e.nota}" if e.nota else ""))
 
     def _cambio_tipo_fluido(self):
         """Muestra solo las entradas y resultados del tipo de fluido elegido."""
@@ -1378,7 +1395,7 @@ class VentanaPrincipal(QMainWindow):
             if t == "liquido":
                 casos.append(CasoLiquido(CASOS[j], q if vol else None, None if vol else q, req("P1"), req("P2"),
                                          req("T1"), req("SG"), req("mu"), req("Pv"), req("FL"), req("Fd"),
-                                         F["Kc"].valor_base(j), criterio=j != 4))
+                                         F["Kc"].valor_base(j), F["xFz"].valor_base(j), criterio=j != 4))
                 continue
             gas, vap = t == "gas", t == "vapor"
             casos.append(CasoGas(
@@ -1402,12 +1419,13 @@ class VentanaPrincipal(QMainWindow):
             if Pc is None:
                 raise ValueError("Falta la presión crítica del líquido.")
             return ident, inst, Dimensionamiento(casos, Pc, self.cb_trim.currentData(), self.cb_tamano.currentData(),
-                                                 self.cb_caract.currentData(), fluido, cierre)
+                                                 self.cb_caract.currentData(), fluido, cierre,
+                                                 balanceado=self._balanceado())
         ruido_g = RuidoAerodinamico(self.cb_trim_ruido.currentData(), self.f_Rn.valor_base(0) or 1.0,
                                     self.f_area.valor_base(0))
         dim = Dimensionamiento(casos, None, self.cb_trim.currentData(), self.cb_tamano.currentData(),
                                self.cb_caract.currentData(), "Agua / vapor de agua" if t == "steam" else fluido,
-                               cierre, tipo=t, ruido=ruido_g)
+                               cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado())
         return ident, inst, dim
 
     def calcular(self, silencioso: bool = False):
@@ -1650,6 +1668,8 @@ class VentanaPrincipal(QMainWindow):
             w = self.campos.get(k)
             if isinstance(w, QComboBox):
                 i = w.findText(v)
+                if i < 0 and v in NOMBRES_ANTERIORES:
+                    i = w.findData(NOMBRES_ANTERIORES[v])
                 if i >= 0:
                     w.setCurrentIndex(i)
             elif w is not None:

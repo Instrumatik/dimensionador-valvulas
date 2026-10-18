@@ -1,9 +1,13 @@
 """Detección de fenómenos hidrodinámicos y aerodinámicos, con intensidad y remedios.
 
 Criterios usados:
-  * Cavitación: inicio según IEC 60534-8-4 (xFz típico y corrección por
-    presión xFzp1) y régimen de bloqueo según IEC 60534-2-1 (FL²). El índice
-    σ de ISA-RP75.23 se informa como complemento.
+  * Cavitación, con los regímenes de ISA-RP75.23:
+      - incipiente: xF ≥ xFzp1 (IEC 60534-8-4, xFz del fabricante o típico, corregido por
+        presión). Las primeras burbujas: sube el ruido, normalmente sin daño;
+      - constante (daño posible): xF ≥ Kc del trim (valor del fabricante a las condiciones de
+        servicio, el mismo criterio que ΔPcav = Kc·(P1 − Pv) de los programas de fabricantes);
+      - bloqueo: xF ≥ FL² (IEC 60534-2-1).
+    El índice σ = 1/xF de ISA-RP75.23 se informa como complemento.
   * Flashing (vaporización instantánea): P2 ≤ Pv.
   * Flujo crítico de gas: x ≥ xchoked (IEC 60534-2-1).
   * Velocidad en la salida de la válvula y en la tubería, número de Mach.
@@ -16,7 +20,8 @@ import math
 
 from .modelos import _n, Alerta, Severidad, fP, fRho, fV
 
-N34 = 1.17   # IEC 60534-8-4, Kv
+N34 = 1.17   # IEC 60534-8-4, con C expresado como Cv (igual que ruido.ruido_liquido)
+CV_POR_KV = 1 / 0.865
 LB_FT3 = 16.01846337   # kg/m³ por lb/ft³
 FT = 0.3048
 
@@ -38,31 +43,37 @@ def area_mm2(d_mm: float) -> float:
 # ---------------------------------------------------------------------------
 def xFz_tipico(Kv: float, FL: float, Fd: float) -> float:
     """Relación diferencial de inicio de cavitación típica (IEC 60534-8-4)."""
-    return 0.90 / math.sqrt(1 + 3 * Fd * math.sqrt(Kv / (N34 * FL)))
+    return 0.90 / math.sqrt(1 + 3 * Fd * math.sqrt(Kv * CV_POR_KV / (N34 * FL)))
 
 
 def evaluar_liquido(P1, P2, Pv, FL_eff, Kv, Fd, dPchoked, xFz: float | None = None,
                     calidad_salida: float | None = None,
-                    xFz_directo: bool = False) -> tuple[list[Alerta], dict]:
+                    Kc: float | None = None) -> tuple[list[Alerta], dict]:
     """Clasifica el régimen de cavitación / flashing.
 
     FL_eff: FLP/FP cuando hay reductores (FL en caso contrario).
-    xFz: valor del fabricante si se conoce; si no, se estima el típico.
+    xFz: inicio de cavitación incipiente del fabricante (ensayo a 6 bar, IEC 60534-8-2); si no se
+         conoce, se estima el típico de IEC 60534-8-4. Se corrige por presión (xFzp1).
+    Kc: coeficiente de cavitación constante del trim a las condiciones de servicio (fabricante);
+        si no se conoce, se usa xFzp1 (criterio conservador).
     calidad_salida: fracción másica de vapor a P2 (si se conoce).
     """
     alertas: list[Alerta] = []
     dP = P1 - P2
     xF = dP / (P1 - Pv)
-    estimado = xFz is None
+    xFz_estimado = xFz is None
     if xFz is None:
         xFz = xFz_tipico(Kv, FL_eff, Fd)
-    # corrección por presión (salvo que el valor dado ya sea el de la presión de servicio)
-    xFzp1 = xFz if xFz_directo and not estimado else xFz * (6e5 / (P1 * 1000)) ** 0.125
-    xFzp1 = min(xFzp1, FL_eff ** 2)
+    xFzp1 = min(xFz * (6e5 / (P1 * 1000)) ** 0.125, FL_eff ** 2)
+    Kc_estimado = Kc is None
+    Kc = min(xFzp1 if Kc is None else Kc, FL_eff ** 2)
+    xFzp1 = min(xFzp1, Kc)
     sigma = (P1 - Pv) / dP
-    datos = {"xF": xF, "xFz": xFz, "xFzp1": xFzp1, "sigma": sigma,
-             "sigma_i": 1 / xFzp1, "sigma_ch": 1 / FL_eff ** 2}
+    datos = {"xF": xF, "xFz": xFz, "xFzp1": xFzp1, "xFz_estimado": xFz_estimado, "Kc": Kc,
+             "Kc_estimado": Kc_estimado, "sigma": sigma, "sigma_i": 1 / xFzp1, "sigma_c": 1 / Kc,
+             "sigma_ch": 1 / FL_eff ** 2}
     ref = "IEC 60534-8-4 / IEC 60534-2-1 / ISA-RP75.23"
+    estimado = Kc_estimado
 
     if P2 <= Pv:
         if calidad_salida is not None:
@@ -94,18 +105,38 @@ def evaluar_liquido(P1, P2, Pv, FL_eff, Kv, Fd, dPchoked, xFz: float | None = No
         datos["regimen"] = "flashing"
         return alertas, datos
 
-    if xF < xFzp1:
-        datos["regimen"] = "sin cavitación"
-        if xF > 0.8 * xFzp1:
-            alertas.append(Alerta(
-                "cavitacion_proxima", Severidad.INFO, "Cerca del inicio de cavitación",
-                f"Kapp = {_n(xF, 3)} está al {_n(xF / xFzp1 * 100, 0)} % del inicio de cavitación "
-                f"(Kc = {_n(xFzp1, 3)}). Pequeños aumentos de ΔP o temperatura pueden iniciarla.",
-                remedios=["Verifique las condiciones máximas de ΔP y temperatura."],
-                referencia=ref))
+    if xF < Kc:
+        if xF < xFzp1:
+            datos["regimen"] = "sin cavitación"
+            if xF > 0.8 * Kc:
+                alertas.append(Alerta(
+                    "cavitacion_proxima", Severidad.INFO, "Cerca del inicio de cavitación",
+                    f"Kapp = {_n(xF, 3)} está al {_n(xF / Kc * 100, 0)} % del Kc del trim "
+                    f"({_n(Kc, 3)}). Pequeños aumentos de ΔP o temperatura pueden iniciar la cavitación.",
+                    remedios=["Verifique las condiciones máximas de ΔP y temperatura."],
+                    referencia=ref))
+            return alertas, datos
+        datos["regimen"] = "cavitación incipiente"
+        alto = dP > 1000
+        alertas.append(Alerta(
+            "cavitacion_incipiente", Severidad.ADVERTENCIA if alto else Severidad.INFO,
+            "Cavitación incipiente",
+            f"Kapp = {_n(xF, 3)} supera el inicio de cavitación incipiente xFzp1 = {_n(xFzp1, 3)}"
+            f"{' (estimado con IEC 60534-8-4)' if xFz_estimado else ''} pero no el Kc del trim "
+            f"({_n(Kc, 3)}). Se forman las primeras burbujas: el ruido hidrodinámico aumenta (por eso "
+            "el ruido calculado puede ser alto), pero normalmente no hay daño. Por eso la alerta de "
+            "cavitación, que usa Kc, no se activa."
+            + (f" Con ΔP = {fP(dP)} el servicio es exigente: muchas especificaciones piden trim "
+               "anticavitación ya en este régimen." if alto else ""),
+            remedios=["Pida al fabricante el xFz certificado del trim e ingréselo: el valor típico de "
+                      "IEC 60534-8-4 es conservador.",
+                      "En servicio continuo con agua y ΔP alta, considere internos endurecidos o una jaula "
+                      "anticavitación de etapa simple.",
+                      "Verifique el ruido hidrodinámico (IEC 60534-8-4)."],
+            referencia="ISA-RP75.23 (régimen incipiente σi); IEC 60534-8-4 (xFz)"))
         return alertas, datos
 
-    intensidad = min(100.0, (xF - xFzp1) / max(FL_eff ** 2 - xFzp1, 1e-9) * 100)
+    intensidad = min(100.0, (xF - Kc) / max(FL_eff ** 2 - Kc, 1e-9) * 100)
     bloqueado = dP >= dPchoked
     if bloqueado:
         intensidad = 100.0
@@ -135,8 +166,8 @@ def evaluar_liquido(P1, P2, Pv, FL_eff, Kv, Fd, dPchoked, xFz: float | None = No
     }[nivel]
     titulo = "Cavitación con flujo bloqueado" if bloqueado else f"Cavitación {nivel}"
     msg = (f"La presión en la vena contracta cae por debajo de la presión de vapor y las "
-           f"burbujas colapsan aguas abajo (P2 > Pv). Kapp = xF = {_n(xF, 3)}, inicio Kc = xFzp1 = {_n(xFzp1, 3)}"
-           f"{' (estimado típico)' if estimado else ''}, bloqueo FL² = {_n(FL_eff ** 2, 3)}. "
+           f"burbujas colapsan aguas abajo (P2 > Pv). Kapp = xF = {_n(xF, 3)}, Kc del trim = {_n(Kc, 3)}"
+           f"{' (estimado con el xFz típico)' if estimado else ''}, bloqueo FL² = {_n(FL_eff ** 2, 3)}. "
            f"σ = {_n(sigma, 2)}.")
     if bloqueado:
         msg += " El caudal ya no aumenta al bajar P2 (flujo crítico por cavitación plena)."

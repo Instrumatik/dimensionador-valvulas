@@ -25,7 +25,8 @@ class Caso:
     FL: float | None = None        # factores a la carrera de este caso (sustituyen a los de la selección)
     Fd: float | None = None
     xT: float | None = None
-    Kc: float | None = None        # inicio de cavitación del trim a las condiciones del caso (directo)
+    Kc: float | None = None        # cavitación constante del trim a las condiciones del caso (fabricante)
+    xFz: float | None = None       # inicio de cavitación incipiente del fabricante (IEC 60534-8-2, 6 bar)
     criterio: bool = True          # participa del criterio de selección de tamaño
 
 
@@ -49,7 +50,6 @@ class Seleccion:
     clase: int | None = None               # None = clase mínima que cumple
     P_diseno: float | None = None          # kPa abs; None = máxima P1 de los casos
     T_diseno: float | None = None          # K; None = máxima T1 de los casos
-    xFz_directo: bool = False              # xFz es el valor ya corregido por presión (Kc del trim)
     tamanos: tuple | None = None           # diámetros admitidos en selección automática [pulg]
     An: float | None = None                # coeficiente acústico IEC 60534-8-4
     verificar_clase: bool = True
@@ -130,12 +130,13 @@ def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> Res
         q = None
         if e.P2 <= e.Pv and caso.fluido:
             q = propiedades.calidad_isoentalpica(caso.fluido, e.P1, e.T1, e.P2)
-        if caso.Kc is not None:
-            xFz, directo = caso.Kc, True
-        else:
-            xFz, directo = sel.xFz, sel.xFz_directo
+        xFz = caso.xFz if caso.xFz is not None else sel.xFz
+        if xFz is None and caso.Kc is not None and "multietapa" in sel.estilo.clave:
+            # La estimación típica de IEC 60534-8-4 es de etapa simple: en un multietapa el inicio
+            # de cavitación se toma igual al Kc del trim.
+            xFz = caso.Kc / (6e5 / (e.P1 * 1000)) ** 0.125
         a, datos = fenomenos.evaluar_liquido(e.P1, e.P2, e.Pv, FL_eff, r.Kv, v.Fd,
-                                             r.extra["dPchoked"], xFz, q, directo)
+                                             r.extra["dPchoked"], xFz, q, caso.Kc)
         alertas += a
         bif = e.P2 <= e.Pv
         a, dv = fenomenos.evaluar_velocidad_liquido(r.extra["Q"], v.d_mm, v.D2_mm, e.rho1, bif)
@@ -188,9 +189,8 @@ def _ruido(caso: Caso, r: Resultado, v: Valvula, sel: Seleccion, datos: dict) ->
             c_liq = propiedades.velocidad_sonido(caso.fluido, e.P1, e.T1)
         c_liq = c_liq or 1400.0
         An = sel.An if sel.An is not None else (-4.3 if "mariposa" in sel.estilo.clave else -4.6)
-        xFz = None
-        if sel.xFz is not None:   # valor dado por el usuario: el ruido usa el mismo inicio de cavitación
-            xFz = datos["xFzp1"] / (6e5 / (e.P1 * 1000)) ** 0.125
+        # El ruido usa el inicio de cavitación incipiente (xFz), no el Kc: IEC 60534-8-4
+        xFz = None if datos["xFz_estimado"] else datos["xFz"]
         res = ruido.ruido_liquido(r.extra["Q"] * e.rho1 / 3600, e.P1, e.P2, e.Pv, e.rho1, c_liq, r.Kv,
                                   v.d_mm / 1000, Di_mm / 1000, tp_mm / 1000, FL_eff, v.Fd,
                                   xFz=xFz, An=An)
@@ -206,7 +206,14 @@ def _ruido(caso: Caso, r: Resultado, v: Valvula, sel: Seleccion, datos: dict) ->
         datos["ruido_regimen"] = res["regimen_nombre"]
     r.memoria.agregar("—", "Predicción de ruido " + (ruido.REF8_3 if gas else ruido.REF8_4), float("nan"))
     r.memoria.pasos.extend(res["memoria"].pasos)
-    return ruido.evaluar_ruido(res["LpAe1m"], gas, sel.limite_ruido)
+    nota = ""
+    if not gas and res["cavitante"] and datos["xFz_estimado"]:
+        nota = (" El nivel incluye el ruido de cavitación incipiente calculado con el xFz típico de "
+                f"IEC 60534-8-4 (xFzp1 = {_n(datos['xFzp1'], 3)}), que es conservador. Los fabricantes "
+                "usan el xFz y la eficiencia acústica medidos en laboratorio para su trim (la norma lo "
+                "permite), por lo que su valor suele ser menor. Ingrese el xFz certificado del trim para "
+                "afinar el resultado.")
+    return ruido.evaluar_ruido(res["LpAe1m"], gas, sel.limite_ruido, nota)
 
 
 def dimensionar(casos: list[Caso], sel: Seleccion) -> Informe:

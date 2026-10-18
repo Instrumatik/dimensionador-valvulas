@@ -14,6 +14,13 @@ import math
 from dataclasses import dataclass
 
 
+# Nombres de versiones anteriores, para abrir proyectos guardados con ellos
+NOMBRES_ANTERIORES = {
+    "Globo, jaula caracterizada 4 ventanas, flujo hacia afuera": "globo_jaula_4v_fuera",
+    "Globo, jaula caracterizada 4 ventanas, flujo hacia adentro": "globo_jaula_4v_dentro",
+}
+
+
 @dataclass(frozen=True)
 class EstiloValvula:
     clave: str
@@ -37,10 +44,18 @@ ESTILOS: dict[str, EstiloValvula] = {e.clave: e for e in [
                   "globo", 0.90, 0.75, 0.46, 11.0, "isoporcentual", 50),
     EstiloValvula("globo_contorneado_iso_cierra", "Globo, obturador contorneado, isoporcentual, flujo tiende a cerrar",
                   "globo", 0.80, 0.70, 1.00, 11.0, "isoporcentual", 50),
-    EstiloValvula("globo_jaula_4v_fuera", "Globo, jaula caracterizada 4 ventanas, flujo hacia afuera",
-                  "globo", 0.90, 0.75, 0.41, 14.0, "isoporcentual", 50),
-    EstiloValvula("globo_jaula_4v_dentro", "Globo, jaula caracterizada 4 ventanas, flujo hacia adentro",
-                  "globo", 0.85, 0.70, 0.41, 14.0, "isoporcentual", 50),
+    EstiloValvula("globo_jaula_4v_fuera",
+                  "Globo, jaula caracterizada 4 ventanas, flujo de adentro hacia afuera de la jaula (tiende a abrir)",
+                  "globo", 0.90, 0.75, 0.41, 14.0, "isoporcentual", 50,
+                  "El fluido entra por debajo del asiento, sube por el interior de la jaula y sale por las "
+                  "ventanas hacia el cuerpo (flujo bajo el obturador, tiende a abrir). Es la dirección "
+                  "habitual en líquidos y gases."),
+    EstiloValvula("globo_jaula_4v_dentro",
+                  "Globo, jaula caracterizada 4 ventanas, flujo de afuera hacia adentro de la jaula (tiende a cerrar)",
+                  "globo", 0.85, 0.70, 0.41, 14.0, "isoporcentual", 50,
+                  "El fluido rodea la jaula, entra por las ventanas y baja a través del asiento (flujo "
+                  "sobre el obturador, tiende a cerrar). Se usa para alejar la cavitación o el flashing "
+                  "del asiento y en algunos trims de bajo ruido."),
     EstiloValvula("globo_jaula_60_orificios", "Globo, jaula de 60 orificios (baja cavitación / bajo ruido)",
                   "globo", 0.90, 0.68, 0.13, 7.0, "lineal", 30,
                   "Jaula perforada para reducir ruido y retrasar la cavitación."),
@@ -175,10 +190,11 @@ def espesor_pared(Di_mm: float) -> float:
         if a <= Di_mm <= b:
             return ESPESOR_SCH40[a] + (ESPESOR_SCH40[b] - ESPESOR_SCH40[a]) * (Di_mm - a) / (b - a)
 
-# Coeficiente de cavitación incipiente Kc típico de cada trim (ΔP de inicio / (P1 − Pv)).
-# Valores genéricos de referencia de la práctica de la industria (ISA-RP75.23 usa el índice
-# equivalente σi = 1/Kc); no corresponden a ningún fabricante. Deben reemplazarse por el Kc
-# certificado del trim ofertado.
+# Coeficiente de cavitación Kc típico de cada trim: ΔP/(P1 − Pv) a partir del cual la cavitación es
+# sostenida y puede dañar (régimen constante σc = 1/Kc de ISA-RP75.23, criterio de ΔPcav de los
+# fabricantes). La cavitación incipiente (ruido) se evalúa aparte con xFz de IEC 60534-8-4.
+# Valores genéricos de referencia; no corresponden a ningún fabricante. Deben reemplazarse por el
+# Kc certificado del trim ofertado.
 KC_TIPICO = {
     "globo_contorneado_iso_abre": 0.65, "globo_contorneado_lineal_abre": 0.65,
     "globo_contorneado_iso_cierra": 0.55, "globo_contorneado_lineal_cierra": 0.55,

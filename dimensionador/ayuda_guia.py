@@ -790,37 +790,38 @@ GUIA = {
         ],
     },
     'xFz': {
-        'que_es': ('Es la relación de inicio de cavitación: el valor de xF = ΔP/(P1 − Pv) a partir'
-                   ' del cual empiezan a formarse y colapsar burbujas de vapor dentro de la '
-                   'válvula.'),
-        'que_hace': ('El programa compara el xF de cada caso con xFz (corregido por presión como '
-                     'xFzp1) para disparar la alerta de cavitación incipiente y calcular el ruido '
-                     'hidrodinámico según IEC 60534-8-4.'),
-        'que_indica': ('Un xFz alto indica que la válvula admite más caída antes de cavitar. Si xF'
-                       ' supera xFz, la cavitación ya comenzó, aunque todavía no haya flujo '
-                       'crítico.'),
-        'umbrales': ('Cavitación incipiente cuando xF ≥ xFzp1. Valores orientativos: válvulas de '
-                     'un solo pasaje 0,15–0,30; internos multiorificio o multietapa mayores. xFzp1'
-                     ' = xFz·(6·10<sup>5</sup> Pa/P1)<sup>0,125</sup>.'),
-        'por_debajo': ('Si xF es menor que xFzp1, no se espera cavitación: servicio sin daño ni '
-                       'ruido hidrodinámico relevante.'),
-        'por_encima': ('Si xF supera xFzp1 hay cavitación incipiente; si además se acerca a FL² '
-                       'hay cavitación plena y riesgo de daño, vibración y ruido alto.'),
-        'ejemplo': ('Agua con Kv = 100 m³/h, FL = 0,90 y Fd = 0,46: xFz ≈ 0,90/√(1 + '
-                    '3·0,46·√(100/(1,17·0,90))) ≈ 0,24. Con P1 = 10 bar a, xFzp1 ≈ '
-                    '0,24·(6/10)<sup>0,125</sup> ≈ 0,23; si ΔP = 4 bar y Pv ≈ 0, xF = 0,40 y el '
-                    'programa alertará cavitación.'),
+        'que_es': ('Es la relación de cavitación incipiente: el valor de xF = ΔP/(P1 − Pv) a '
+                   'partir del cual empiezan a formarse las primeras burbujas (régimen incipiente '
+                   'de ISA-RP75.23). Normalmente no daña, pero aumenta el ruido.'),
+        'que_hace': ('Corregido por presión (xFzp1) marca el régimen «cavitación incipiente» y es '
+                     'el que usa el ruido hidrodinámico de IEC 60534-8-4: por encima de xFzp1 se '
+                     'suma el ruido de cavitación. Es una entrada opcional por caso.'),
+        'que_indica': ('Si xF supera xFzp1 pero no Kc, hay cavitación incipiente: más ruido, sin '
+                       'daño esperado. Por eso puede haber ruido alto sin alerta de cavitación.'),
+        'umbrales': ('Si se deja vacío se estima con IEC 60534-8-4 (típico 0,15–0,35 en trims de '
+                     'un pasaje), un valor conservador. Los fabricantes miden xFz en laboratorio '
+                     '(IEC 60534-8-2) y suele ser mayor. En multietapa sin dato se toma igual a '
+                     'Kc. xFzp1 = xFz·(6·10<sup>5</sup> Pa/P1)<sup>0,125</sup>.'),
+        'por_debajo': ('Si xF es menor que xFzp1 no hay burbujas: solo ruido turbulento, '
+                       'normalmente bajo.'),
+        'por_encima': ('Si xF supera xFzp1 el ruido sube rápido (el término de cavitación de IEC '
+                       '60534-8-4 crece con la potencia 5 de xF/xFzp1); al superar Kc la '
+                       'cavitación ya puede dañar.'),
+        'ejemplo': ('Agua, válvula de 4" con Kc = 0,65 y Kapp = 0,50. Con el xFz típico de IEC '
+                    '(xFzp1 ≈ 0,23) el ruido da unos 92 dB(A); con un xFz de fabricante de 0,65 da'
+                    ' unos 63 dB(A). La diferencia entre programas de ruido viene casi siempre de '
+                    'este dato.'),
         'afecta': [
-            'Alerta de cavitación',
             'Ruido hidrodinámico IEC 60534-8-4',
-            'Selección de estilo e internos',
+            'Alerta de cavitación incipiente',
+            'Selección de internos',
         ],
         'recomendaciones': [
-            'Ingrese el xFz del proveedor (ensayado según IEC 60534-8-2) cuando lo tenga.',
-            ('Si xF > xFz, aumente P2 (contrapresión, ubicación más baja de la válvula) o divida '
-             'la caída en etapas.'),
-            'Elija internos anticavitación (multiorificio, multietapa) para ΔP altas en líquidos.',
-            'Use materiales endurecidos (por ejemplo estelitado) si se acepta algo de cavitación.',
+            ('Pida al fabricante el xFz certificado del trim (IEC 60534-8-2) e ingréselo para '
+             'comparar ruido con su programa.'),
+            'Si no lo tiene, deje el campo vacío: el resultado será conservador.',
+            ('En servicio continuo con ΔP alta, la cavitación incipiente justifica internos '
+             'endurecidos.'),
         ],
     },
     'tamano': {
@@ -2857,62 +2858,85 @@ GUIA = {
         ],
     },
     'trim': {
-        'que_es': ('Son los internos de la válvula (obturador, asiento y jaula). Cada tipo tiene '
-                   'sus factores típicos FL y Fd y su característica de caudal.'),
+        'que_es': ('Son los internos de la válvula (obturador, asiento y jaula). Cada opción trae '
+                   'sus factores típicos FL y Fd, su Kc y su característica, y además indica el '
+                   'sentido en que el fluido atraviesa los internos.'),
         'que_hace': ('Determina cuánta caída de presión tolera la válvula antes de cavitar o '
-                     'estrangularse y cuánto ruido genera.'),
-        'que_indica': ('Un trim de alto FL, bajo Fd y alto Kc soporta servicios más exigentes; uno'
-                       ' estándar es suficiente para ΔP moderadas.'),
-        'umbrales': ('Orientativo (práctica habitual): contorneado o jaula caracterizada para Kapp'
-                     ' por debajo de su Kc (≈ 0,2–0,5); jaula de orificios para cavitación '
-                     'moderada (Kc ≈ 0,5–0,7); multietapa para cavitación severa o ΔP muy altas '
-                     '(Kc ≈ 0,8–0,95).'),
+                     'estrangularse, cuánto ruido genera y si el fluido tiende a abrir o a cerrar '
+                     'el obturador.'),
+        'que_indica': ('Sentido de flujo, la parte que más confunde. «Tiende a abrir» (flujo bajo '
+                       'el obturador): el fluido entra por debajo del asiento y empuja el '
+                       'obturador hacia arriba, en el sentido de apertura. «Tiende a cerrar» '
+                       '(flujo sobre el obturador): entra por arriba y empuja el obturador contra '
+                       'el asiento. En una jaula, «de adentro hacia afuera» significa que el '
+                       'fluido sube por el asiento, llena el interior de la jaula y sale por las '
+                       'ventanas hacia el cuerpo: es flujo bajo el obturador (tiende a abrir), la '
+                       'dirección habitual. «De afuera hacia adentro» significa que el fluido '
+                       'rodea la jaula, entra por las ventanas y baja por el asiento: es flujo '
+                       'sobre el obturador (tiende a cerrar).'),
+        'umbrales': ('Orientativo: contorneado o jaula de 4 ventanas mientras Kapp < 0,9·Kc del '
+                     'trim (Kc típico 0,55–0,70); jaula de 60 o 120 orificios para cavitación '
+                     'moderada (Kc 0,80–0,85); multietapa para cavitación severa (Kc ≈ 0,95). El '
+                     'sentido de flujo cambia FL: de adentro hacia afuera FL ≈ 0,90; de afuera '
+                     'hacia adentro FL ≈ 0,85.'),
         'por_debajo': ('Un trim insuficiente para el servicio produce cavitación, erosión, '
                        'vibración y ruido.'),
         'por_encima': ('Un trim más complejo que lo necesario encarece la válvula, reduce la '
                        'capacidad por tamaño y puede taparse con fluidos sucios.'),
-        'ejemplo': ('Agua con Kapp = 0,6. Un trim contorneado (Kc ≈ 0,35) cavita; una jaula de '
-                    'orificios (Kc ≈ 0,65) queda sin cavitación, por lo que se elige esta última.'),
+        'ejemplo': ('Agua con Kapp = 0,6. Un contorneado tiende a abrir (Kc 0,65) queda justo: 0,9'
+                    ' × 0,65 = 0,585 < 0,6, así que conviene la jaula de 60 orificios (Kc 0,80). '
+                    'Con flashing, en cambio, se prefiere flujo que tiende a cerrar (de afuera '
+                    'hacia adentro en una jaula, o angular) para que el vapor se forme lejos del '
+                    'asiento.'),
         'afecta': [
-            'Factores FL y Fd',
-            'Kc y alerta de cavitación',
+            'Factores FL, Fd y Kc',
+            'Alerta de cavitación',
             'ΔP choked',
             'Cv requerido y apertura',
             'Ruido hidrodinámico IEC 60534-8-4',
+            'Estabilidad cerca del asiento y empuje del actuador',
         ],
         'recomendaciones': [
             'Comparar Kapp con el Kc de cada trim antes de elegir.',
+            ('Usar flujo que tiende a abrir (de adentro hacia afuera en jaulas) salvo que haya '
+             'flashing o un motivo del fabricante.'),
+            ('Flujo que tiende a cerrar: más estable con ΔP baja pero puede producir golpe al '
+             'cerrar («bathtub stopper»): verificar el actuador.'),
             'Reemplazar los factores típicos por los certificados del fabricante.',
             'Evitar trims de orificios pequeños en fluidos con sólidos.',
-            'Para cavitación severa, preferir multietapa en lugar de solo endurecer materiales.',
         ],
     },
     'Kc': {
-        'que_es': ('Es el valor de ΔP/(P1 − Pv) a partir del cual los internos empiezan a cavitar '
-                   '(cavitación incipiente). Es una propiedad de la válvula y su trim, no del '
-                   'servicio.'),
-        'que_hace': ('Se compara con Kapp para decidir si hay cavitación y permite calcular la ΔP '
-                     'de inicio de cavitación: ΔPcav = Kc·(P1 − Pv).'),
-        'que_indica': 'Cuanto mayor es Kc, más caída de presión admite la válvula sin cavitar.',
-        'umbrales': ('Típicos: trim estándar 0,2–0,5; jaula de orificios 0,5–0,7; multietapa '
-                     '0,8–0,95. Si se deja vacío se estima con IEC 60534-8-4 (xFz). Siempre es '
-                     'menor que FL².'),
+        'que_es': ('Es el valor de ΔP/(P1 − Pv) a partir del cual el trim cavita en forma '
+                   'sostenida y puede dañarse (régimen de cavitación constante de ISA-RP75.23, o '
+                   'límite recomendado por el fabricante). Es el mismo concepto que usan los '
+                   'programas de los fabricantes para la ΔP de cavitación: ΔPcav = Kc·(P1 − Pv).'),
+        'que_hace': ('Se compara con Kapp para disparar la alerta de cavitación (con daño posible)'
+                     ' y para elegir el trim. La cavitación incipiente, que solo aumenta el ruido,'
+                     ' se evalúa aparte con xFz.'),
+        'que_indica': ('Cuanto mayor es Kc, más caída de presión admite el trim sin cavitar en '
+                       'forma dañina.'),
+        'umbrales': ('Valores típicos del programa: contorneado 0,55–0,65; jaula de 4 ventanas '
+                     '0,65–0,70; 60 orificios 0,80; 120 orificios 0,85; multietapa 0,95; rotativas'
+                     ' 0,25–0,50. Al elegir el trim se cargan solos. Si se deja vacío se usa la '
+                     'cavitación incipiente xFzp1 (criterio conservador). Siempre es menor que '
+                     'FL².'),
         'por_debajo': ('Un Kc bajo frente al servicio indica que la válvula cavitará aun con ΔP '
                        'moderadas.'),
         'por_encima': 'Un Kc alto se logra con trims más complejos y costosos.',
-        'ejemplo': ('Trim con Kc = 0,5, P1 = 10 bar(a) y Pv = 0,5 bar(a): ΔPcav = 0,5 × 9,5 = 4,75'
-                    ' bar. Si la ΔP de servicio es 3 bar no hay cavitación; si es 6 bar sí.'),
+        'ejemplo': ('Trim con Kc = 0,65, P1 = 10 bar(a) y Pv = 0,1 bar(a): ΔPcav = 0,65 × 9,9 = '
+                    '6,4 bar. Con ΔP de servicio de 5 bar no hay cavitación dañina; si xFzp1 = '
+                    '0,25 (ΔP incipiente 2,5 bar) sí hay cavitación incipiente y el ruido '
+                    'calculado sube.'),
         'afecta': [
             'ΔP de inicio de cavitación',
             'Alerta de cavitación',
-            'Ruido hidrodinámico IEC 60534-8-4',
             'Selección del trim',
         ],
         'recomendaciones': [
             'Usar el valor del fabricante a las condiciones de servicio cuando esté disponible.',
             'Si Kapp ≥ Kc, elegir un trim de mayor Kc (orificios o multietapa).',
-            ('No confundir Kc con FL²: FL² marca el estrangulamiento, Kc el comienzo de la '
-             'cavitación.'),
+            'No confundir Kc con xFz (incipiente, ruido) ni con FL² (estrangulamiento).',
         ],
     },
     'Kapp': {
@@ -2948,16 +2972,17 @@ GUIA = {
         ],
     },
     'dPcav': {
-        'que_es': ('Es la caída de presión a partir de la cual el trim empieza a cavitar: ΔPcav = '
-                   'Kc·(P1 − Pv).'),
+        'que_es': ('Es la caída de presión a partir de la cual el trim cavita en forma sostenida: '
+                   'ΔPcav = Kc·(P1 − Pv).'),
         'que_hace': ('Permite comparar directamente en bar la ΔP del servicio con la que tolera la'
-                     ' válvula sin cavitar.'),
-        'que_indica': ('Si la ΔP de servicio es menor que ΔPcav no hay cavitación; si es mayor, '
-                       'sí. Si además supera ΔP choked, el flujo está estrangulado.'),
+                     ' válvula sin cavitación dañina.'),
+        'que_indica': ('Si la ΔP de servicio es menor que ΔPcav no hay cavitación dañina (puede '
+                       'haber incipiente, que solo suma ruido); si es mayor, sí. Si además supera '
+                       'ΔP choked, el flujo está estrangulado.'),
         'umbrales': ('La condición de alerta es ΔP ≥ ΔPcav. Siempre se cumple ΔPcav < ΔP choked '
                      '(porque Kc < FL²).'),
-        'por_debajo': ('Si la ΔP de servicio queda por debajo de ΔPcav, el servicio es sin '
-                       'cavitación.'),
+        'por_debajo': ('Si la ΔP de servicio queda por debajo de ΔPcav el trim no sufre cavitación'
+                       ' sostenida.'),
         'por_encima': ('Si la ΔP de servicio queda por encima de ΔPcav hay cavitación, con riesgo '
                        'de erosión, ruido y vibración.'),
         'ejemplo': ('P1 = 8 bar(a), Pv = 0,1 bar(a) y Kc = 0,4: ΔPcav = 0,4 × 7,9 = 3,16 bar. Con '
@@ -2966,7 +2991,6 @@ GUIA = {
         'afecta': [
             'Alerta de cavitación',
             'Selección del trim',
-            'Ruido hidrodinámico IEC 60534-8-4',
         ],
         'recomendaciones': [
             'Si ΔP > ΔPcav, elegir un trim de mayor Kc.',
@@ -3892,6 +3916,146 @@ GUIA = {
             ('Si aparece régimen laminar, confirme la viscosidad y considere un tamaño de válvula '
              'mayor.'),
             'Revise que el estado del vapor (saturado o sobrecalentado) coincida con lo esperado.',
+        ],
+    },
+    'cavitacion_incipiente': {
+        'que_es': ('Es el primer régimen de cavitación (ISA-RP75.23): aparecen burbujas aisladas '
+                   'en la vena contracta que colapsan aguas abajo. Se oye como chasquidos sueltos.'),
+        'que_hace': ('El programa la informa cuando Kapp supera xFzp1 pero no el Kc del trim. '
+                     'Explica por qué el ruido calculado puede ser alto sin alerta de cavitación.'),
+        'que_indica': ('Normalmente no hay daño, pero el ruido hidrodinámico aumenta. Con ΔP alta '
+                       '(más de 10 bar) la alerta pasa a advertencia: muchas especificaciones de '
+                       'usuarios piden trim anticavitación ya en este régimen.'),
+        'umbrales': ('xFzp1 ≤ Kapp < Kc. Por debajo de xFzp1 no hay burbujas; desde Kc se emite la'
+                     ' alerta de cavitación.'),
+        'por_debajo': 'Por debajo de xFzp1 el flujo es solo turbulento, sin burbujas.',
+        'por_encima': ('Al llegar a Kc la cavitación es sostenida y puede erosionar internos y '
+                       'cuerpo.'),
+        'ejemplo': ('Kapp = 0,46, xFzp1 = 0,24 (típico IEC) y Kc = 0,65: cavitación incipiente. La'
+                    ' hoja de datos de un proyecto con criterio conservador puede pedir trim '
+                    'anticavitación aunque el programa del fabricante no marque cavitación.'),
+        'afecta': [
+            'Ruido hidrodinámico IEC 60534-8-4',
+            'Selección de internos y materiales',
+        ],
+        'recomendaciones': [
+            'Pida el xFz certificado del trim para confirmar el régimen y el ruido.',
+            ('En servicio continuo con agua y ΔP alta, internos endurecidos o jaula de etapa '
+             'simple.'),
+            'Revise el criterio de la especificación del cliente: algunas exigen no superar xFz.',
+        ],
+    },
+    'balance': {
+        'que_es': ('Indica si el obturador es balanceado o desbalanceado. En uno balanceado, unos '
+                   'orificios en el obturador igualan la presión arriba y abajo, y un anillo de '
+                   'sello contra la jaula separa ambas zonas. En uno desbalanceado la ΔP actúa '
+                   'sobre toda el área del puerto.'),
+        'que_hace': ('El programa lo informa en la hoja de datos y verifica su compatibilidad: '
+                     'fuerza de desbalance alta con trim desbalanceado; clase de cierre, '
+                     'temperatura del sello y tipo de trim con trim balanceado. No cambia el Cv.'),
+        'que_indica': ('Balanceado: actuador mucho más chico con ΔP alta, pero el sello agrega una'
+                       ' vía de fuga y limita temperatura. Desbalanceado: cierre más hermético y '
+                       'simple, pero el empuje crece con ΔP·área del puerto.'),
+        'umbrales': ('Orientativo: conviene balanceado con ΔP de cierre mayor que unos 10 bar en '
+                     'válvulas de 3" o más. El sello de PTFE llega a unos 232 °C; con trim '
+                     'balanceado la clase de cierre habitual es IV. No aplica a válvulas '
+                     'rotativas.'),
+        'por_debajo': ('Con ΔP baja o diámetro chico el desbalanceado es la opción normal: más '
+                       'simple y mejor cierre.'),
+        'por_encima': ('Con ΔP alta y diámetro grande el desbalanceado exige un actuador muy '
+                       'grande y pierde estabilidad cerca del asiento.'),
+        'ejemplo': ('Válvula de 6" con ΔP de cierre de 20 bar: F ≈ 2000 kPa × π/4 × (0,152 m)² ≈ '
+                    '36 kN (unas 8 200 lbf) sobre un obturador desbalanceado. Balanceado, la '
+                    'fuerza baja a una fracción y basta un actuador estándar.'),
+        'afecta': [
+            'Hoja de datos',
+            'Alertas de balanceo',
+            'Tipo de guía y obturador (recomendaciones)',
+        ],
+        'recomendaciones': [
+            ('Para clase V o VI con trim balanceado pida al fabricante un sello de balanceo '
+             'especial.'),
+            'Por encima de unos 232 °C especifique sello de grafito o metálico.',
+            'El balanceo requiere obturador guiado por jaula.',
+        ],
+    },
+    'desbalance_fuerza': {
+        'que_es': 'Aviso de que el obturador desbalanceado recibe una fuerza del fluido grande.',
+        'que_hace': ('Estima F ≈ ΔP·π·d²/4 con la ΔP máxima (cierre incluido) y el puerto igual al'
+                     ' diámetro de la válvula.'),
+        'que_indica': ('El actuador debe vencer esa fuerza para cerrar y modular: resulta grande y'
+                       ' menos estable cerca del asiento.'),
+        'umbrales': 'Se emite con trim desbalanceado, ΔP mayor que 10 bar y válvula de 3" o más.',
+        'por_debajo': 'Con ΔP o diámetro menores la fuerza es manejable con actuadores estándar.',
+        'por_encima': ('Cuanto mayor la ΔP y el diámetro, mayor el actuador y el riesgo de '
+                       'inestabilidad.'),
+        'ejemplo': ('Válvula de 4" y ΔP de 15 bar: F ≈ 1500 kPa × π/4 × (0,1016 m)² ≈ 12 kN (unas '
+                    '2 700 lbf).'),
+        'afecta': [
+            'Dimensionamiento del actuador',
+            'Elección del trim',
+        ],
+        'recomendaciones': [
+            'Elegir trim balanceado.',
+            'Confirmar el diámetro de puerto real con el fabricante.',
+        ],
+    },
+    'balance_sin_jaula': {
+        'que_es': 'Aviso de que se eligió trim balanceado con un obturador contorneado.',
+        'que_hace': ('Advierte que el balanceo se fabrica casi siempre en obturadores guiados por '
+                     'jaula.'),
+        'que_indica': 'La combinación puede no estar disponible o requerir un diseño especial.',
+        'umbrales': 'Se emite con trim balanceado y un trim que no es de jaula ni multietapa.',
+        'por_debajo': 'Con un trim de jaula no se emite.',
+        'por_encima': 'No aplica.',
+        'ejemplo': ('Obturador contorneado tiende a abrir marcado como balanceado: cambie a jaula '
+                    'de 4 ventanas.'),
+        'afecta': [
+            'Hoja de datos',
+            'Elección del trim',
+        ],
+        'recomendaciones': [
+            'Elegir un trim de jaula.',
+            'O confirmar con el fabricante.',
+        ],
+    },
+    'balance_cierre': {
+        'que_es': 'Aviso de que el trim balanceado se combinó con clase de cierre V o VI.',
+        'que_hace': ('Recuerda que el sello de balanceo es una segunda vía de fuga además del '
+                     'asiento.'),
+        'que_indica': ('La clase pedida solo se logra con sellos de balanceo especiales o asiento '
+                       'blando.'),
+        'umbrales': 'Se emite con trim balanceado y clase V o superior.',
+        'por_debajo': 'Hasta clase IV el trim balanceado estándar es suficiente.',
+        'por_encima': 'Clase VI con balanceado requiere confirmación expresa del fabricante.',
+        'ejemplo': ('Válvula de 3" balanceada con clase V: pida un sello de balanceo de alta '
+                    'prestación.'),
+        'afecta': [
+            'Clase de cierre',
+            'Hoja de datos',
+        ],
+        'recomendaciones': [
+            'Pedir la clase garantizada con el sello elegido.',
+            'Si la ΔP lo permite, usar desbalanceado.',
+        ],
+    },
+    'balance_temperatura': {
+        'que_es': 'Aviso de que la temperatura supera el límite del sello de balanceo de PTFE.',
+        'que_hace': 'Compara la temperatura de diseño con unos 232 °C.',
+        'que_indica': ('Se necesita un sello de grafito o metálico, que puede reducir la clase de '
+                       'cierre.'),
+        'umbrales': 'Temperatura de diseño mayor que 232 °C con trim balanceado.',
+        'por_debajo': 'Con menor temperatura el sello de PTFE es adecuado.',
+        'por_encima': 'El PTFE pierde resistencia y el sello fuga.',
+        'ejemplo': ('Agua de alimentación de caldera a 250 °C con trim balanceado: sello de '
+                    'grafito.'),
+        'afecta': [
+            'Materiales del trim',
+            'Clase de cierre',
+        ],
+        'recomendaciones': [
+            'Especificar sello de grafito o metálico.',
+            'Confirmar la clase de cierre con el fabricante.',
         ],
     },
 }

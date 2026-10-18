@@ -70,7 +70,8 @@ def _caso_liquido(nombre, c, s, trim_usuario: str, rotativo: bool) -> Evaluacion
     P1, P2, Pv, dP = c.P1, c.P2, c.Pv, c.P1 - c.P2
     Kapp, Kc_u, FL_u = s["Kapp"], s["Kc"], c.FL
     datos = [("ΔP", dP, "presion_dif"), ("Kapp", Kapp, None), ("Kc del trim elegido", Kc_u, None),
-             ("FL² del trim elegido", FL_u ** 2, None), ("σ = 1/Kapp", 1 / Kapp if Kapp > 0 else float("inf"), None)]
+             ("FL² del trim elegido", FL_u ** 2, None), ("Cavitación incipiente xFzp1", s["xFzp1"], None),
+             ("σ = 1/Kapp", 1 / Kapp if Kapp > 0 else float("inf"), None)]
     if P2 <= Pv:
         ev = EvaluacionCaso(nombre, datos, "Angular, flujo tiende a cerrar, internos endurecidos (flashing)", 1, 5,
                             f"P2 = {_n(P2, 1)} kPa a ≤ Pv = {_n(Pv, 1)} kPa a: hay flashing. Los trims "
@@ -81,6 +82,11 @@ def _caso_liquido(nombre, c, s, trim_usuario: str, rotativo: bool) -> Evaluacion
     if Kapp <= MARGEN_KC * Kc_u and Kapp < FL_u ** 2:
         ev = EvaluacionCaso(nombre, datos, ESTILOS[trim_usuario].nombre, 1, 0,
                             f"Kapp = {_n(Kapp)} ≤ 0,9·Kc = {_n(MARGEN_KC * Kc_u)}: el trim elegido no cavita.")
+        if Kapp >= s["xFzp1"]:
+            ev.avisos.append(f"Kapp = {_n(Kapp)} supera la cavitación incipiente xFzp1 = {_n(s['xFzp1'])}: hay "
+                             "burbujas aisladas y más ruido, normalmente sin daño. Si la especificación del "
+                             "cliente no admite cavitación incipiente, o el servicio es continuo con ΔP alta, "
+                             "suba un escalón (jaula de orificios) y pida el xFz certificado del trim.")
     else:
         elegido = next((k for k in ESCALERA
                         if KC_TIPICO[k] >= Kapp / MARGEN_KC and Kapp < ESTILOS[k].FL ** 2), None)

@@ -246,14 +246,16 @@ _e("Fd", "Modificador de estilo de válvula Fd",
    referencia="IEC 60534-2-1 Anexo A",
    relacionadas=["Rev", "xFz"], categoria="Coeficientes")
 
-_e("xFz", "Relación de inicio de cavitación xFz",
-   "<p>Valor de xF = ΔP/(P1 − Pv) a partir del cual comienza la cavitación (determinado por "
-   "ensayos de ruido según IEC 60534-8-2). Si no se ingresa, el programa usa la estimación típica "
-   "de IEC 60534-8-4, que depende del Kv, FL y Fd; luego se corrige por la presión de entrada "
-   "(xFzp1).</p>",
-   formula="xFz ≈ 0,90 / √(1 + 3·Fd·√(Kv/(N34·FL)));   xFzp1 = xFz·(6·10⁵ Pa / P1)^0,125",
-   referencia="IEC 60534-8-4",
-   relacionadas=["cavitacion", "sigma"], categoria="Coeficientes")
+_e("xFz", "Cavitación incipiente xFz",
+   "<p>Valor de xF = ΔP/(P1 − Pv) a partir del cual aparecen las primeras burbujas (régimen incipiente "
+   "de ISA-RP75.23), determinado por ensayos de ruido según IEC 60534-8-2 a 6 bar. Normalmente no daña, "
+   "pero desde ahí IEC 60534-8-4 suma el ruido de cavitación, que crece muy rápido.</p><p>Es una entrada "
+   "opcional por caso. Si se deja vacía el programa usa la estimación típica de IEC 60534-8-4, que es "
+   "conservadora; los fabricantes usan su xFz medido, por eso su ruido suele ser menor. En multietapa "
+   "sin dato se toma igual a Kc. Luego se corrige por la presión de entrada (xFzp1).</p>",
+   formula="xFz ≈ 0,90 / √(1 + 3·Fd·√(Cv/(N34·FL))), N34 = 1,17;   xFzp1 = xFz·(6·10⁵ Pa / P1)^0,125",
+   referencia="IEC 60534-8-4; IEC 60534-8-2; ISA-RP75.23",
+   relacionadas=["cavitacion_incipiente", "Kc", "sigma"], categoria="Coeficientes")
 
 _e("tamano", "Diámetro de la válvula",
    "<p>Diámetro nominal de las conexiones de la válvula. Elija <b>Automático</b> para que el "
@@ -413,9 +415,39 @@ _e("cavitacion", "Cavitación",
    relacionadas=["xFz", "sigma", "FL", "flashing"], categoria="Fenómenos")
 
 _e("cavitacion_proxima", "Cerca del inicio de cavitación",
-   "<p>El servicio no cavita, pero está a menos del 20 % del inicio. Variaciones normales de "
+   "<p>El servicio no cavita, pero Kapp está a menos del 20 % del Kc del trim. Variaciones normales de "
    "operación (mayor temperatura, menor P2) pueden hacerlo cavitar.</p>",
-   relacionadas=["cavitacion"], categoria="Fenómenos")
+   relacionadas=["cavitacion", "Kc"], categoria="Fenómenos")
+
+_e("desbalance_fuerza", "Fuerza de desbalance alta",
+   "<p>Con trim desbalanceado, ΔP mayor que 10 bar y válvula de 3\" o más, la fuerza del fluido sobre "
+   "el obturador es grande. Se estima con F ≈ ΔP·π·d²/4 y el puerto igual al diámetro de la válvula "
+   "(orientativo). El actuador resulta grande y la estabilidad cerca del asiento empeora.</p>",
+   formula="F ≈ ΔP·π·d²/4", relacionadas=["balance"], categoria="Fenómenos")
+
+_e("balance_sin_jaula", "Trim balanceado sin jaula",
+   "<p>El balanceo se fabrica casi siempre en obturadores guiados por jaula, porque el sello trabaja "
+   "contra el interior de la jaula. Elija un trim de jaula o confirme con el fabricante.</p>",
+   relacionadas=["balance", "trim"], categoria="Fenómenos")
+
+_e("balance_cierre", "Trim balanceado y clase de cierre alta",
+   "<p>El sello de balanceo agrega una vía de fuga además del asiento. Con trim balanceado la clase "
+   "habitual es IV; las clases V y VI requieren un sello especial o asiento blando, a confirmar con el "
+   "fabricante.</p>", relacionadas=["balance", "clase_cierre"], categoria="Fenómenos")
+
+_e("balance_temperatura", "Sello de balanceo y temperatura",
+   "<p>La temperatura de diseño supera unos 232 °C, límite práctico del sello de balanceo de PTFE. "
+   "Especifique sello de grafito o metálico y confirme la clase de cierre que se obtiene.</p>",
+   relacionadas=["balance", "clase_cierre"], categoria="Fenómenos")
+
+_e("cavitacion_incipiente", "Cavitación incipiente",
+   "<p>Kapp supera el inicio de cavitación incipiente xFzp1 pero no el Kc del trim. Aparecen burbujas "
+   "aisladas que colapsan aguas abajo: el ruido hidrodinámico aumenta (IEC 60534-8-4 suma el término "
+   "de cavitación), pero normalmente no hay daño. Por eso puede haber ruido alto sin alerta de "
+   "cavitación.</p><p>Con ΔP mayor que 10 bar se emite como advertencia: muchas especificaciones piden "
+   "trim anticavitación ya en este régimen. Ingrese el xFz certificado del trim para confirmarlo.</p>",
+   referencia="ISA-RP75.23 (σi); IEC 60534-8-4",
+   relacionadas=["xFz", "Kc", "cavitacion", "ruido"], categoria="Fenómenos")
 
 _e("flashing", "Flashing (vaporización instantánea)",
    "<p><b>Qué es.</b> Ocurre cuando la presión de salida P2 es menor o igual que la presión de "
@@ -692,33 +724,62 @@ _e("SG", "Gravedad específica",
    "Gasolina: 0,72–0,76. Crudo: 0,80–0,95.", relacionadas=["rho"])
 _e("trim", "Tipo de trim hidrodinámico",
    "<p>Internos de la válvula (obturador, asiento y jaula). Cada opción trae sus factores típicos "
-   "de IEC 60534-2-1 (FL, Fd) y su característica, que se cargan en las entradas y se pueden "
+   "de IEC 60534-2-1 (FL, Fd), su Kc y su característica, que se cargan en las entradas y se pueden "
    "reemplazar por los certificados del fabricante.</p><ul><li><b>Contorneado</b>: obturador "
-   "perfilado, estándar.</li><li><b>Jaula caracterizada</b>: ventanas en la jaula, guiado estable.</li>"
+   "perfilado, estándar.</li><li><b>Jaula caracterizada de 4 ventanas</b>: guiado estable.</li>"
    "<li><b>Jaula de orificios</b> (60 o 120): anticavitación de etapa simple; bajo Fd retrasa la "
-   "cavitación.</li><li><b>Multietapa</b>: divide la caída de presión, para cavitación severa.</li></ul>",
-   relacionadas=["Kc", "FL", "Fd"])
+   "cavitación.</li><li><b>Multietapa</b>: divide la caída de presión, para cavitación severa.</li></ul>"
+   "<p><b>Sentido de flujo</b> (lo que más confunde):</p><ul>"
+   "<li><b>Flujo tiende a abrir</b> (flujo bajo el obturador, «flow up»): el fluido entra por debajo del "
+   "asiento y empuja el obturador hacia arriba, en el sentido de apertura. Es la dirección habitual.</li>"
+   "<li><b>Flujo tiende a cerrar</b> (flujo sobre el obturador, «flow down»): el fluido entra por arriba "
+   "y empuja el obturador contra el asiento. Se usa con flashing o cavitación para alejar el colapso "
+   "del asiento; puede dar golpe al cerrar.</li>"
+   "<li><b>Jaula, flujo de adentro hacia afuera</b> (IEC: «outward flow»): el fluido sube por el asiento, "
+   "llena el interior de la jaula y sale por las ventanas hacia el cuerpo. Equivale a tiende a abrir. "
+   "FL ≈ 0,90.</li>"
+   "<li><b>Jaula, flujo de afuera hacia adentro</b> (IEC: «inward flow»): el fluido rodea la jaula, entra "
+   "por las ventanas y baja por el asiento. Equivale a tiende a cerrar. FL ≈ 0,85.</li></ul>",
+   referencia="IEC 60534-2-1, Anexo A (tabla de factores típicos)",
+   relacionadas=["Kc", "FL", "Fd", "balance"])
+_e("balance", "Obturador balanceado o desbalanceado",
+   "<p><b>Desbalanceado</b>: la ΔP actúa sobre toda el área del puerto; el actuador debe vencer una "
+   "fuerza F ≈ ΔP·π·d²/4. Es simple y cierra mejor (clase V o VI con asiento adecuado).</p>"
+   "<p><b>Balanceado</b>: unos orificios en el obturador igualan la presión arriba y abajo, y un anillo "
+   "de sello contra la jaula separa ambas zonas. La fuerza baja a una fracción y basta un actuador "
+   "chico, pero el sello agrega una vía de fuga (clase IV habitual) y limita la temperatura (PTFE unos "
+   "232 °C).</p><p>Orientativo: conviene balanceado con ΔP de cierre mayor que unos 10 bar en válvulas "
+   "de 3\" o más. Requiere obturador guiado por jaula. No aplica a válvulas rotativas. No cambia el Cv: "
+   "se informa en la hoja de datos y se verifica en las alertas.</p>",
+   formula="F ≈ ΔP·π·d²/4 (obturador desbalanceado, d = diámetro del puerto)",
+   referencia="Práctica de la industria (manuales de fabricantes)",
+   relacionadas=["trim", "desbalance_fuerza", "balance_cierre", "clase_cierre"])
 _e("Kc", "Coeficiente de cavitación de la construcción Kc",
-   "<p>Valor de ΔP/(P1 − Pv) a partir del cual el trim empieza a cavitar (cavitación incipiente). "
-   "Es una propiedad de los internos: cuanto más alto, más caída de presión admite la válvula sin "
-   "cavitar.</p><p>Si se deja en blanco el programa lo estima con IEC 60534-8-4 (xFz típico según "
-   "Fd y la capacidad, corregido por la presión de entrada). Si se ingresa, se usa tal cual, como "
-   "el valor del fabricante a las condiciones de servicio.</p><p>Se compara con Kapp: si "
-   "Kapp ≥ Kc hay cavitación; si Kapp ≥ FLp² el flujo está estrangulado.</p>",
-   formula="ΔPcav = Kc·(P1 − Pv)", tipicos="Trim estándar: 0,2–0,5. Jaula de orificios: 0,5–0,7. "
-   "Multietapa: 0,8–0,95.", referencia="IEC 60534-8-4 (xFz); ISA-RP75.23",
-   relacionadas=["Kapp", "dPcav", "cavitacion"], categoria="Coeficientes")
+   "<p>Valor de ΔP/(P1 − Pv) a partir del cual el trim cavita en forma sostenida y puede dañarse "
+   "(régimen de cavitación constante de ISA-RP75.23, o límite del fabricante). Es el mismo criterio "
+   "que usan los programas de los fabricantes para la ΔP de cavitación. Al elegir el trim se carga "
+   "su valor típico; reemplácelo por el certificado.</p><p>Si se deja en blanco se usa la cavitación "
+   "incipiente xFzp1 (conservador). La cavitación incipiente, que solo aumenta el ruido, se evalúa "
+   "aparte con xFz.</p><ul><li>Kapp &lt; xFzp1: sin cavitación.</li><li>xFzp1 ≤ Kapp &lt; Kc: "
+   "cavitación incipiente (ruido, sin daño esperado).</li><li>Kc ≤ Kapp &lt; FLp²: cavitación.</li>"
+   "<li>Kapp ≥ FLp²: flujo estrangulado.</li></ul>",
+   formula="ΔPcav = Kc·(P1 − Pv)", tipicos="Contorneado 0,55–0,65. Jaula 4 ventanas 0,65–0,70. Jaula de "
+   "orificios 0,80–0,85. Multietapa 0,95. Rotativas 0,25–0,50.",
+   referencia="ISA-RP75.23 (σc); práctica de fabricantes",
+   relacionadas=["Kapp", "dPcav", "xFz", "cavitacion"], categoria="Coeficientes")
 _e("Kapp", "Coeficiente de cavitación de la aplicación Kapp",
    "<p>Relación entre la caída de presión del servicio y la presión disponible sobre la de vapor. "
-   "Describe cuán exigente es la aplicación, sin importar la válvula.</p><ul><li>Kapp &lt; Kc: sin "
-   "cavitación.</li><li>Kc ≤ Kapp &lt; FLp²: cavitación (leve a severa).</li><li>Kapp ≥ FLp²: "
-   "flujo estrangulado por cavitación plena.</li></ul>",
+   "Describe cuán exigente es la aplicación, sin importar la válvula.</p><ul><li>Kapp &lt; xFzp1: sin "
+   "cavitación.</li><li>xFzp1 ≤ Kapp &lt; Kc: cavitación incipiente (más ruido, sin daño esperado).</li>"
+   "<li>Kc ≤ Kapp &lt; FLp²: cavitación (leve a severa).</li><li>Kapp ≥ FLp²: flujo estrangulado por "
+   "cavitación plena.</li></ul>",
    formula="Kapp = ΔP / (P1 − Pv)", referencia="IEC 60534-8-4 (xF); ISA-RP75.23",
-   relacionadas=["Kc", "dPcav", "dPchoked"], categoria="Resultados")
+   relacionadas=["Kc", "xFz", "dPcav", "dPchoked"], categoria="Resultados")
 _e("dPcav", "ΔP de inicio de cavitación (ΔP cav)",
-   "<p>Caída de presión a partir de la cual el trim comienza a cavitar. Si la ΔP del servicio es "
-   "mayor hay cavitación; compárela también con ΔP choked.</p>",
-   formula="ΔPcav = Kc·(P1 − Pv)", relacionadas=["Kc", "Kapp"], categoria="Resultados")
+   "<p>Caída de presión a partir de la cual el trim cavita en forma sostenida. Si la ΔP del servicio es "
+   "mayor hay cavitación; compárela también con ΔP choked. La cavitación incipiente empieza antes, en "
+   "xFzp1·(P1 − Pv), y solo aumenta el ruido.</p>",
+   formula="ΔPcav = Kc·(P1 − Pv)", relacionadas=["Kc", "Kapp", "xFz"], categoria="Resultados")
 _e("dP_P1", "Relación de caída de presión ΔP/P1",
    "<p>Fracción de la presión de entrada que se pierde en la válvula. Valores altos indican un "
    "servicio exigente (cavitación, ruido, erosión).</p>", formula="ΔP/P1", categoria="Resultados")

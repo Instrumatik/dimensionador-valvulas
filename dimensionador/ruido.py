@@ -264,7 +264,7 @@ def ruido_liquido(m_kgs, P1_kPa, P2_kPa, Pv_kPa, rho, c_liq, Kv, d_m, Di_m, tp_m
 # ---------------------------------------------------------------------------
 # Alertas de ruido
 # ---------------------------------------------------------------------------
-def evaluar_ruido(LpAe: float, gas: bool, limite: float = 85.0) -> list[Alerta]:
+def evaluar_ruido(LpAe: float, gas: bool, limite: float = 85.0, nota: str = "") -> list[Alerta]:
     if LpAe < limite - 5:
         return []
     intensidad = max(0.0, min(100.0, (LpAe - (limite - 5)) / 30 * 100))
@@ -290,5 +290,6 @@ def evaluar_ruido(LpAe: float, gas: bool, limite: float = 85.0) -> list[Alerta]:
                f"(límite usado: {_n(limite, 0)} dB(A)).")
     if LpAe >= 110:
         mensaje += " Por encima de unos 110 dB(A) la energía acústica puede dañar la tubería y accesorios."
+    mensaje += nota
     return [Alerta("ruido", sev, titulo, mensaje, intensidad, None, remedios,
                    REF8_3 if gas else REF8_4)]

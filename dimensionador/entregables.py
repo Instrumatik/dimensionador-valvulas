@@ -140,6 +140,9 @@ def _tabla_entradas(res: Resultado, pr: Presentacion):
         _fila("Modificador de estilo Fd", "-", [c.Fd for c in d.casos], cifras=3),
         _fila("Coef. de cavitación del trim Kc", "-",
               [f"{fmt(x['Kc'], 3)} (estimado)" if x["Kc_estimado"] else fmt(x["Kc"], 3) for x in res.salidas]),
+        _fila("Cavitación incipiente xFzp1", "-",
+              [f"{fmt(x['xFzp1'], 3)} (típico IEC)" if x["xFz_estimado"] else fmt(x["xFzp1"], 3)
+               for x in res.salidas]),
     ]
     return filas
 
@@ -170,6 +173,7 @@ def _tabla_salidas(res: Resultado, pr: Presentacion, completa=True):
         _fila("Relación ΔP/P1", "-", [x["dP_P1"] for x in s], cifras=3),
         _fila("ΔP de flujo estrangulado (ΔP choked)", "", [x["dPchoked"] for x in s], pr, "presion_dif"),
         _fila("ΔP de inicio de cavitación (ΔP cav)", "", [x["dPcav"] for x in s], pr, "presion_dif"),
+        _fila("ΔP de cavitación incipiente (xFzp1)", "", [x["dPinc"] for x in s], pr, "presion_dif"),
         _fila("Condición", "", [x["condicion"] for x in s]),
     ]
     if completa:
@@ -197,6 +201,9 @@ def _tuberias(res: Resultado, pr: Presentacion):
         ["Salida", tuberias.texto_nps(i.nps_salida), i.sch_salida, pr.vu(res.D2, "longitud"),
          pr.vu(res.tp2, "longitud", 3)],
     ]
+
+
+BALANCE = {True: "Balanceado", False: "Desbalanceado", None: "No aplica (cuerpo rotativo)"}
 
 
 def _valvula_resumen(res: Resultado):
@@ -248,8 +255,9 @@ def memoria(res: Resultado, pr: Presentacion) -> Documento:
         ["FR (factor de Reynolds)", "-", *[fmt(x["FR"], 3) for x in s]],
         ["Cv = Q/(N1·Fp)·√(SG/ΔPdim)/0,865 (÷FR si Rev < 10⁴)", "-", *[fmt(x["Cv"]) for x in s]],
         ["Kapp = ΔP/(P1 − Pv)", "-", *[fmt(x["Kapp"], 3) for x in s]],
-        ["Kc (inicio de cavitación del trim)", "-", *[fmt(x["Kc"], 3) for x in s]],
+        ["Kc (cavitación constante del trim)", "-", *[fmt(x["Kc"], 3) for x in s]],
         ["ΔPcav = Kc·(P1 − Pv)", pd, *[pr.v(x["dPcav"], "presion_dif") for x in s]],
+        ["xFzp1 = xFz·(6·10⁵/P1)^0,125 (cavitación incipiente)", "-", *[fmt(x["xFzp1"], 3) for x in s]],
         ["Apertura para Cv requerido", "%", *[fmt(x["apertura"] * 100, 3) for x in s]],
         ["LpAe,1m (IEC 60534-8-4)", "dB(A)", *[fmt(x["Lp"], 3) for x in s]],
     ]
@@ -314,6 +322,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
     rec = dict(res.recomendaciones)
     doc.tabla([
         ["Tipo de trim", res.trim.nombre],
+        ["Obturador", BALANCE[d.balanceado]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
         ["Cv nominal (típico del tamaño y trim)", fmt(res.Cv_nominal)],
         ["Guía y obturador", rec.get("Tipo de guía y obturador", "")],
@@ -647,6 +656,7 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
     rec = dict(res.recomendaciones)
     doc.tabla([
         ["Tipo de trim", res.trim.nombre],
+        ["Obturador", BALANCE[d.balanceado]],
         ["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[d.ruido.trim][0]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
         ["Cv nominal (típico del tamaño y trim)", fmt(res.Cv_nominal)],

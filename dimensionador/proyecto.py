@@ -34,6 +34,9 @@ FUGA_CIERRE = {
 }
 REF_CIERRE = "ANSI/FCI 70-2 / IEC 60534-4"
 T_ASIENTO_BLANDO_C = 200.0       # PTFE / RPTFE, límite práctico
+T_SELLO_BALANCE_C = 232.0        # sello de balanceo de PTFE, límite práctico
+DP_BALANCE = 1000.0              # kPa: por encima, con NPS ≥ 3, conviene trim balanceado
+REF_BALANCE = "Práctica de la industria (manuales de fabricantes de válvulas de control)"
 T_ELASTOMERO_C = 120.0           # asientos elastoméricos de mariposa concéntrica
 V_TUBERIA_LIQ = 4.5              # m/s, práctica habitual para líneas de líquido
 
@@ -78,7 +81,8 @@ class CasoLiquido:
     Pv: float              # kPa abs
     FL: float = 0.9        # factores del trim a la carrera de este caso
     Fd: float = 0.46
-    Kc: float | None = None    # None = estimado según IEC 60534-8-4
+    Kc: float | None = None    # cavitación constante del trim; None = se usa el xFz incipiente
+    xFz: float | None = None   # inicio de cavitación incipiente del fabricante; None = típico IEC 60534-8-4
     criterio: bool = True      # participa del criterio de selección de tamaño (no en transitorios)
 
 
@@ -112,6 +116,7 @@ class Dimensionamiento:
     c_sonido: float | None = None      # m/s; None = calculada o 1 400 m/s
     tipo: str = "liquido"              # liquido, gas, vapor, steam (ver compresible.TIPOS)
     ruido: RuidoAerodinamico = field(default_factory=RuidoAerodinamico)
+    balanceado: bool | None = None     # trim balanceado (True) o desbalanceado (False); None = no aplica
 
     @property
     def compresible(self) -> bool:
@@ -250,16 +255,18 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) ->
         rho = c.SG * RHO_AGUA_15C
         casos.append(Caso(c.nombre, Liquido(P1=c.P1, P2=c.P2, T1=c.T1, rho1=rho, Pv=c.Pv, Pc=dim.Pc,
                                             nu=c.mu / rho, Q=c.Q, W=c.W), dim.fluido,
-                          FL=c.FL, Fd=c.Fd, Kc=c.Kc, criterio=c.criterio))
+                          FL=c.FL, Fd=c.Fd, Kc=c.Kc, xFz=c.xFz, criterio=c.criterio))
     inf = dimensionar(casos, sel)
 
     salidas = []
     for c, rc in zip(dim.casos, inf.casos):
         e, r, d = rc.caso.estado, rc.resultado, rc.datos
         Q = r.extra["Q"]
-        Kc = d["xFzp1"]
+        Kc = d["Kc"]
         salidas.append({
-            "Cv": r.Cv, "Kv": r.Kv, "Kapp": d["xF"], "Kc": Kc, "Kc_estimado": c.Kc is None,
+            "Cv": r.Cv, "Kv": r.Kv, "Kapp": d["xF"], "Kc": Kc, "Kc_estimado": d["Kc_estimado"],
+            "xFzp1": d["xFzp1"], "xFz_estimado": d["xFz_estimado"],
+            "dPinc": d["xFzp1"] * (e.P1 - e.Pv),
             "FL": c.FL, "Fd": c.Fd, "dP": e.P1 - e.P2,
             "dP_P1": (e.P1 - e.P2) / e.P1, "dPchoked": r.extra["dPchoked"],
             "dPcav": Kc * (e.P1 - e.Pv), "FF": r.extra["FF"], "FP": r.FP, "FLP": r.extra["FLP"],
@@ -378,8 +385,9 @@ def _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2):
                          remedios=["Seleccionar un diámetro de válvula mayor."],
                          referencia="IEC 60534-2-1:2011, cláusula 1 (alcance)"))
 
-    # Clase de cierre
+    # Clase de cierre y balanceo del obturador
     al += _verificar_cierre(inst, cuerpo, T_d)
+    al += _verificar_balance(inst, cuerpo, dim, T_d, d)
 
     # Velocidad en tuberías (líquidos; en compresibles se evalúa el número de Mach)
     for donde, clave in (() if dim.compresible else (("entrada", "v1"), ("salida", "v2"))):
@@ -394,6 +402,75 @@ def _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2):
                               f"Si hay sólidos en suspensión, limitar a unos {fV(3.0, 1)}."]))
     # Kc dado por el usuario frente a la aplicación
     return al, rating_adm
+
+
+def _guia_obturador(dim, dP_max, nps) -> str:
+    """Texto de guía y balanceo del obturador para el informe (cuerpos de vástago deslizante)."""
+    conviene = dP_max > DP_BALANCE and nps >= 3
+    jaula = "jaula" in dim.trim or "multietapa" in dim.trim
+    base = ("Obturador guiado por jaula" if jaula else
+            "Obturador contorneado guiado superior (o superior y por puerto en diámetros grandes)")
+    if dim.balanceado is None:
+        return base + (", balanceado (reduce la fuerza del actuador; verificar que el sello de balanceo "
+                       "cumpla la clase de cierre)." if conviene and jaula else ".")
+    if dim.balanceado:
+        return (base + ", balanceado (elegido). Verificar que el sello de balanceo cumpla la clase de cierre "
+                "y la temperatura." + ("" if conviene else " Con esta ΔP y diámetro el balanceo no es "
+                                       "imprescindible: un trim desbalanceado cierra mejor."))
+    return (base + ", desbalanceado (elegido)." + (" Con esta ΔP y diámetro conviene balanceado para reducir "
+                                                    "el empuje del actuador." if conviene else ""))
+
+
+def fuerza_desbalance(dP_kPa: float, d_puerto_pulg: float) -> float:
+    """Fuerza de desbalance orientativa [N] sobre un obturador no balanceado: ΔP·π·d²/4."""
+    return dP_kPa * 1000 * math.pi / 4 * (d_puerto_pulg * 0.0254) ** 2
+
+
+def _verificar_balance(inst, cuerpo, dim, T_d, d) -> list[Alerta]:
+    if cuerpo.rotativa or dim.balanceado is None:
+        return []
+    al = []
+    dP = max([c.P1 - c.P2 for c in dim.casos] + ([dim.cierre.dP] if dim.cierre else []))
+    jaula = "jaula" in dim.trim or "multietapa" in dim.trim
+    if not dim.balanceado:
+        if dP > DP_BALANCE and d >= 3:
+            F = fuerza_desbalance(dP, d)
+            al.append(Alerta("desbalance_fuerza", Severidad.ADVERTENCIA, "Fuerza de desbalance alta",
+                             f"Con trim desbalanceado, ΔP máxima {fP(dP)} y válvula de {_n(d)}\" la fuerza "
+                             f"del fluido sobre el obturador es del orden de {_n(F / 1000, 1)} kN "
+                             f"({_n(F / 4.44822, 0)} lbf), estimada con ΔP·π·d²/4 y el puerto igual al "
+                             "diámetro de la válvula. El actuador debe vencerla para cerrar y modular: "
+                             "resulta grande y la estabilidad cerca del asiento empeora.",
+                             remedios=["Usar trim balanceado (obturador guiado por jaula con sello de balanceo).",
+                                       "Confirmar con el fabricante el diámetro de puerto real y el empuje del "
+                                       "actuador."],
+                             referencia=REF_BALANCE))
+        return al
+    if not jaula:
+        al.append(Alerta("balance_sin_jaula", Severidad.ADVERTENCIA, "Trim balanceado sin jaula",
+                         "Los obturadores balanceados son, casi siempre, guiados por jaula: el sello de "
+                         "balanceo trabaja contra el interior de la jaula. El trim elegido es de obturador "
+                         "contorneado.",
+                         remedios=["Elegir un trim de jaula (4 ventanas, multiorificio o multietapa).",
+                                   "O confirmar con el fabricante que ofrece el balanceo en este trim."],
+                         referencia=REF_BALANCE))
+    if CIERRES.index(inst.cierre) >= 4:
+        al.append(Alerta("balance_cierre", Severidad.ADVERTENCIA, "Trim balanceado y clase de cierre alta",
+                         f"El sello de balanceo agrega una vía de fuga además del asiento. Con trim "
+                         f"balanceado la clase habitual es IV; la {inst.cierre.replace('ANSI ', '').lower()}"
+                         " o mayor requiere un sello de balanceo especial (o asiento blando) y debe "
+                         "confirmarse con el fabricante.",
+                         remedios=["Pedir al fabricante la clase de cierre garantizada con el sello de balanceo.",
+                                   "Si la ΔP lo permite, usar trim desbalanceado para clase V o VI."],
+                         referencia=REF_CIERRE))
+    if T_d - 273.15 > T_SELLO_BALANCE_C:
+        al.append(Alerta("balance_temperatura", Severidad.ADVERTENCIA, "Sello de balanceo y temperatura",
+                         f"La temperatura de diseño ({fT(T_d)}) supera el límite práctico del sello de "
+                         f"balanceo de PTFE (unos {fT(T_SELLO_BALANCE_C + 273.15)}).",
+                         remedios=["Especificar sello de balanceo de grafito o metálico para alta temperatura.",
+                                   "Confirmar con el fabricante la clase de cierre que se obtiene con ese sello."],
+                         referencia=REF_BALANCE))
+    return al
 
 
 def _verificar_cierre(inst, cuerpo, T_d) -> list[Alerta]:
@@ -444,7 +521,7 @@ def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
     inst, dim = res.inst, res.dim
     cuerpo, trim = res.cuerpo, res.trim
     rec: list[tuple[str, str]] = []
-    cav = [x for x in s if x["condicion"].startswith("cavitación")]
+    cav = [x for x in s if x["condicion"].startswith("cavitación") and "incipiente" not in x["condicion"]]
     flash = [x for x in s if x["condicion"] == "flashing"]
     Kapp = max(x["Kapp"] for x in s)
     Kc = min(x["Kc"] for x in s)
@@ -491,12 +568,8 @@ def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
     # Guía y obturador
     if cuerpo.rotativa:
         guia = f"{cuerpo.guia}. Disco o bola con eje de diámetro suficiente para el par de cierre a ΔP máxima."
-    elif "jaula" in dim.trim or "multietapa" in dim.trim:
-        balance = dP_max > 1000 and res.nps_valvula >= 3
-        guia = ("Obturador guiado por jaula" + (", balanceado (reduce la fuerza del actuador; verificar que el "
-                "sello de balance cumpla la clase de cierre)." if balance else ", no balanceado."))
     else:
-        guia = "Obturador contorneado guiado superior (o superior y por puerto en diámetros grandes)."
+        guia = _guia_obturador(dim, dP_max, res.nps_valvula)
     rec.append(("Tipo de guía y obturador", guia))
     # Asiento
     n = CIERRES.index(inst.cierre)
@@ -722,12 +795,10 @@ def recomendaciones_compresible(res: Resultado) -> list[tuple[str, str]]:
         t = (f"Se requiere trim de bajo ruido: jaula multiorificio {peor.lower()} "
              f"({CG.TRIMS_RUIDO['multiorificio_' + peor[-1]][0].split('(')[-1].rstrip(')')}).")
     rec.append(("Internos (trim) y ruido", t))
-    if "jaula" in dim.trim or "multietapa" in dim.trim:
-        guia = "Obturador guiado por jaula, balanceado en diámetros grandes o con ΔP alta."
-    elif cuerpo.rotativa:
+    if cuerpo.rotativa:
         guia = f"{cuerpo.guia}."
     else:
-        guia = "Obturador contorneado guiado superior (o superior y por puerto en diámetros grandes)."
+        guia = _guia_obturador(dim, max(x["dP"] for x in s), res.nps_valvula)
     rec.append(("Tipo de guía y obturador", guia))
     rec.append(("Asiento y clase de cierre", f"{inst.cierre}: fuga admisible {FUGA_CIERRE[inst.cierre]}"))
     dps = [x["dP"] for x in s]
