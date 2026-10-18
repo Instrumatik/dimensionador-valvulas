@@ -247,14 +247,14 @@ _e("Fd", "Modificador de estilo de válvula Fd",
    relacionadas=["Rev", "xFz"], categoria="Coeficientes")
 
 _e("xFz", "Cavitación incipiente xFz",
-   "<p>Valor de xF = ΔP/(P1 − Pv) a partir del cual aparecen las primeras burbujas (régimen incipiente "
-   "de ISA-RP75.23), determinado por ensayos de ruido según IEC 60534-8-2 a 6 bar. Normalmente no daña, "
-   "pero desde ahí IEC 60534-8-4 suma el ruido de cavitación, que crece muy rápido.</p><p>Es una entrada "
-   "opcional por caso. Si se deja vacía el programa usa la estimación típica de IEC 60534-8-4, que es "
-   "conservadora; los fabricantes usan su xFz medido, por eso su ruido suele ser menor. En multietapa "
-   "sin dato se toma igual a Kc. Luego se corrige por la presión de entrada (xFzp1).</p>",
+   "<p>Valor de xF = ΔP/(P1 − Pv) a partir del cual pueden aparecer las primeras burbujas (régimen "
+   "incipiente de ISA-RP75.23). Normalmente no daña. El programa lo estima con la expresión típica de "
+   "IEC 60534-8-4 y lo corrige por la presión de entrada (xFzp1); se muestra como resultado.</p>"
+   "<p>Si Kapp supera xFzp1 pero no Kc, la condición es «cavitación incipiente». El ruido se calcula "
+   "con el Kc del trim; solo si Kc está en blanco se usa este xFz típico (resultado conservador). En "
+   "multietapa se toma igual a Kc.</p>",
    formula="xFz ≈ 0,90 / √(1 + 3·Fd·√(Cv/(N34·FL))), N34 = 1,17;   xFzp1 = xFz·(6·10⁵ Pa / P1)^0,125",
-   referencia="IEC 60534-8-4; IEC 60534-8-2; ISA-RP75.23",
+   referencia="IEC 60534-8-4; ISA-RP75.23",
    relacionadas=["cavitacion_incipiente", "Kc", "sigma"], categoria="Coeficientes")
 
 _e("tamano", "Diámetro de la válvula",
@@ -441,13 +441,12 @@ _e("balance_temperatura", "Sello de balanceo y temperatura",
    relacionadas=["balance", "clase_cierre"], categoria="Fenómenos")
 
 _e("cavitacion_incipiente", "Cavitación incipiente",
-   "<p>Kapp supera el inicio de cavitación incipiente xFzp1 pero no el Kc del trim. Aparecen burbujas "
-   "aisladas que colapsan aguas abajo: el ruido hidrodinámico aumenta (IEC 60534-8-4 suma el término "
-   "de cavitación), pero normalmente no hay daño. Por eso puede haber ruido alto sin alerta de "
+   "<p>Kapp supera el inicio de cavitación incipiente xFzp1 (típico de IEC 60534-8-4) pero no el Kc del "
+   "trim. Pueden formarse burbujas aisladas, normalmente sin daño; por eso no se emite la alerta de "
    "cavitación.</p><p>Con ΔP mayor que 10 bar se emite como advertencia: muchas especificaciones piden "
-   "trim anticavitación ya en este régimen. Ingrese el xFz certificado del trim para confirmarlo.</p>",
+   "trim anticavitación ya en este régimen. Confirme el Kc certificado del trim con el fabricante.</p>",
    referencia="ISA-RP75.23 (σi); IEC 60534-8-4",
-   relacionadas=["xFz", "Kc", "cavitacion", "ruido"], categoria="Fenómenos")
+   relacionadas=["xFz", "Kc", "cavitacion"], categoria="Fenómenos")
 
 _e("flashing", "Flashing (vaporización instantánea)",
    "<p><b>Qué es.</b> Ocurre cuando la presión de salida P2 es menor o igual que la presión de "
@@ -760,7 +759,7 @@ _e("Kc", "Coeficiente de cavitación de la construcción Kc",
    "que usan los programas de los fabricantes para la ΔP de cavitación. Al elegir el trim se carga "
    "su valor típico; reemplácelo por el certificado.</p><p>Si se deja en blanco se usa la cavitación "
    "incipiente xFzp1 (conservador). La cavitación incipiente, que solo aumenta el ruido, se evalúa "
-   "aparte con xFz.</p><ul><li>Kapp &lt; xFzp1: sin cavitación.</li><li>xFzp1 ≤ Kapp &lt; Kc: "
+   "aparte con xFz. El ruido de IEC 60534-8-4 usa este Kc como inicio de cavitación.</p><ul><li>Kapp &lt; xFzp1: sin cavitación.</li><li>xFzp1 ≤ Kapp &lt; Kc: "
    "cavitación incipiente (ruido, sin daño esperado).</li><li>Kc ≤ Kapp &lt; FLp²: cavitación.</li>"
    "<li>Kapp ≥ FLp²: flujo estrangulado.</li></ul>",
    formula="ΔPcav = Kc·(P1 − Pv)", tipicos="Contorneado 0,55–0,65. Jaula 4 ventanas 0,65–0,70. Jaula de "

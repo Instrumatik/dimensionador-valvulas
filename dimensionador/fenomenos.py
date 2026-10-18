@@ -123,13 +123,12 @@ def evaluar_liquido(P1, P2, Pv, FL_eff, Kv, Fd, dPchoked, xFz: float | None = No
             "Cavitación incipiente",
             f"Kapp = {_n(xF, 3)} supera el inicio de cavitación incipiente xFzp1 = {_n(xFzp1, 3)}"
             f"{' (estimado con IEC 60534-8-4)' if xFz_estimado else ''} pero no el Kc del trim "
-            f"({_n(Kc, 3)}). Se forman las primeras burbujas: el ruido hidrodinámico aumenta (por eso "
-            "el ruido calculado puede ser alto), pero normalmente no hay daño. Por eso la alerta de "
-            "cavitación, que usa Kc, no se activa."
+            f"({_n(Kc, 3)}). Pueden formarse burbujas aisladas, normalmente sin daño, por eso la alerta "
+            "de cavitación, que usa Kc, no se activa. El ruido se calcula con el Kc del trim."
             + (f" Con ΔP = {fP(dP)} el servicio es exigente: muchas especificaciones piden trim "
                "anticavitación ya en este régimen." if alto else ""),
-            remedios=["Pida al fabricante el xFz certificado del trim e ingréselo: el valor típico de "
-                      "IEC 60534-8-4 es conservador.",
+            remedios=["Confirme con el fabricante el Kc y el inicio de cavitación del trim ofertado: el "
+                      "valor típico de IEC 60534-8-4 es conservador.",
                       "En servicio continuo con agua y ΔP alta, considere internos endurecidos o una jaula "
                       "anticavitación de etapa simple.",
                       "Verifique el ruido hidrodinámico (IEC 60534-8-4)."],

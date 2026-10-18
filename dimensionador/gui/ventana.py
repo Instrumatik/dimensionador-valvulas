@@ -47,7 +47,7 @@ LETRA = {"liquido": "L", "gas": "G", "vapor": "V", "steam": "S"}
 TITULO_TIPO = {"liquido": "LÍQUIDOS", "gas": "GAS", "vapor": "VAPOR", "steam": "VAPOR DE AGUA (STEAM)"}
 NOTA_TIPO = {
     "liquido": "FL, Fd y Kc: típicos del trim, uno por caso para reflejar la carrera de cada uno. Reemplácelos "
-               "por los certificados del fabricante. Kc: cavitación que daña; en blanco = igual a xFz. xFz: cavitación incipiente (ruido); en blanco = típico de IEC 60534-8-4.",
+               "por los certificados del fabricante. Kc en blanco = estimado según IEC 60534-8-4.",
     "gas": "xT, FL y Fd: típicos del trim, uno por caso; reemplácelos por los certificados. Con un fluido de la "
            "lista, M, μ, γ, Z1, T2 y Z2 se calculan (expansión isoentálpica). Con «Definido por el usuario», "
            "T2 en blanco = T1 y Z2 en blanco = Z1.",
@@ -74,7 +74,6 @@ ENTRADAS = [
     ("FL", "Factor de recuperación (FL)", ("adimensional",), "FL", "LGVS"),
     ("Fd", "Modificador de estilo (Fd)", ("adimensional",), "Fd", "LGVS"),
     ("Kc", "Coef. cavitación del trim (Kc)", ("adimensional",), "Kc", "L"),
-    ("xFz", "Cavitación incipiente xFz (opcional)", ("adimensional",), "xFz", "L"),
     ("#", "Datos de salida para ruido", None, None, "GVS"),
     ("T2", "Temperatura de salida T2", ("temperatura",), "T2", "GVS"),
     ("Z2", "Factor de compresibilidad Z2", ("adimensional",), "Z", "G"),
@@ -202,6 +201,9 @@ class VentanaAyuda(QDialog):
         self.lista.setWordWrap(True)
         self.texto = QTextBrowser()
         self.texto.setOpenLinks(False)
+        self.texto.setLineWrapMode(QTextBrowser.WidgetWidth)
+        self.texto.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.texto.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.texto.anchorClicked.connect(self._enlace)
         lay.addWidget(w)
         lay.addWidget(self.texto, 1)
@@ -261,7 +263,7 @@ class PanelInfo(QFrame):
     def __init__(self):
         super().__init__()
         self.setFrameShape(QFrame.StyledPanel)
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(320)
         v = QVBoxLayout(self)
         h = QHBoxLayout()
         t = QLabel("<b>Información del parámetro</b>")
@@ -274,6 +276,9 @@ class PanelInfo(QFrame):
         v.addLayout(h)
         self.texto = QTextBrowser()
         self.texto.setOpenLinks(False)
+        self.texto.setLineWrapMode(QTextBrowser.WidgetWidth)
+        self.texto.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.texto.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.texto.anchorClicked.connect(
             lambda u: u.toString().startswith("ayuda:") and self.mostrar(u.toString()[6:]))
         v.addWidget(self.texto, 1)
@@ -565,9 +570,12 @@ class VentanaPrincipal(QMainWindow):
         sp.addWidget(panel)
         sp.setStretchFactor(0, 1)
         sp.setStretchFactor(1, 0)
-        contenido = izquierda.widget() if isinstance(izquierda, QScrollArea) else izquierda
-        izquierda.setMinimumWidth(min(contenido.sizeHint().width() + 24, 1150))
-        sp.setSizes([10000, 560])
+        # Mínimos chicos: en pantallas angostas la izquierda se desplaza en horizontal y el panel de
+        # información sigue entero a la vista (antes la ventana no podía achicarse y lo tapaba).
+        izquierda.setMinimumWidth(480)
+        if isinstance(izquierda, QScrollArea):
+            izquierda.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        sp.setSizes([10000, 480])
         return sp
 
     # ------------------------------------------------------------------ encabezado
@@ -910,7 +918,7 @@ class VentanaPrincipal(QMainWindow):
         self._fila(grid, r, "Diámetro de válvula", self.cb_tamano, "tamano"); r += 1
         self.cb_trim = self._registrar("trim", Combo())
         self.cb_trim.currentIndexChanged.connect(self._cambio_trim)
-        self.lbl_trim = self._fila(grid, r, "Tipo de trim hidrodinámico", self.cb_trim, "trim", ancho=560)[0]; r += 1
+        self.lbl_trim = self._fila(grid, r, "Tipo de trim hidrodinámico", self.cb_trim, "trim", ancho=480)[0]; r += 1
         self.cb_balance = self._registrar("balance", Combo())
         self.cb_balance.addItem("Desbalanceado", False)
         self.cb_balance.addItem("Balanceado", True)
@@ -1395,7 +1403,7 @@ class VentanaPrincipal(QMainWindow):
             if t == "liquido":
                 casos.append(CasoLiquido(CASOS[j], q if vol else None, None if vol else q, req("P1"), req("P2"),
                                          req("T1"), req("SG"), req("mu"), req("Pv"), req("FL"), req("Fd"),
-                                         F["Kc"].valor_base(j), F["xFz"].valor_base(j), criterio=j != 4))
+                                         F["Kc"].valor_base(j), criterio=j != 4))
                 continue
             gas, vap = t == "gas", t == "vapor"
             casos.append(CasoGas(

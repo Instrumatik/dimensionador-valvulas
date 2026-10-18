@@ -81,8 +81,7 @@ class CasoLiquido:
     Pv: float              # kPa abs
     FL: float = 0.9        # factores del trim a la carrera de este caso
     Fd: float = 0.46
-    Kc: float | None = None    # cavitación constante del trim; None = se usa el xFz incipiente
-    xFz: float | None = None   # inicio de cavitación incipiente del fabricante; None = típico IEC 60534-8-4
+    Kc: float | None = None    # cavitación constante del trim; None = se usa el xFz típico de IEC 60534-8-4
     criterio: bool = True      # participa del criterio de selección de tamaño (no en transitorios)
 
 
@@ -255,7 +254,7 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) ->
         rho = c.SG * RHO_AGUA_15C
         casos.append(Caso(c.nombre, Liquido(P1=c.P1, P2=c.P2, T1=c.T1, rho1=rho, Pv=c.Pv, Pc=dim.Pc,
                                             nu=c.mu / rho, Q=c.Q, W=c.W), dim.fluido,
-                          FL=c.FL, Fd=c.Fd, Kc=c.Kc, xFz=c.xFz, criterio=c.criterio))
+                          FL=c.FL, Fd=c.Fd, Kc=c.Kc, criterio=c.criterio))
     inf = dimensionar(casos, sel)
 
     salidas = []

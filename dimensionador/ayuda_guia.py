@@ -791,37 +791,32 @@ GUIA = {
     },
     'xFz': {
         'que_es': ('Es la relación de cavitación incipiente: el valor de xF = ΔP/(P1 − Pv) a '
-                   'partir del cual empiezan a formarse las primeras burbujas (régimen incipiente '
-                   'de ISA-RP75.23). Normalmente no daña, pero aumenta el ruido.'),
-        'que_hace': ('Corregido por presión (xFzp1) marca el régimen «cavitación incipiente» y es '
-                     'el que usa el ruido hidrodinámico de IEC 60534-8-4: por encima de xFzp1 se '
-                     'suma el ruido de cavitación. Es una entrada opcional por caso.'),
-        'que_indica': ('Si xF supera xFzp1 pero no Kc, hay cavitación incipiente: más ruido, sin '
-                       'daño esperado. Por eso puede haber ruido alto sin alerta de cavitación.'),
-        'umbrales': ('Si se deja vacío se estima con IEC 60534-8-4 (típico 0,15–0,35 en trims de '
-                     'un pasaje), un valor conservador. Los fabricantes miden xFz en laboratorio '
-                     '(IEC 60534-8-2) y suele ser mayor. En multietapa sin dato se toma igual a '
-                     'Kc. xFzp1 = xFz·(6·10<sup>5</sup> Pa/P1)<sup>0,125</sup>.'),
-        'por_debajo': ('Si xF es menor que xFzp1 no hay burbujas: solo ruido turbulento, '
-                       'normalmente bajo.'),
-        'por_encima': ('Si xF supera xFzp1 el ruido sube rápido (el término de cavitación de IEC '
-                       '60534-8-4 crece con la potencia 5 de xF/xFzp1); al superar Kc la '
-                       'cavitación ya puede dañar.'),
-        'ejemplo': ('Agua, válvula de 4" con Kc = 0,65 y Kapp = 0,50. Con el xFz típico de IEC '
-                    '(xFzp1 ≈ 0,23) el ruido da unos 92 dB(A); con un xFz de fabricante de 0,65 da'
-                    ' unos 63 dB(A). La diferencia entre programas de ruido viene casi siempre de '
-                    'este dato.'),
+                   'partir del cual pueden aparecer las primeras burbujas (régimen incipiente de '
+                   'ISA-RP75.23). Normalmente no daña.'),
+        'que_hace': ('El programa la estima con la expresión típica de IEC 60534-8-4, corregida '
+                     'por presión (xFzp1), y la informa como resultado para marcar la «cavitación '
+                     'incipiente». El ruido se calcula con el Kc del trim; solo si Kc está en '
+                     'blanco usa este xFz típico.'),
+        'que_indica': ('Si Kapp supera xFzp1 pero no Kc hay cavitación incipiente: burbujas '
+                       'aisladas, sin daño esperado. Algunas especificaciones conservadoras ya '
+                       'piden trim anticavitación en este régimen.'),
+        'umbrales': ('Típico 0,15–0,35 en trims de un pasaje; mayor en jaulas de orificios. En '
+                     'multietapa se toma igual a Kc. xFzp1 = xFz·(6·10<sup>5</sup> '
+                     'Pa/P1)<sup>0,125</sup>.'),
+        'por_debajo': 'Si Kapp es menor que xFzp1 no se esperan burbujas.',
+        'por_encima': ('Entre xFzp1 y Kc, cavitación incipiente; desde Kc, cavitación que puede '
+                       'dañar.'),
+        'ejemplo': ('Agua con Kv = 100 m³/h, FL = 0,90 y Fd = 0,46: xFz ≈ 0,23. Con P1 = 10 '
+                    'bar(a), xFzp1 ≈ 0,22. Si Kapp = 0,40 y el Kc del trim es 0,65, el programa '
+                    'informa cavitación incipiente, sin alerta de cavitación.'),
         'afecta': [
-            'Ruido hidrodinámico IEC 60534-8-4',
-            'Alerta de cavitación incipiente',
-            'Selección de internos',
+            'Condición «cavitación incipiente»',
+            'Ruido IEC 60534-8-4 solo si Kc está en blanco',
         ],
         'recomendaciones': [
-            ('Pida al fabricante el xFz certificado del trim (IEC 60534-8-2) e ingréselo para '
-             'comparar ruido con su programa.'),
-            'Si no lo tiene, deje el campo vacío: el resultado será conservador.',
-            ('En servicio continuo con ΔP alta, la cavitación incipiente justifica internos '
-             'endurecidos.'),
+            'Revise si la especificación del cliente admite cavitación incipiente.',
+            ('En servicio continuo con ΔP alta, considere internos endurecidos aunque no se supere'
+             ' Kc.'),
         ],
     },
     'tamano': {
@@ -3919,30 +3914,30 @@ GUIA = {
         ],
     },
     'cavitacion_incipiente': {
-        'que_es': ('Es el primer régimen de cavitación (ISA-RP75.23): aparecen burbujas aisladas '
-                   'en la vena contracta que colapsan aguas abajo. Se oye como chasquidos sueltos.'),
-        'que_hace': ('El programa la informa cuando Kapp supera xFzp1 pero no el Kc del trim. '
-                     'Explica por qué el ruido calculado puede ser alto sin alerta de cavitación.'),
-        'que_indica': ('Normalmente no hay daño, pero el ruido hidrodinámico aumenta. Con ΔP alta '
-                       '(más de 10 bar) la alerta pasa a advertencia: muchas especificaciones de '
-                       'usuarios piden trim anticavitación ya en este régimen.'),
-        'umbrales': ('xFzp1 ≤ Kapp < Kc. Por debajo de xFzp1 no hay burbujas; desde Kc se emite la'
-                     ' alerta de cavitación.'),
+        'que_es': ('Es el primer régimen de cavitación (ISA-RP75.23): pueden aparecer burbujas '
+                   'aisladas en la vena contracta que colapsan aguas abajo.'),
+        'que_hace': ('El programa la informa cuando Kapp supera xFzp1 (típico de IEC 60534-8-4) '
+                     'pero no el Kc del trim.'),
+        'que_indica': ('Normalmente no hay daño. Con ΔP mayor que 10 bar la alerta pasa a '
+                       'advertencia: muchas especificaciones piden trim anticavitación ya en este '
+                       'régimen.'),
+        'umbrales': 'xFzp1 ≤ Kapp < Kc. Desde Kc se emite la alerta de cavitación.',
         'por_debajo': 'Por debajo de xFzp1 el flujo es solo turbulento, sin burbujas.',
         'por_encima': ('Al llegar a Kc la cavitación es sostenida y puede erosionar internos y '
                        'cuerpo.'),
-        'ejemplo': ('Kapp = 0,46, xFzp1 = 0,24 (típico IEC) y Kc = 0,65: cavitación incipiente. La'
-                    ' hoja de datos de un proyecto con criterio conservador puede pedir trim '
-                    'anticavitación aunque el programa del fabricante no marque cavitación.'),
+        'ejemplo': ('Kapp = 0,46, xFzp1 = 0,24 y Kc = 0,65: cavitación incipiente. Una hoja de '
+                    'datos con criterio conservador puede pedir trim anticavitación aunque el '
+                    'programa del fabricante no marque cavitación.'),
         'afecta': [
-            'Ruido hidrodinámico IEC 60534-8-4',
+            'Condición del caso',
             'Selección de internos y materiales',
         ],
         'recomendaciones': [
-            'Pida el xFz certificado del trim para confirmar el régimen y el ruido.',
+            'Confirme con el fabricante el Kc certificado del trim.',
             ('En servicio continuo con agua y ΔP alta, internos endurecidos o jaula de etapa '
              'simple.'),
-            'Revise el criterio de la especificación del cliente: algunas exigen no superar xFz.',
+            ('Revise el criterio de la especificación del cliente: algunas no admiten cavitación '
+             'incipiente.'),
         ],
     },
     'balance': {

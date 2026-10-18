@@ -84,9 +84,9 @@ def _caso_liquido(nombre, c, s, trim_usuario: str, rotativo: bool) -> Evaluacion
                             f"Kapp = {_n(Kapp)} ≤ 0,9·Kc = {_n(MARGEN_KC * Kc_u)}: el trim elegido no cavita.")
         if Kapp >= s["xFzp1"]:
             ev.avisos.append(f"Kapp = {_n(Kapp)} supera la cavitación incipiente xFzp1 = {_n(s['xFzp1'])}: hay "
-                             "burbujas aisladas y más ruido, normalmente sin daño. Si la especificación del "
+                             "burbujas aisladas, normalmente sin daño. Si la especificación del "
                              "cliente no admite cavitación incipiente, o el servicio es continuo con ΔP alta, "
-                             "suba un escalón (jaula de orificios) y pida el xFz certificado del trim.")
+                             "suba un escalón (jaula de orificios).")
     else:
         elegido = next((k for k in ESCALERA
                         if KC_TIPICO[k] >= Kapp / MARGEN_KC and Kapp < ESTILOS[k].FL ** 2), None)

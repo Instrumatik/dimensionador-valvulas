@@ -189,8 +189,12 @@ def _ruido(caso: Caso, r: Resultado, v: Valvula, sel: Seleccion, datos: dict) ->
             c_liq = propiedades.velocidad_sonido(caso.fluido, e.P1, e.T1)
         c_liq = c_liq or 1400.0
         An = sel.An if sel.An is not None else (-4.3 if "mariposa" in sel.estilo.clave else -4.6)
-        # El ruido usa el inicio de cavitación incipiente (xFz), no el Kc: IEC 60534-8-4
-        xFz = None if datos["xFz_estimado"] else datos["xFz"]
+        # Inicio de cavitación para el ruido: el Kc del trim (valor de fabricante a las condiciones de
+        # servicio, el mismo que usa la alerta de cavitación); sin Kc, el xFz típico de IEC 60534-8-4.
+        if not datos["Kc_estimado"]:
+            xFz = datos["Kc"] / (6e5 / (e.P1 * 1000)) ** 0.125
+        else:
+            xFz = None if datos["xFz_estimado"] else datos["xFz"]
         res = ruido.ruido_liquido(r.extra["Q"] * e.rho1 / 3600, e.P1, e.P2, e.Pv, e.rho1, c_liq, r.Kv,
                                   v.d_mm / 1000, Di_mm / 1000, tp_mm / 1000, FL_eff, v.Fd,
                                   xFz=xFz, An=An)
@@ -207,12 +211,9 @@ def _ruido(caso: Caso, r: Resultado, v: Valvula, sel: Seleccion, datos: dict) ->
     r.memoria.agregar("—", "Predicción de ruido " + (ruido.REF8_3 if gas else ruido.REF8_4), float("nan"))
     r.memoria.pasos.extend(res["memoria"].pasos)
     nota = ""
-    if not gas and res["cavitante"] and datos["xFz_estimado"]:
-        nota = (" El nivel incluye el ruido de cavitación incipiente calculado con el xFz típico de "
-                f"IEC 60534-8-4 (xFzp1 = {_n(datos['xFzp1'], 3)}), que es conservador. Los fabricantes "
-                "usan el xFz y la eficiencia acústica medidos en laboratorio para su trim (la norma lo "
-                "permite), por lo que su valor suele ser menor. Ingrese el xFz certificado del trim para "
-                "afinar el resultado.")
+    if not gas and res["cavitante"] and datos["Kc_estimado"]:
+        nota = (" El nivel incluye ruido de cavitación calculado con el xFz típico de IEC 60534-8-4 "
+                f"(xFzp1 = {_n(datos['xFzp1'], 3)}), que es conservador porque no se ingresó Kc.")
     return ruido.evaluar_ruido(res["LpAe1m"], gas, sel.limite_ruido, nota)
 
 
