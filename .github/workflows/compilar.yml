@@ -48,9 +48,17 @@ jobs:
       - name: Compilar el generador de códigos (uso interno, solo Windows)
         if: runner.os == 'Windows'
         shell: bash
+        # El antivirus del runner a veces retira el .exe recién compilado (sin firma): se reintenta
+        # y se lista la carpeta para diagnosticar si vuelve a faltar.
         run: |
-          python -m PyInstaller --noconfirm --distpath dist_generador generador.spec
-          dist_generador/Generador-codigos-N25/Generador-codigos-N25.exe --prueba-gui
+          EXE=dist_generador/Generador-codigos-N25/Generador-codigos-N25.exe
+          for intento in 1 2 3; do
+            python -m PyInstaller --noconfirm --clean --distpath dist_generador --workpath build_generador generador.spec
+            sleep 5
+            if [ -f "$EXE" ]; then break; fi
+            echo "Intento $intento: falta $EXE"; ls -la dist_generador/Generador-codigos-N25 || true
+          done
+          "$EXE" --prueba-gui
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:
