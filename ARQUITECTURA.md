@@ -26,14 +26,21 @@ dimensionador/
   estilos.py        Estilos genéricos de válvula (FL, xT, Fd típicos de IEC 60534-2-1) y tamaños
   servicio.py       Varios casos de operación (mín/normal/máx), selección de tamaño, informe
   ruido.py          Ruido aerodinámico IEC 60534-8-3 e hidrodinámico IEC 60534-8-4
-  asme_b16_34.py    Clases de presión-temperatura y materiales ASTM
+  asme_b16_34.py    Clases de presión-temperatura ASME B16.34 por grupo de material
+  datos_b16_34.py   Tablas numéricas de B16.34-2017 (49 grupos, clases 150 a 2500), generadas
+  materiales.py     Biblioteca de materiales por componente (ASTM/UNS, dureza, PREN, NACE, costo)
+  quimica.py        Agentes químicos, normalización de unidades y compatibilidad A–D por material
+  seleccion_materiales.py  Selección por componente: química, P-T, cavitación/dureza, galling,
+                    servicio agrio (ISO 15156 / ISO 17945), modo manual y alertas
   tuberias.py       Diámetro exterior y espesor por NPS y cédula (ASME B36.10M / B36.19M)
   proyecto.py       Versión 2 (líquidos): datos de instalación y de dimensionamiento, Kapp/Kc,
                     verificaciones de rating, conexión, cierre y velocidad, recomendaciones
   entregables.py    Memoria de cálculo, hoja de datos e informe técnico (HTML y Word .docx)
   grafico.py        Gráfico de Cv vs. apertura (PNG con Qt)
   ayuda.py          Textos de ayuda en español por dato, coeficiente, fenómeno y opción
-  gui/ventana.py    Interfaz PySide6: 1-Sistema, 2-Cálculos Válvula y vistas de entregables
+  ayuda_mat_*.py    Ayuda de la solapa 3-Materiales (parámetros, componentes, alertas y agentes)
+  gui/ventana.py    Interfaz PySide6: 1-Sistema, 2-Cálculos Válvula, 3-Materiales y entregables
+  gui/solapa_materiales.py  Solapa 3-Materiales, análisis por componente y biblioteca
 tests/              Validación contra ejemplos de las normas
 ```
 
@@ -47,15 +54,13 @@ tests/              Validación contra ejemplos de las normas
 | 3. Ruido IEC 60534-8-3 (gases) e IEC 60534-8-4 (líquidos) | Hecho y validado |
 | 4. Bifásico (método de suma de fases), ASME B16.34 grupos 1.1 y 2.2 con materiales ASTM | Hecho |
 | 5. Ejecutables Windows, macOS y Linux por GitHub Actions, con prueba de cálculo y de ventana | Hecho |
+| 7. Materiales (v0.7.0): selección por componente, galling, NACE, dureza por cavitación, biblioteca y ayuda | Hecho, en validación |
 | 6. Versión 2 (solo líquidos): flujo 1-Sistema → 2-Cálculos Válvula, tuberías por cédula, Kc/Kapp, entregables Word e impresión, marca N25 Valves Sizing | Hecho, en validación |
 
 ## Próximos pasos sugeridos
 
 * Fuerza y par del actuador para la clase de cierre (anunciado en el informe técnico).
-* Materiales de cuerpo e internos (las entradas se quitaron en la versión 2).
 * Volver a habilitar gases, vapor y bifásico en la interfaz de la versión 2.
-* Más grupos de materiales ASME B16.34 (1.2 LCC, 1.3 LCB, 1.9 WC6, 1.10 WC9, 2.1 CF8) verificados
-  contra la edición vigente de la norma.
 * Variación de FL y xT con la carrera (hoy se usan valores a carrera nominal).
 * Hoja de datos de válvula en formato IEC 60534-7 / ISA-20.
 * Ruido para internos multietapa y multiorificio (anexos de IEC 60534-8-3).

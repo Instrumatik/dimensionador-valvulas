@@ -140,6 +140,7 @@ class Resultado:
     P_diseno: float = 0.0
     T_diseno: float = 0.0
     curva: list[tuple[float, float]] = field(default_factory=list)
+    materiales: object | None = None        # seleccion_materiales.ResultadoMateriales
 
     @property
     def cuerpo(self):
@@ -201,9 +202,10 @@ def _validar_factores(c, errores, gas: bool):
                               "entre 0,05 y 1,0."))
 
 
-def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) -> Resultado:
+def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, mat=None) -> Resultado:
+    """``mat`` (seleccion_materiales.ServicioMateriales) activa la selección de materiales."""
     if dim.compresible:
-        return _calcular_compresible(ident, inst, dim)
+        return _calcular_compresible(ident, inst, dim, mat)
     errores: list[Alerta] = []
     try:
         D1 = tuberias.diametro_interior(inst.nps_entrada, inst.sch_entrada)
@@ -284,47 +286,90 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) ->
     T_ops = [c.T1 for c in dim.casos] + ([dim.cierre.T1] if dim.cierre and dim.cierre.T1 else [])
     P_d = inst.P_diseno or max(P_ops)
     T_d = inst.T_diseno or max(T_ops)
-    generales, rating_adm = _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2)
+    mres = _materiales(mat, inst, dim, salidas, P_d, T_d)
+    generales, rating_adm = _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2, mres)
     alertas = [("General", a) for a in generales] + alertas
+    if mres is not None:
+        alertas += [("Materiales", a) for a in mres.todas_las_alertas()]
     alertas.sort(key=lambda t: -t[1].severidad)
 
     Cv_nom = inf.Kv_nominal / 0.865
     curva = [(h, Cv_nom * caudal_relativo(h / 100, estilo.caracteristica, estilo.rangeabilidad))
              for h in range(0, 101, 2)]
     res = Resultado(ident, inst, dim, inf, salidas, alertas, [], D1, D2, tp1, tp2, Cv_nom,
-                    rating_adm, P_d, T_d, curva)
+                    rating_adm, P_d, T_d, curva, mres)
     res.recomendaciones = recomendaciones(res)
     return res
 
 
-def _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2):
-    al: list[Alerta] = []
-    d = inf.d_pulg
-    # Clase de presión (referencial, sin material definido)
-    P_barg = (P_d - 101.325) / 100
-    T_C = T_d - 273.15
+def _materiales(mat, inst, dim, salidas, P_d, T_d):
+    if mat is None:
+        return None
+    from types import SimpleNamespace
+    from . import seleccion_materiales as SM
+    ctx = SM.contexto(SimpleNamespace(inst=inst, dim=dim, salidas=salidas, P_diseno=P_d, T_diseno=T_d))
+    return SM.seleccionar(mat, ctx)
+
+
+def _rating_referencial(inst, P_d, T_d, P_barg, T_C) -> Alerta:
+    """Clase verificada con acero al carbono (grupo 1.1) cuando no hay material definido."""
     r = asme_b16_34.rating("1.1", inst.rating, T_C)
     rating_adm = None if r is None else r * 100 + 101.325
     ref = "ASME B16.34, Tabla 2-1.1 (clase estándar)"
     if r is None:
-        al.append(Alerta("rating_fuera_tabla", Severidad.ADVERTENCIA, "Temperatura fuera de la tabla de clase",
-                         f"La temperatura de diseño ({fT(T_d)}) supera la tabla de referencia de "
-                         f"acero al carbono ({fT(538 + 273.15)}). La clase debe verificarse con el material definitivo.",
-                         referencia=ref))
-    elif P_barg > r:
+        return Alerta("rating_fuera_tabla", Severidad.ADVERTENCIA, "Temperatura fuera de la tabla de clase",
+                      f"La temperatura de diseño ({fT(T_d)}) supera la tabla de referencia de "
+                      f"acero al carbono ({fT(538 + 273.15)}). La clase debe verificarse con el material definitivo.",
+                      referencia=ref)
+    if P_barg > r:
         minima = asme_b16_34.clase_minima("1.1", P_barg, T_C)
-        al.append(Alerta("clase_insuficiente", Severidad.CRITICA, f"Rating CL{inst.rating} insuficiente",
-                         f"Con acero al carbono (grupo 1.1, referencia) la clase {inst.rating} admite "
-                         f"{fP(rating_adm)} a {fT(T_d)} y la presión de diseño es {fP(P_d)}.",
-                         remedios=[f"Usar rating CL{minima}." if minima else "Ninguna clase estándar alcanza: "
-                                   "revise las condiciones de diseño."],
-                         referencia=ref))
+        return Alerta("clase_insuficiente", Severidad.CRITICA, f"Rating CL{inst.rating} insuficiente",
+                      f"Con acero al carbono (grupo 1.1, referencia) la clase {inst.rating} admite "
+                      f"{fP(rating_adm)} a {fT(T_d)} y la presión de diseño es {fP(P_d)}.",
+                      remedios=[f"Usar rating CL{minima}." if minima else "Ninguna clase estándar alcanza: "
+                                "revise las condiciones de diseño."], referencia=ref)
+    return Alerta("rating_referencial", Severidad.INFO, "Rating verificado en forma referencial",
+                  f"CL{inst.rating} admite {fP(rating_adm)} a {fT(T_d)} con acero al carbono "
+                  f"(grupo 1.1); diseño {fP(P_d)}. Defina el material del cuerpo en la solapa "
+                  "3-Materiales para verificar con su grupo real.", referencia=ref)
+
+
+def _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2, mres=None):
+    al: list[Alerta] = []
+    d = inf.d_pulg
+    P_barg = (P_d - 101.325) / 100
+    T_C = T_d - 273.15
+    m_cuerpo = mres.cuerpo if mres is not None else None
+    if m_cuerpo is not None and m_cuerpo.grupo:
+        # Clase de presión con el grupo del material del cuerpo (solapa 3)
+        g = m_cuerpo.grupo
+        r = asme_b16_34.rating(g, inst.rating, T_C)
+        rating_adm = None if r is None else r * 100 + 101.325
+        ref = f"ASME B16.34, Tabla 2-{g} (clase estándar)"
+        if r is None:
+            al.append(Alerta("rating_fuera_tabla", Severidad.CRITICA, "Temperatura fuera de la tabla de clase",
+                             f"La temperatura de diseño ({fT(T_d)}) supera la tabla del grupo {g} "
+                             f"({m_cuerpo.nombre}).", referencia=ref))
+        elif P_barg > r:
+            minima = asme_b16_34.clase_minima(g, P_barg, T_C)
+            al.append(Alerta("clase_insuficiente", Severidad.CRITICA, f"Rating CL{inst.rating} insuficiente",
+                             f"Con {m_cuerpo.nombre} (grupo {g}) la clase {inst.rating} admite {fP(rating_adm)} a "
+                             f"{fT(T_d)} y la presión de diseño es {fP(P_d)}.",
+                             remedios=[f"Usar rating CL{minima}." if minima else "Ninguna clase estándar alcanza: "
+                                       "revise las condiciones de diseño o el material."], referencia=ref))
+        else:
+            al.append(Alerta("rating_verificado", Severidad.INFO, "Rating verificado con el material del cuerpo",
+                             f"CL{inst.rating} con {m_cuerpo.nombre} (grupo {g}) admite {fP(rating_adm)} a "
+                             f"{fT(T_d)}; diseño {fP(P_d)}.", referencia=ref))
+    elif m_cuerpo is not None:
+        rating_adm = None
+        al.append(Alerta("mat_no_b1634", Severidad.INFO, "Rating a definir por el fabricante",
+                         f"{m_cuerpo.nombre} no figura en ASME B16.34: el rating de CL{inst.rating} lo confirma el "
+                         "fabricante."))
     else:
-        al.append(Alerta("rating_referencial", Severidad.INFO, "Rating verificado en forma referencial",
-                         f"CL{inst.rating} admite {fP(rating_adm)} a {fT(T_d)} con acero al carbono "
-                         f"(grupo 1.1); diseño {fP(P_d)}. El material del cuerpo se define en una "
-                         "versión futura: repita la verificación con el grupo de material real.",
-                         referencia=ref))
+        r = asme_b16_34.rating("1.1", inst.rating, T_C)
+        rating_adm = None if r is None else r * 100 + 101.325
+        al.append(_rating_referencial(inst, P_d, T_d, P_barg, T_C))
     if inst.P_diseno is None or inst.T_diseno is None:
         al.append(Alerta("diseno_por_operacion", Severidad.INFO, "Condiciones de diseño supuestas",
                          "No se ingresaron presión y/o temperatura de diseño: se usaron las máximas de "
@@ -614,7 +659,7 @@ def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 # Gas, vapor y vapor de agua
 # ---------------------------------------------------------------------------
-def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento) -> Resultado:
+def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, mat=None) -> Resultado:
     D1, D2, tp1, tp2, errores = _tuberias_inst(inst)
     if not dim.casos:
         errores.append(Alerta("sin_casos", Severidad.ERROR, "Sin casos de operación",
@@ -752,14 +797,17 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
     T_ops = [e.T1 for e in estados] + ([dim.cierre.T1] if dim.cierre and dim.cierre.T1 else [])
     P_d = inst.P_diseno or max(P_ops)
     T_d = inst.T_diseno or max(T_ops)
-    generales, rating_adm = _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2)
+    mres = _materiales(mat, inst, dim, salidas, P_d, T_d)
+    generales, rating_adm = _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2, mres)
     alertas = [("General", a) for a in generales] + alertas
+    if mres is not None:
+        alertas += [("Materiales", a) for a in mres.todas_las_alertas()]
     alertas.sort(key=lambda t: -t[1].severidad)
     Cv_nom = inf.Kv_nominal / 0.865
     curva = [(h, Cv_nom * caudal_relativo(h / 100, estilo.caracteristica, estilo.rangeabilidad))
              for h in range(0, 101, 2)]
     res = Resultado(ident, inst, dim, inf, salidas, alertas, [], D1, D2, tp1, tp2, Cv_nom,
-                    rating_adm, P_d, T_d, curva)
+                    rating_adm, P_d, T_d, curva, mres)
     res.recomendaciones = recomendaciones(res)
     return res
 

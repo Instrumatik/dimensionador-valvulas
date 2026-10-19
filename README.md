@@ -2,7 +2,7 @@
 
 Programa independiente de marcas para dimensionar y verificar válvulas de control
 según IEC 60534-2-1 / ANSI/ISA-75.01.01, con cavitación y ruido IEC 60534-8-4,
-tuberías ASME B36.10M / B36.19M, rating ASME B16.34 (referencial) y clases de
+tuberías ASME B36.10M / B36.19M, rating ASME B16.34 con el material del cuerpo, selección de materiales y clases de
 cierre ANSI/FCI 70-2. La versión 2 trabaja **solo con líquidos**; el núcleo de
 cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
 [ARQUITECTURA.md](ARQUITECTURA.md).
@@ -16,9 +16,13 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    viscosidad, Pv y Pc para los casos mínimo, normal y máximo; tipo de trim con sus factores
    típicos FL, Fd y Kc (editables), diámetro de válvula y Cv nominal. Los diámetros y cédulas
    de tubería se copian desde 1-Sistema.
-3. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
+3. **3-Materiales**: industria, fluido, fase, agentes químicos con su concentración, sólidos y norma de
+   servicio agrio. El programa recomienda el material de cuerpo, bonete, asiento, jaula, guía,
+   obturador y vástago (modo AUTOMÁTICO) o verifica el elegido por el usuario (MANUAL, no
+   recomendado), con galling, dureza por cavitación, ISO 15156 / ISO 17945 y límites P-T de ASME B16.34.
+4. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
    alertas, su intensidad y las soluciones posibles.
-4. **Memoria de cálculo**, **Hoja de datos** e **Informe técnico**: vistas previas que se
+5. **Memoria de cálculo**, **Hoja de datos** e **Informe técnico**: vistas previas que se
    exportan a Word editable o se imprimen desde *Inicio → Entregables*, por separado o todos
    juntos.
 

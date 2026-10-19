@@ -1,41 +1,32 @@
-"""Clases de presión-temperatura ASME B16.34 (clase estándar) y materiales ASTM.
+"""Clases de presión-temperatura ASME B16.34 (clase estándar) por grupo de material.
 
-Los valores de las tablas son presiones de trabajo máximas en bar
-manométricos para válvulas de clase estándar. Deben verificarse contra la
-edición vigente de ASME B16.34 que use el proyecto; el archivo de datos es
-editable para actualizarlos.
+Los valores (``datos_b16_34.py``) son presiones de trabajo máximas en bar
+manométricos para válvulas de clase estándar, edición 2017, para los 49
+grupos de materiales de la norma. Deben verificarse contra la edición
+vigente que use el proyecto.
 
-Grupos incluidos:
-  1.1  Acero al carbono: ASTM A216 WCB (fundición), A105 (forja), A350 LF2*, A515 70, A516 70
-  2.2  Acero inoxidable 316: ASTM A351 CF8M y CF3M (fundición), A182 F316 (forja)
+Los materiales y sus límites de temperatura propios están en ``materiales.py``.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from . import datos_b16_34 as D
 from .modelos import Alerta, Severidad, _n
 
-TEMPERATURAS_C = [38, 50, 100, 150, 200, 250, 300, 325, 350, 375, 400, 425, 450, 475, 500, 538]
-CLASES = [150, 300, 600, 900, 1500, 2500]
+CLASES = D.CLASES
+GRUPOS = D.GRUPOS
+DESCRIPCION = D.DESCRIPCION
+T_BRIDADAS_C = 538          # las válvulas bridadas terminan su rating en 538 °C
+TEMPERATURAS_C = GRUPOS["1.1"][0]
 
-TABLAS = {
-    "1.1": {
-        150: [19.6, 19.2, 17.7, 15.8, 13.8, 12.1, 10.2, 9.3, 8.4, 7.4, 6.5, 5.5, 4.6, 3.7, 2.8, 1.4],
-        300: [51.1, 50.1, 46.6, 45.1, 43.8, 41.9, 39.8, 38.7, 37.6, 36.4, 34.7, 28.8, 23.0, 17.4, 11.8, 5.9],
-        600: [102.1, 100.2, 93.2, 90.2, 87.6, 83.9, 79.6, 77.4, 75.1, 72.7, 69.4, 57.5, 46.0, 34.9, 23.5, 11.8],
-        900: [153.2, 150.4, 139.8, 135.2, 131.4, 125.8, 119.5, 116.1, 112.7, 109.1, 104.2, 86.3, 69.0, 52.3, 35.3, 17.7],
-        1500: [255.3, 250.6, 233.0, 225.4, 219.0, 209.7, 199.1, 193.6, 187.8, 181.8, 173.6, 143.8, 115.0, 87.2, 58.8, 29.5],
-        2500: [425.5, 417.7, 388.3, 375.6, 365.0, 349.5, 331.8, 322.6, 313.0, 303.1, 289.3, 239.7, 191.7, 145.3, 97.9, 49.2],
-    },
-    "2.2": {
-        150: [19.0, 18.4, 16.2, 14.8, 13.7, 12.1, 10.2, 9.3, 8.4, 7.4, 6.5, 5.5, 4.6, 3.7, 2.8, 1.4],
-        300: [49.6, 48.1, 42.2, 38.5, 35.7, 33.4, 31.6, 30.9, 30.3, 29.9, 29.4, 29.1, 28.8, 28.7, 28.2, 25.2],
-        600: [99.3, 96.2, 84.4, 77.0, 71.3, 66.8, 63.2, 61.8, 60.7, 59.8, 58.9, 58.3, 57.7, 57.3, 56.5, 50.0],
-        900: [148.9, 144.3, 126.6, 115.5, 107.0, 100.1, 94.9, 92.7, 91.0, 89.6, 88.3, 87.4, 86.6, 85.9, 84.7, 75.2],
-        1500: [248.2, 240.6, 211.0, 192.5, 178.3, 166.9, 158.1, 154.4, 151.6, 149.4, 147.2, 145.7, 144.3, 143.2, 140.9, 125.5],
-        2500: [413.7, 400.9, 351.6, 320.8, 297.2, 278.1, 263.5, 257.4, 252.7, 249.0, 245.3, 242.9, 240.5, 238.7, 235.0, 208.9],
-    },
-}
+
+def temperaturas(grupo: str) -> list[float]:
+    return GRUPOS[grupo][0]
+
+
+def T_max_tabla(grupo: str) -> float:
+    return GRUPOS[grupo][0][-1]
 
 
 @dataclass(frozen=True)
@@ -44,28 +35,28 @@ class Material:
     nombre: str
     grupo: str
     T_min_C: float      # temperatura mínima de uso sin requisitos adicionales
-    T_max_C: float      # máximo de la tabla incluida
+    T_max_C: float      # máximo admitido para el material (norma o práctica)
     nota: str = ""
 
 
-MATERIALES = {m.clave: m for m in [
-    Material("WCB", "ASTM A216 WCB (acero al carbono fundido)", "1.1", -29, 538,
-             "Uso prolongado por encima de 425 °C: riesgo de grafitización."),
-    Material("A105", "ASTM A105 (acero al carbono forjado)", "1.1", -29, 538,
-             "Uso prolongado por encima de 425 °C: riesgo de grafitización."),
-    Material("CF8M", "ASTM A351 CF8M (inoxidable 316 fundido)", "2.2", -196, 538),
-    Material("F316", "ASTM A182 F316 (inoxidable 316 forjado)", "2.2", -196, 538),
-]}
+def _materiales():
+    from . import materiales as M
+    return {k: Material(k, m.nombre, m.grupo, m.T_min_C, m.T_max_C, m.notas[0] if m.notas else "")
+            for k, m in M.MATERIALES.items() if m.grupo}
+
+
+MATERIALES = _materiales()
 
 
 def rating(grupo: str, clase: int, T_C: float) -> float | None:
     """Presión máxima de trabajo [bar g] a la temperatura dada (interpolación lineal)."""
-    fila = TABLAS[grupo][clase]
-    if T_C <= TEMPERATURAS_C[0]:
+    ts, tabla = GRUPOS[grupo]
+    fila = tabla[clase]
+    if T_C <= ts[0]:
         return fila[0]
-    if T_C > TEMPERATURAS_C[-1]:
+    if T_C > ts[-1]:
         return None
-    for (t0, p0), (t1, p1) in zip(zip(TEMPERATURAS_C, fila), zip(TEMPERATURAS_C[1:], fila[1:])):
+    for (t0, p0), (t1, p1) in zip(zip(ts, fila), zip(ts[1:], fila[1:])):
         if t0 <= T_C <= t1:
             return p0 + (p1 - p0) * (T_C - t0) / (t1 - t0)
     return None
@@ -101,13 +92,13 @@ def verificar(material: str, clase: int | None, P_barg: float, T_max_C: float,
             remedios=["Usar aceros aleados al cromo-molibdeno (ASTM A217 WC6 o WC9) o inoxidables, según "
                       "la tabla de ASME B16.34 correspondiente."], referencia=ref))
         return clase, None, alertas
-    if m.grupo == "1.1" and T_max_C > 425:
+    if m.grupo in ("1.1", "1.2", "1.3", "1.4") and T_max_C > 425:
         alertas.append(Alerta(
             "grafitizacion", Severidad.ADVERTENCIA, "Riesgo de grafitización del acero al carbono",
             "Con exposición prolongada por encima de 425 °C la fase carburo del acero al carbono puede "
             "convertirse en grafito y perder resistencia.",
             remedios=["Para servicio continuo a esta temperatura especificar ASTM A217 WC6 o WC9."],
-            referencia="ASME B16.34, notas de la Tabla 2-1.1"))
+            referencia="ASME B16.34, notas de la Tabla 2-" + m.grupo))
     if clase is None:
         clase = clase_minima(m.grupo, P_barg, T_max_C)
         if clase is None:

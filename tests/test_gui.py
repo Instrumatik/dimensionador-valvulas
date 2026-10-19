@@ -189,3 +189,31 @@ def test_steam_y_vuelta_a_liquido(app):
     assert "IAPWS" in w.vistas["memoria"].toPlainText()
     _tipo(w, "liquido")
     assert w.res is None and not w.filas["Kc"].lbl.isHidden() and w.filas["xT"].lbl.isHidden()
+
+
+def test_solapa_materiales(app):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    w.mat_cb["fluido"].setCurrentText("Agua de mar")
+    fam, ag, un, ed, fa = w.mat_agentes[0]
+    fam.setCurrentText("Halogenuros / sales")
+    assert ag.currentData() == "cloruros"
+    ed.setText("25000")
+    modo, sel = w.mat_comp["vastago"][1], w.mat_comp["vastago"][2]
+    modo.setCurrentText("MANUAL")
+    assert sel.isEnabled()
+    sel.setCurrentIndex(sel.findData("316"))
+    w.calcular()
+    m = w.res.materiales
+    assert m is not None and m.componentes["vastago"].modo == "MANUAL"
+    assert "Recomendado" in w.mat_comp["cuerpo"][4].text()
+    assert "Selección de materiales" in w.vistas["informe_tecnico"].toPlainText()
+    estado = w._estado()
+    w2 = VentanaPrincipal()
+    w2._cargar(estado)
+    assert w2.mat_cb["fluido"].currentText() == "Agua de mar"
+    assert w2.mat_agentes[0][3].text() == "25000"
+    assert w2.mat_comp["vastago"][1].currentText() == "MANUAL"
+    assert w2.mat_comp["vastago"][2].currentData() == "316"
+    assert w2._servicio_materiales().agentes[0].clave == ag.currentData()

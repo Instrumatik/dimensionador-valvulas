@@ -919,6 +919,19 @@ _e("tipo_calculo", "Tipo de cálculo",
    categoria="Resultados")
 
 
+# Solapa 3-Materiales: parámetros, componentes, normas y alertas; agentes químicos.
+from . import ayuda_mat_agentes as _AG, ayuda_mat_parametros as _MP  # noqa: E402
+
+for _k, _d in _MP.ENTRADAS.items():
+    if _k in A:
+        raise KeyError(f"ayuda duplicada: {_k}")
+    _e(_k, **_d)
+for _k, _d in _AG.ENTRADAS.items():
+    _e(_k, categoria="Agentes químicos", **_d)
+GUIA.update(_MP.GUIA)
+GUIA.update(_AG.GUIA)
+
+
 def obtener(clave: str) -> EntradaAyuda | None:
     if clave in A:
         return A[clave]

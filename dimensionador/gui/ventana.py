@@ -17,6 +17,7 @@ from .. import __version__, ayuda, compresible as CG, entregables as E, modelos,
 from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, NOMBRES_ANTERIORES, TAMANOS
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
+from .solapa_materiales import SolapaMateriales
 from ..proyecto import (CIERRES, CONEXIONES, RATINGS, CasoCierre, CasoGas, CasoLiquido, Dimensionamiento,
                         Identificacion, Instalacion, Resultado, RuidoAerodinamico, calcular)
 
@@ -221,7 +222,8 @@ class VentanaAyuda(QDialog):
             if f and f not in " ".join([e.titulo, e.texto, *map(str, g.values())]).lower():
                 continue
             por_cat.setdefault(e.categoria, []).append((e.titulo, k))
-        for cat in ["Conceptos", "Datos", "Coeficientes", "Resultados", "Fenómenos"]:
+        for cat in ["Conceptos", "Datos", "Coeficientes", "Resultados", "Fenómenos", "Materiales",
+                    "Agentes químicos", "Normas y mecanismos"]:
             if cat not in por_cat:
                 continue
             it = QListWidgetItem(cat.upper())
@@ -521,7 +523,7 @@ def encabezados_casos(grid, fila=0, primera="Dato", ancho=ANCHO_CELDA, estilo=""
 # ---------------------------------------------------------------------------
 # Ventana principal
 # ---------------------------------------------------------------------------
-class VentanaPrincipal(QMainWindow):
+class VentanaPrincipal(SolapaMateriales, QMainWindow):
     def __init__(self, licencia=None):
         super().__init__()
         self.licencia = licencia
@@ -545,6 +547,7 @@ class VentanaPrincipal(QMainWindow):
         self.tabs.setDocumentMode(True)
         self.tabs.addTab(self._con_panel(self._tab_instalacion(), 0), "1-Sistema")
         self.tabs.addTab(self._con_panel(self._tab_dimensionamiento(), 1), "2-Cálculos Válvula")
+        self.tabs.addTab(self._con_panel(self._tab_materiales(), 2), "3-Materiales")
         self.vistas: dict[str, Vista] = {}
         for codigo, titulo in (("memoria", "Memoria de cálculo"), ("hoja_datos", "Hoja de datos"),
                                ("informe_tecnico", "Informe técnico")):
@@ -1165,6 +1168,7 @@ class VentanaPrincipal(QMainWindow):
             self.filas["Kc"].edits[j].setText(f"{kc:g}".replace(".", ",") if kc else "")
         self.cb_caract.setCurrentIndex(self.cb_caract.findData(e.caracteristica))
         self.cb_trim.setToolTip(e.nombre + (f"\n\n{e.nota}" if e.nota else ""))
+        self._mat_nombres_componentes()
 
     def _cambio_tipo_fluido(self):
         """Muestra solo las entradas y resultados del tipo de fluido elegido."""
@@ -1375,6 +1379,10 @@ class VentanaPrincipal(QMainWindow):
                 F["rho2"].poner_base(j, e.rho2)
 
     def _leer(self):
+        """Datos de las tres solapas: identificación, instalación, dimensionamiento y materiales."""
+        return (*self._leer_calculo(), self._servicio_materiales())
+
+    def _leer_calculo(self):
         ident = Identificacion(**{k: ed.text().strip() for k, ed in self.ed_ident.items()})
         inst = Instalacion(
             cuerpo=self.cb_cuerpo.currentData(), rating=self.cb_rating.currentData(),
@@ -1480,6 +1488,7 @@ class VentanaPrincipal(QMainWindow):
             f"<span style='color:{estado[0]}'><b>{estado[1]}</b></span>")
         self._mostrar_salidas()
         self._llenar_kpi()
+        self._mostrar_materiales()
         self.lista_alertas.clear()
         for caso, a in res.alertas:
             inten = ""
@@ -1668,6 +1677,7 @@ class VentanaPrincipal(QMainWindow):
             s["campos"][k] = w.currentText() if isinstance(w, QComboBox) else w.text()
         for f in self._todas_las_filas():
             s["filas"][f.clave] = {"unidad": f.unidad.currentText(), "valores": [e.text() for e in f.edits]}
+        s["materiales"] = self._mat_estado()
         return s
 
     def _cargar(self, s: dict):
@@ -1693,6 +1703,7 @@ class VentanaPrincipal(QMainWindow):
             for e, v in zip(f.edits, d["valores"]):
                 e.setText(v)
         self.filas["caudal"].edits[CIERRE].setText("0")
+        self._mat_cargar(s.get("materiales", {}))
         self.res = None
         self._actualizar_vistas()
 
@@ -1706,6 +1717,7 @@ class VentanaPrincipal(QMainWindow):
         for ed in self.ed_ident.values():
             ed.clear()
         self.ed_ident["revision"].setText("0")
+        self._mat_nuevo()
         self._cambio_trim()
         self.res = None
         self.ruta = None

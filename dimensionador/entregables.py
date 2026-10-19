@@ -269,7 +269,8 @@ def memoria(res: Resultado, pr: Presentacion) -> Documento:
     doc.grafico()
     doc.nota("Curva de Cv en función de la apertura de la válvula seleccionada (característica inherente) con "
              "los puntos de operación de cada caso.")
-    doc.h2("5. Conclusión")
+    _seccion_materiales_memoria(doc, res, 5)
+    doc.h2("6. Conclusión")
     doc.p(f"Válvula seleccionada: {_valvula_resumen(res)}")
     criticas = [a for _, a in res.alertas if a.severidad >= Severidad.ADVERTENCIA]
     if criticas:
@@ -315,7 +316,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         ["Conexión a proceso", i.conexion],
         ["Presión de diseño", pr.vu(res.P_diseno, "presion")],
         ["Temperatura de diseño", pr.vu(res.T_diseno, "temperatura")],
-        ["Material del cuerpo", "A definir (versión futura)"],
+        *_filas_material_cuerpo(res),
         ["Ruido admisible", f"{fmt(i.ruido_permitido, 3)} dB(A)"],
     ], anchos=[35, 65])
     doc.h2("Internos")
@@ -328,7 +329,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         ["Guía y obturador", rec.get("Tipo de guía y obturador", "")],
         ["Clase de cierre", f"{i.cierre} ({REF_CIERRE})"],
         ["Fuga admisible", FUGA_CIERRE[i.cierre]],
-        ["Material de internos", "A definir (versión futura)"],
+        *_filas_material_internos(res),
     ], anchos=[35, 65])
     doc.h2("Actuador y accesorios")
     doc.tabla([["Actuador", "A definir (próxima versión: fuerza / par)"],
@@ -394,7 +395,8 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
     doc.lista(acciones or ["No se requieren acciones de corrección."])
     doc.h2("7. Características recomendadas de la válvula")
     doc.tabla([[t, x] for t, x in res.recomendaciones], ["Aspecto", "Recomendación"], anchos=[25, 75])
-    doc.h2("8. Recomendaciones finales")
+    _seccion_materiales_informe(doc, res, 8)
+    doc.h2("9. Recomendaciones finales")
     factores = "Cv, xT, FL y Fd" if res.dim.compresible else "Cv, FL, Fd y Kc"
     finales = [f"Solicitar al fabricante los valores certificados de {factores} del trim ofertado y "
                "repetir la verificación con esos datos."]
@@ -402,14 +404,21 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
         finales.insert(0, "No emitir la compra hasta resolver las condiciones críticas indicadas en la sección 5.")
     if not res.dim.Cv_nominal:
         finales.append("La capacidad nominal usada es típica del estilo: confirmar la apertura con la curva real.")
-    finales.append("Verificar el rating con el material definitivo del cuerpo (la verificación actual es "
-                   "referencial con acero al carbono, grupo 1.1).")
+    if res.materiales is not None and res.materiales.grupo_cuerpo:
+        finales.append(f"Rating verificado con el material del cuerpo {res.materiales.cuerpo.nombre} (ASME B16.34, "
+                       f"grupo {res.materiales.grupo_cuerpo}). Confirmar los materiales con el fabricante y con "
+                       "el especialista en corrosión del proyecto.")
+    else:
+        finales.append("Verificar el rating con el material definitivo del cuerpo (la verificación actual es "
+                       "referencial con acero al carbono, grupo 1.1).")
     doc.lista(finales)
-    doc.h2("9. Alcance y referencias")
+    doc.h2("10. Alcance y referencias")
     doc.lista(["IEC 60534-2-1:2011 / ANSI/ISA-75.01.01: ecuaciones de dimensionamiento.",
                *_referencias_fluido(res),
                "ANSI/FCI 70-2 / IEC 60534-4: clases de cierre.",
                "ASME B16.34: clases de presión-temperatura. ASME B36.10M / B36.19M: tuberías.",
+               "NACE MR0175 / ISO 15156 y NACE MR0103 / ISO 17945: materiales para servicio agrio.",
+               "ISA-RP75.23: regímenes de cavitación. ASTM G98: resistencia al galling.",
                f"Calculado con {PRODUCTO} {__version__} de {EMPRESA}. Software independiente de fabricantes."])
     return doc
 
@@ -607,7 +616,8 @@ def memoria_compresible(res: Resultado, pr: Presentacion) -> Documento:
     doc.grafico()
     doc.nota("Curva de Cv en función de la apertura de la válvula seleccionada (característica inherente) con "
              "los puntos de operación de cada caso.")
-    doc.h2("5. Conclusión")
+    _seccion_materiales_memoria(doc, res, 5)
+    doc.h2("6. Conclusión")
     doc.p(f"Válvula seleccionada: {_valvula_resumen(res)}")
     criticas = [a for _, a in res.alertas if a.severidad >= Severidad.ADVERTENCIA]
     if criticas:
@@ -649,7 +659,7 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
         ["Área de salida", pr.vu(s[0]["A_salida"], "area")],
         ["Presión de diseño", pr.vu(res.P_diseno, "presion")],
         ["Temperatura de diseño", pr.vu(res.T_diseno, "temperatura")],
-        ["Material del cuerpo", "A definir (versión futura)"],
+        *_filas_material_cuerpo(res),
         ["Ruido admisible", f"{fmt(i.ruido_permitido, 3)} dB(A)"],
     ], anchos=[35, 65])
     doc.h2("Internos")
@@ -663,7 +673,7 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
         ["Guía y obturador", rec.get("Tipo de guía y obturador", "")],
         ["Clase de cierre", f"{i.cierre} ({REF_CIERRE})"],
         ["Fuga admisible", FUGA_CIERRE[i.cierre]],
-        ["Material de internos", "A definir (versión futura)"],
+        *_filas_material_internos(res),
     ], anchos=[35, 65])
     doc.h2("Actuador y accesorios")
     doc.tabla([["Actuador", "A definir (próxima versión: fuerza / par)"],
@@ -675,6 +685,167 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
     doc.nota("Factores de válvula típicos y genéricos (no corresponden a ningún fabricante). Verificar con los "
              "datos certificados de la válvula ofertada.")
     return doc
+
+
+# ---------------------------------------------------------------------------
+# Materiales (solapa 3)
+# ---------------------------------------------------------------------------
+_SIN_MAT = "A definir: complete la solapa 3-Materiales y recalcule"
+
+
+def _comp_mat(res: Resultado, *claves) -> list[list[str]]:
+    """Filas «componente / material (dureza)» para la hoja de datos."""
+    m = res.materiales
+    filas = []
+    for k in claves:
+        if m is None:
+            continue
+        rc = m.componentes.get(k)
+        if rc is None or not rc.aplica:
+            continue
+        t = rc.texto
+        if rc.elegido:
+            t += f" · {rc.elegido.dureza_txt}"
+            if rc.elegido.astm and rc.elegido.astm not in t:
+                t += f" · {rc.elegido.astm}"
+        if rc.modo == "MANUAL":
+            t += " · selección MANUAL"
+        filas.append([f"Material {rc.nombre.lower()}", t])
+    return filas
+
+
+def _filas_material_cuerpo(res: Resultado) -> list[list[str]]:
+    if res.materiales is None:
+        return [["Material del cuerpo", _SIN_MAT]]
+    filas = _comp_mat(res, "cuerpo", "bonete")
+    g = res.materiales.grupo_cuerpo
+    if g:
+        filas.append(["Grupo ASME B16.34", g])
+    return filas
+
+
+def _filas_material_internos(res: Resultado) -> list[list[str]]:
+    m = res.materiales
+    if m is None:
+        return [["Material de internos", _SIN_MAT]]
+    filas = _comp_mat(res, "obturador", "asiento", "jaula", "guia", "vastago")
+    if m.agrio:
+        filas.append(["Servicio agrio", f"Sí: materiales según {m.norma}"])
+    return filas
+
+
+def _seccion_materiales_informe(doc: Documento, res: Resultado, n: int):
+    m = res.materiales
+    doc.h2(f"{n}. Selección de materiales")
+    if m is None:
+        doc.p("No se definió el servicio de materiales (solapa 3-Materiales). Los materiales quedan a definir.")
+        return
+    doc.p(f"Medio detectado: {m.medio_detectado}. Servicio agrio: {'sí' if m.agrio else 'no'}"
+          + (f" (pH₂S = {fmt(m.pH2S_kPa, 3)} kPa)" if m.pH2S_kPa is not None else "")
+          + f". Norma aplicable: {m.norma} ({m.norma_motivo.rstrip('.')}).")
+    doc.p(f"Dureza de internos: {m.dureza_motivo}")
+    filas = []
+    for rc in m.componentes.values():
+        just = "; ".join(x.strip(" ·") for x in rc.justificacion[:3]) if rc.aplica else ""
+        filas.append([rc.nombre, rc.modo if rc.aplica else "—", rc.texto,
+                      rc.elegido.dureza_txt if (rc.aplica and rc.elegido) else "—", just])
+    doc.tabla(filas, ["Componente", "Modo", "Material", "Dureza", "Justificación"], anchos=[13, 11, 26, 11, 39])
+    if any(rc.modo == "MANUAL" for rc in m.componentes.values() if rc.aplica):
+        doc.nota("Hay componentes en selección MANUAL: no recomendada. La responsabilidad por la aptitud del "
+                 "material queda fuera del alcance del programa.")
+    if m.galling:
+        doc.h3("Riesgo de galling en piezas en contacto")
+        doc.tabla([[g.par, f"{g.a} / {g.b}", g.nivel, g.motivo + (f" {g.remedio}" if g.nivel != "BAJO" else "")]
+                   for g in m.galling], ["Pareja", "Materiales", "Riesgo", "Motivo y remedio"], anchos=[18, 20, 10, 52])
+    alertas = m.todas_las_alertas()
+    if alertas:
+        doc.h3("Alertas de materiales y su resolución")
+        doc.lista([f"[{NOMBRE_SEV[a.severidad]}] {a.titulo}" + (f": {a.remedios[0]}" if a.remedios else "")
+                   for a in alertas])
+    if m.notas:
+        doc.lista(m.notas)
+    doc.nota("Preselección de ingeniería: no reemplaza la aprobación del fabricante ni del especialista en "
+             "corrosión del proyecto.")
+
+
+def _dato_agente(a) -> str:
+    e = a.entrada
+    if e.concentracion is None:
+        return "Sin concentración"
+    return f"{fmt(e.concentracion, 4)} {e.unidad} ({e.fase})"
+
+
+def _seccion_materiales_memoria(doc: Documento, res: Resultado, n: int):
+    m = res.materiales
+    doc.h2(f"{n}. Selección de materiales")
+    if m is None:
+        doc.p("Sin datos de servicio de materiales: los materiales quedan a definir.")
+        return
+    sv, ctx = m.servicio, m.ctx
+    doc.h3(f"{n}.1 Bases")
+    doc.lista([
+        "Límites presión-temperatura: ASME B16.34-2017 (tablas 2, por grupo de material).",
+        "Servicio agrio: NACE MR0175 / ISO 15156 (producción) y NACE MR0103 / ISO 17945 (refinación); umbral "
+        "pH₂S ≥ 0,3 kPa con agua libre.",
+        "Resistencia química: reglas por familia de material y extracto de tabla de compatibilidad A–D, "
+        "combinadas tomando el nivel más desfavorable.",
+        "Cavitación: regímenes ISA-RP75.23 con Kapp, Kc, FL² y xFzp1; dureza mínima de internos por régimen.",
+        "Galling: criterios de pares de materiales (referencia de ensayo ASTM G98).",
+        "Puntaje de selección: índice de costo × factor químico × factor de erosión; se elige el menor apto.",
+    ])
+    doc.h3(f"{n}.2 Servicio")
+    doc.tabla([["Industria", sv.industria], ["Fluido", f"{sv.familia_fluido} / {sv.fluido}"],
+               ["Fase", sv.fase], ["Composición", sv.composicion], ["Fase acuosa", sv.acuosa],
+               ["Régimen", sv.regimen], ["Medio (usuario / detectado)", f"{sv.medio} / {m.medio_detectado}"],
+               ["Sólidos", sv.solidos], ["Norma de servicio agrio", f"{sv.norma_agrio} → {m.norma}"],
+               ["Temperatura de operación", f"{fmt(ctx.T_min_C, 3)} a {fmt(ctx.T_max_C, 3)} °C"],
+               ["Presión máxima", f"{fmt(ctx.P_kPa, 4)} kPa abs"],
+               ["ΔP máximo", f"{fmt(ctx.dP_max_kPa, 4)} kPa"],
+               ["Cavitación / flashing", f"{ctx.severidad_cav} / {'sí' if ctx.flashing else 'no'}"]],
+              anchos=[35, 65])
+    if m.agentes:
+        doc.h3(f"{n}.3 Agentes químicos normalizados")
+        doc.tabla([[f"{a.agente.formula} — {a.agente.nombre}", _dato_agente(a), a.texto(),
+                    ("Supuesto conservador. " if a.supuesto else "") + " ".join(a.notas)] for a in m.agentes],
+                  ["Agente", "Dato ingresado", "Valor normalizado", "Nota"], anchos=[25, 20, 20, 35])
+    if ctx.casos_cav:
+        doc.h3(f"{n}.4 Cavitación por caso")
+        doc.tabla([[c, sev, fmt(k, 3), fmt(kc, 3), fmt(fl2, 3)] for c, sev, k, kc, fl2 in ctx.casos_cav],
+                  ["Caso", "Régimen", "Kapp", "Kc", "FL²"])
+    doc.p(f"Dureza requerida: {m.dureza_motivo}")
+    if m.dureza_req:
+        doc.tabla([[k, f"{fmt(v, 3)} HRC"] for k, v in m.dureza_req.items()], ["Componente", "Dureza mínima"])
+    if m.mecanismos:
+        doc.h3(f"{n}.5 Mecanismos de deterioro")
+        doc.tabla([[x.codigo, x.nombre, x.estado, x.motivo] for x in m.mecanismos],
+                  ["ID", "Mecanismo", "Estado", "Motivo"], anchos=[7, 28, 12, 53])
+    doc.h3(f"{n}.6 Selección por componente")
+    for rc in m.componentes.values():
+        if not rc.aplica:
+            doc.p(f"{rc.nombre}: no aplica con el trim elegido.")
+            continue
+        doc.p(f"{rc.nombre} ({rc.modo}): {rc.texto}"
+              + (f". Recomendado: {rc.recomendado.nombre}" if rc.recomendado and rc.recomendado is not rc.elegido
+                 else "") + ".")
+        items = [x.strip(" ·") for x in rc.justificacion]
+        ev = rc.eval_elegido
+        if ev is not None:
+            items.append(f"Nivel químico {ev.nivel_quimico}; puntaje {fmt(ev.puntaje, 3)}"
+                         + (f"; rating {fmt(ev.rating, 3)} bar g, clase mínima CL{ev.clase_min}"
+                            if ev.rating is not None and ev.clase_min else ""))
+            items += [f"{c.agente}: {c.nivel} — {c.detalle}" for c in ev.quimica]
+        if rc.alternativas:
+            items.append("Alternativas aptas: " + "; ".join(f"{a.nombre} ({b})" for a, b in rc.alternativas[:4]))
+        if rc.descartados:
+            items.append(f"Materiales descartados: {len({a.clave for a, _ in rc.descartados})} (detalle en la "
+                         "solapa 3-Materiales, botón Análisis).")
+        doc.lista(items)
+    if m.galling:
+        doc.h3(f"{n}.7 Galling")
+        doc.tabla([[g.par, f"{g.a} / {g.b}", g.nivel, g.motivo, g.remedio] for g in m.galling],
+                  ["Pareja", "Materiales", "Riesgo", "Motivo", "Remedio"], anchos=[15, 17, 9, 30, 29])
+    for t in m.notas:
+        doc.nota(t)
 
 
 CONSTRUCTORES = {"memoria": memoria, "hoja_datos": hoja_datos, "informe_tecnico": informe_tecnico}
