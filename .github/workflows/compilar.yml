@@ -58,8 +58,8 @@ jobs:
           set -e
           echo "Código de salida del generador: $code"
           if [ $code -ne 0 ]; then
-            echo "::warning::El generador no abrió (código $code). Detecciones del antivirus del runner:"
-            powershell -NoProfile -Command "Get-MpThreatDetection | Select-Object -Property InitialDetectionTime,ThreatID,Resources | Format-List; Get-MpThreat | Select-Object ThreatName | Format-List"
+            AV=$(powershell -NoProfile -Command "(Get-MpThreat | ForEach-Object { \$_.ThreatName }) -join ', '; (Get-MpThreatDetection | ForEach-Object { \$_.Resources }) -join ' | '" | tr '\r\n' '  ')
+            echo "::warning::El generador no abrió (código $code). Antivirus del runner: ${AV:-sin detecciones}"
             exit $code
           fi
       - uses: actions/upload-artifact@v4
