@@ -160,7 +160,11 @@ def main():
     if "--prueba-gui" in sys.argv:
         from PySide6.QtCore import QTimer
         QTimer.singleShot(1500, app.quit)
-    return app.exec()
+    codigo = app.exec()
+    # destruir la ventana antes que la QApplication evita un cierre abrupto del proceso
+    g.deleteLater()
+    del g
+    return codigo
 
 
 if __name__ == "__main__":
