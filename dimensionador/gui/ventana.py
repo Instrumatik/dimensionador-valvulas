@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QSplitter, QTabWidget, QTextBrowser, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
-from .. import __version__, ayuda, compresible as CG, entregables as E, modelos, propiedades, tuberias, unidades as U
+from .. import __version__, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, propiedades, tuberias, unidades as U
 from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, NOMBRES_ANTERIORES, TAMANOS
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
@@ -523,6 +523,38 @@ def encabezados_casos(grid, fila=0, primera="Dato", ancho=ANCHO_CELDA, estilo=""
 # ---------------------------------------------------------------------------
 # Ventana principal
 # ---------------------------------------------------------------------------
+# Fluido de la solapa 3 en proyectos 0.7.0 → calidad / variante de la solapa 2 (desde 0.7.1)
+_VARIANTE_070 = {"Agua industrial": "Agua industrial / de enfriamiento", "Agua desmineralizada": "Agua desmineralizada",
+                 "Agua de mar": "Agua de mar", "Agua producida": "Agua producida (yacimiento)",
+                 "Condensado": "Condensado", "Crudo": "Crudo", "Diésel": "Diésel / destilados",
+                 "Gas natural": "Gas natural", "Gas combustible": "Gas combustible"}
+_FAMILIA_070 = {"Salmuera": "Salmuera", "Ácido": "Ácido", "Alcalino": "Alcalino (soda / potasa cáustica)",
+                "Solvente": "Solvente", "Slurry": "Slurry (líquido con sólidos)"}
+
+
+def _migrar_fluido(s: dict) -> dict:
+    """Pasa la familia, el fluido y la fase acuosa que la versión 0.7.0 pedía en 3-Materiales a la solapa 2."""
+    c = dict(s.get("campos", {}))
+    if "variante" in c:
+        return s
+    serv = s.get("materiales", {}).get("servicio", {})
+    fl = c.pop("mat_fluido", None) or serv.get("fluido")
+    fam = c.pop("mat_familia_fluido", None) or serv.get("familia_fluido")
+    acu = c.pop("mat_acuosa", None) or serv.get("acuosa")
+    c.pop("mat_fase", None)
+    var = _VARIANTE_070.get(fl) or _FAMILIA_070.get(fam)
+    if var:
+        c["variante"] = var
+    if acu in FS.AGUA_LIBRE:
+        c["agua_libre"] = acu
+    # el orden importa: la variante y el agua libre se cargan después del tipo y del fluido
+    orden = {k: v for k, v in c.items() if k not in ("variante", "agua_libre")}
+    for k in ("variante", "agua_libre"):
+        if k in c:
+            orden[k] = c[k]
+    return {**s, "campos": orden}
+
+
 class VentanaPrincipal(SolapaMateriales, QMainWindow):
     def __init__(self, licencia=None):
         super().__init__()
@@ -898,6 +930,18 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
         self.cb_fluido.setCurrentText("Agua / vapor de agua")
         self.cb_fluido.currentIndexChanged.connect(self._cambio_fluido)
         self.vis_g1.append((self._fila(grid, r, "Fluido", self.cb_fluido, "fluido"), "LGV")); r += 1
+        self.cb_variante = self._registrar("variante", Combo())
+        self.lbl_salinidad = QLabel("")
+        self.lbl_salinidad.setStyleSheet(f"color:{ACENTO};font-size:8pt")
+        self.lbl_salinidad.setWordWrap(True)
+        self.fila_variante = self._fila(grid, r, "Calidad / variante del fluido", self.cb_variante,
+                                        "variante_fluido", self.lbl_salinidad); r += 1
+        self.cb_variante.currentIndexChanged.connect(self._cambio_variante)
+        self.cb_agua_libre = self._registrar("agua_libre", Combo())
+        self.cb_agua_libre.addItems(FS.AGUA_LIBRE)
+        self.cb_agua_libre.currentIndexChanged.connect(self._fluido_a_materiales)
+        self.cb_agua_libre.activated.connect(lambda *_: setattr(self, "_agua_usuario", True))
+        self.fila_agua_libre = self._fila(grid, r, "Agua libre (fase acuosa)", self.cb_agua_libre, "agua_libre"); r += 1
         self.cb_tipo_caudal = self._registrar("tipo_caudal", Combo())
         self.cb_tipo_caudal.addItems(["Volumétrico", "Másico"])
         self.cb_tipo_caudal.currentIndexChanged.connect(self._cambio_tipo_caudal)
@@ -1217,7 +1261,70 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
                 c.clear()
         self._actualizar_vistas()
 
+    def _fluido_actual(self) -> str:
+        return FS.AGUA if self.tipo() == "steam" else self.cb_fluido.currentText()
+
+    def _cargar_variantes(self):
+        """Opciones de calidad / variante según tipo y fluido (se conserva la elegida si sigue siendo válida)."""
+        ops = FS.variantes(self.tipo(), self._fluido_actual())
+        actual = self.cb_variante.currentText()
+        self.cb_variante.blockSignals(True)
+        self.cb_variante.clear()
+        self.cb_variante.addItems(ops)
+        if actual in ops:
+            self.cb_variante.setCurrentText(actual)
+        self.cb_variante.blockSignals(False)
+        for w in self.fila_variante:
+            w.setVisible(bool(ops))
+        self._cambio_variante()
+
+    def _cambio_variante(self):
+        t, fl, var = self.tipo(), self._fluido_actual(), self.cb_variante.currentText()
+        fija = FS.agua_libre_fija(t, fl, var)
+        actual = self.cb_agua_libre.currentText()
+        self.cb_agua_libre.blockSignals(True)
+        self.cb_agua_libre.clear()
+        if fija:
+            self.cb_agua_libre.addItem(fija)
+        else:
+            self.cb_agua_libre.addItems(FS.AGUA_LIBRE)
+            sug = FS.agua_libre_sugerida(t, fl, var)
+            self.cb_agua_libre.setCurrentText(actual if actual in FS.AGUA_LIBRE and getattr(self, "_agua_usuario", False)
+                                              else sug)
+        self.cb_agua_libre.setEnabled(not fija)
+        self.cb_agua_libre.blockSignals(False)
+        self.cb_agua_libre.setToolTip("Lo impone el fluido elegido." if fija else "")
+        sal = FS.salinidad_pct(t, fl, var, self._cloruros_materiales())
+        c = FS.correccion_salina(sal)
+        self.lbl_salinidad.setText(f"Propiedades corregidas por {c.texto}." if c else "")
+        self._fluido_a_materiales()
+
+    def _cloruros_materiales(self) -> float | None:
+        """Cloruros (mg/L) informados en la tabla de agentes de 3-Materiales, si los hay."""
+        if not hasattr(self, "mat_agentes"):
+            return None
+        total = None
+        for fam, ag, un, ed, fa in self.mat_agentes:
+            clave = ag.currentData()
+            if clave not in ("cloruros", "nacl") or not ed.text().strip():
+                continue
+            try:
+                from .. import quimica as Q
+                n = Q.normalizar(Q.AgenteServicio(clave, un.currentText(), leer_numero(ed.text()), fa.currentText()),
+                                 101.325, 1.0)
+            except (ValueError, TypeError):
+                continue
+            if n.valor:
+                total = (total or 0) + n.valor * (0.607 if clave == "nacl" else 1.0)
+        return total
+
+    def _fluido_a_materiales(self, *_):
+        if hasattr(self, "_mat_fluido_heredado"):
+            self._mat_fluido_heredado()
+
     def _cambio_fluido(self):
+        self._agua_usuario = False
+        self._cargar_variantes()
         t = self.tipo()
         manual = self.cb_fluido.currentText() == USUARIO
         self.btn_prop.setEnabled(not manual and t != "steam")
@@ -1348,6 +1455,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
             QMessageBox.warning(self, "Propiedades", "\n".join(a.mensaje for a in e.alertas))
 
     def calcular_propiedades(self):
+        self._cambio_variante()          # salinidad con los cloruros vigentes de 3-Materiales
         fluido = self.cb_fluido.currentText()
         t = self.tipo()
         if fluido == USUARIO or t == "steam":
@@ -1359,9 +1467,12 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
                 raise ValueError(f"Caso {CASOS[j]}: ingrese P1 y T1 para obtener las propiedades.")
             if t == "liquido":
                 p = propiedades.liquido(fluido, P1, T1)
-                F["SG"].edits[j].setText(_num(p.rho / RHO_AGUA_15C))
-                F["mu"].poner_base(j, p.mu)
-                F["Pv"].poner_base(j, p.Pv)
+                c = FS.correccion_salina(FS.salinidad_pct(t, fluido, self.cb_variante.currentText(),
+                                                          self._cloruros_materiales()))
+                fr, fm, fp = (c.f_rho, c.f_mu, c.f_Pv) if c else (1.0, 1.0, 1.0)
+                F["SG"].edits[j].setText(_num(p.rho * fr / RHO_AGUA_15C))
+                F["mu"].poner_base(j, p.mu * fm)
+                F["Pv"].poner_base(j, p.Pv * fp)
                 self.f_Pc.poner_base(0, p.Pc)
                 continue
             if P2 is None:
@@ -1436,13 +1547,19 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
                 raise ValueError("Falta la presión crítica del líquido.")
             return ident, inst, Dimensionamiento(casos, Pc, self.cb_trim.currentData(), self.cb_tamano.currentData(),
                                                  self.cb_caract.currentData(), fluido, cierre,
-                                                 balanceado=self._balanceado())
+                                                 balanceado=self._balanceado(), **self._datos_fluido())
         ruido_g = RuidoAerodinamico(self.cb_trim_ruido.currentData(), self.f_Rn.valor_base(0) or 1.0,
                                     self.f_area.valor_base(0))
         dim = Dimensionamiento(casos, None, self.cb_trim.currentData(), self.cb_tamano.currentData(),
                                self.cb_caract.currentData(), "Agua / vapor de agua" if t == "steam" else fluido,
-                               cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado())
+                               cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado(), **self._datos_fluido())
         return ident, inst, dim
+
+    def _datos_fluido(self) -> dict:
+        t, fl, var = self.tipo(), self._fluido_actual(), self.cb_variante.currentText()
+        agua = self.cb_agua_libre.currentText()
+        sal = FS.salinidad_pct(t, fl, var, self._cloruros_materiales()) if fl != USUARIO else 0.0
+        return {"variante": var, "agua_libre": "" if agua == FS.AUTO_AGUA else agua, "salinidad_pct": sal}
 
     def calcular(self, silencioso: bool = False):
         pr = self.presentacion()
@@ -1682,6 +1799,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
 
     def _cargar(self, s: dict):
         self.aplicar_sistema(s.get("sistema", "SI"))
+        s = _migrar_fluido(s)
         for k, v in s.get("campos", {}).items():
             w = self.campos.get(k)
             if isinstance(w, QComboBox):

@@ -116,6 +116,9 @@ class Dimensionamiento:
     tipo: str = "liquido"              # liquido, gas, vapor, steam (ver compresible.TIPOS)
     ruido: RuidoAerodinamico = field(default_factory=RuidoAerodinamico)
     balanceado: bool | None = None     # trim balanceado (True) o desbalanceado (False); None = no aplica
+    variante: str = ""                 # calidad / variante del fluido (fluido_servicio.variantes)
+    agua_libre: str = ""               # Sí, No, Intermitente, Desconocida ("" = la que sugiere el fluido)
+    salinidad_pct: float = 0.0         # % p/p NaCl eq. con que se corrigieron SG, μ y Pv (0 = sin corrección)
 
     @property
     def compresible(self) -> bool:
@@ -308,7 +311,7 @@ def _materiales(mat, inst, dim, salidas, P_d, T_d):
     from types import SimpleNamespace
     from . import seleccion_materiales as SM
     ctx = SM.contexto(SimpleNamespace(inst=inst, dim=dim, salidas=salidas, P_diseno=P_d, T_diseno=T_d))
-    return SM.seleccionar(mat, ctx)
+    return SM.seleccionar(SM.completar_desde_calculo(mat, dim, salidas, ctx), ctx)
 
 
 def _rating_referencial(inst, P_d, T_d, P_barg, T_C) -> Alerta:

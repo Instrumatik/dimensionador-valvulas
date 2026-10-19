@@ -195,7 +195,12 @@ def test_solapa_materiales(app):
     from dimensionador.gui.ventana import VentanaPrincipal
     w = VentanaPrincipal()
     _cargar(w)
-    w.mat_cb["fluido"].setCurrentText("Agua de mar")
+    # el fluido se define una sola vez, en 2-Cálculos Válvula
+    assert not {"fluido", "familia_fluido", "fase", "acuosa"} & set(w.mat_cb)
+    assert w.fila_variante[2].isVisibleTo(w) or not w.isVisible()
+    w.cb_variante.setCurrentText("Agua de mar")
+    assert w.cb_agua_libre.currentText() == "Sí" and not w.cb_agua_libre.isEnabled()
+    assert "salinidad 3,5" in w.lbl_salinidad.text()
     fam, ag, un, ed, fa = w.mat_agentes[0]
     fam.setCurrentText("Halogenuros / sales")
     assert ag.currentData() == "cloruros"
@@ -207,13 +212,37 @@ def test_solapa_materiales(app):
     w.calcular()
     m = w.res.materiales
     assert m is not None and m.componentes["vastago"].modo == "MANUAL"
+    assert m.servicio.fluido == "Agua de mar" and m.servicio.acuosa == "Sí"
+    assert w.res.dim.salinidad_pct == pytest.approx(1.648 * 25000 / 1e4 / (1 + 0.0073 * 4.12), rel=0.01)
+    assert float(w.filas["SG"].edits[0].text().replace(",", ".")) > 0.99   # agua pura a 90 °C: 0,965
+    assert "Agua de mar" in w.mat_lbl_fluido.text()
     assert "Recomendado" in w.mat_comp["cuerpo"][4].text()
     assert "Selección de materiales" in w.vistas["informe_tecnico"].toPlainText()
     estado = w._estado()
     w2 = VentanaPrincipal()
     w2._cargar(estado)
-    assert w2.mat_cb["fluido"].currentText() == "Agua de mar"
+    assert w2.cb_variante.currentText() == "Agua de mar"
     assert w2.mat_agentes[0][3].text() == "25000"
     assert w2.mat_comp["vastago"][1].currentText() == "MANUAL"
     assert w2.mat_comp["vastago"][2].currentData() == "316"
     assert w2._servicio_materiales().agentes[0].clave == ag.currentData()
+
+
+def test_gas_seco_y_proyecto_070(app):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    w.cb_tipo_fluido.setCurrentIndex(w.cb_tipo_fluido.findData("gas"))
+    w.cb_fluido.setCurrentText("Nitrógeno")
+    assert w.cb_agua_libre.isEnabled() and w.cb_agua_libre.currentText() == "No"
+    assert not w.mat_ed_pH.isEnabled()
+    w.cb_fluido.setCurrentText("Definido por el usuario")
+    assert "Gas natural" in [w.cb_variante.itemText(i) for i in range(w.cb_variante.count())]
+    # proyecto guardado con la versión 0.7.0: el fluido de 3-Materiales pasa a la solapa 2
+    w2 = VentanaPrincipal()
+    estado = w2._estado()
+    estado["campos"].pop("variante")
+    estado["campos"].pop("agua_libre")
+    estado["campos"]["mat_fluido"] = "Agua producida"
+    estado["campos"]["mat_familia_fluido"] = "Agua"
+    w2._cargar(estado)
+    assert w2.cb_variante.currentText() == "Agua producida (yacimiento)"

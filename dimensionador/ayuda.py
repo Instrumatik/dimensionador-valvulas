@@ -87,8 +87,11 @@ _e("fluido", "Fluido",
    "específicos y factor de compresibilidad a las condiciones de entrada de cada caso.</p>"
    "<p>Elija <b>Definido por el usuario</b> para ingresar las propiedades a mano (mezclas, "
    "fluidos de proceso, datos de la hoja de datos del proyecto). Las propiedades provienen de "
-   "la biblioteca CoolProp; para agua y vapor usa la formulación IAPWS-95.</p>",
-   relacionadas=["rho", "Pv", "Pc", "viscosidad"])
+   "la biblioteca CoolProp; para agua y vapor usa la formulación IAPWS-95.</p>"
+   "<p>El fluido se define <b>solo aquí</b>: con la <b>calidad / variante</b> (qué agua es, o qué tipo de "
+   "fluido definido por el usuario) y el <b>agua libre</b>, alimenta también la selección de materiales de la "
+   "solapa 3, que no vuelve a preguntarlo.</p>",
+   relacionadas=["rho", "Pv", "Pc", "viscosidad", "variante_fluido", "agua_libre"])
 
 _e("caudal", "Caudal",
    "<p>Cantidad de fluido que debe pasar la válvula en cada caso de operación. Puede ingresarse "

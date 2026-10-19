@@ -233,7 +233,9 @@ def memoria(res: Resultado, pr: Presentacion) -> Documento:
         "Capacidad nominal (Cv a carrera total): típica del estilo.",
     ])
     doc.h2("2. Datos de entrada")
+    doc.p(f"Fluido: {_nombre_fluido(res)}.")
     doc.tabla(_tabla_entradas(res, pr), ["Dato", "Unidad", *casos])
+    _nota_salinidad(doc, res)
     _tabla_cierre(doc, res, pr)
     doc.tabla([["Presión crítica Pc", pr.vu(d.Pc, "presion_abs")],
                ["Válvula", _valvula_resumen(res)],
@@ -293,7 +295,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
     doc.h1("Hoja de datos de válvula de control")
     _identificacion(doc)
     doc.h2("Condiciones de servicio")
-    doc.tabla([["Fluido", d.fluido or "Definido por el usuario", "Estado", "Líquido"]], anchos=[18, 32, 18, 32])
+    doc.tabla([["Fluido", _nombre_fluido(res), "Estado", "Líquido"]], anchos=[18, 32, 18, 32])
     filas = _tabla_entradas(res, pr) + [
         _fila("Presión crítica Pc", "", [d.Pc] * len(s), pr, "presion_abs"),
         _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
@@ -305,6 +307,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         _fila("Velocidad aguas abajo", "", [x["v2"] for x in s], pr, "velocidad", 3),
     ]
     doc.tabla(filas, ["Dato", "Unidad", *casos])
+    _nota_salinidad(doc, res)
     _tabla_cierre(doc, res, pr)
     doc.h2("Línea")
     doc.tabla(_tuberias(res, pr), ["Tubería", "NPS", "Cédula", "Diámetro interior", "Espesor"])
@@ -427,9 +430,23 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
 # Gas, vapor y vapor de agua
 # ---------------------------------------------------------------------------
 def _nombre_fluido(res: Resultado) -> str:
-    if res.dim.tipo == "steam":
+    d = res.dim
+    if d.tipo == "steam":
         return "Agua, vapor (propiedades IAPWS-95)"
-    return res.dim.fluido or "Definido por el usuario"
+    t = d.fluido or "Definido por el usuario"
+    if d.variante:
+        t += f" — {d.variante}"
+    if d.agua_libre and d.agua_libre != "Sí" and d.tipo != "liquido":
+        t += f" (agua libre: {d.agua_libre.lower()})"
+    return t
+
+
+def _nota_salinidad(doc: "Documento", res: Resultado):
+    from .fluido_servicio import correccion_salina
+    c = correccion_salina(res.dim.salinidad_pct)
+    if c:
+        doc.nota(f"Propiedades del agua pura (IAPWS-95) corregidas por {c.texto} (correlaciones orientativas "
+                 "para soluciones de NaCl).")
 
 
 def _referencias_fluido(res: Resultado) -> list[str]:
@@ -794,8 +811,9 @@ def _seccion_materiales_memoria(doc: Documento, res: Resultado, n: int):
         "Puntaje de selección: índice de costo × factor químico × factor de erosión; se elige el menor apto.",
     ])
     doc.h3(f"{n}.2 Servicio")
-    doc.tabla([["Industria", sv.industria], ["Fluido", f"{sv.familia_fluido} / {sv.fluido}"],
-               ["Fase", sv.fase], ["Composición", sv.composicion], ["Fase acuosa", sv.acuosa],
+    doc.tabla([["Industria", sv.industria],
+               ["Fluido (solapa 2)", f"{_nombre_fluido(res)} → familia {sv.familia_fluido.lower()}"],
+               ["Fase (deducida del cálculo)", sv.fase], ["Composición", sv.composicion], ["Agua libre", sv.acuosa],
                ["Régimen", sv.regimen], ["Medio (usuario / detectado)", f"{sv.medio} / {m.medio_detectado}"],
                ["Sólidos", sv.solidos], ["Norma de servicio agrio", f"{sv.norma_agrio} → {m.norma}"],
                ["Temperatura de operación", f"{fmt(ctx.T_min_C, 3)} a {fmt(ctx.T_max_C, 3)} °C"],

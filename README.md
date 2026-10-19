@@ -13,11 +13,13 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    cédulas de tubería de entrada y salida, ruido permitido, conexión a proceso, presión y
    temperatura de diseño y clase de cierre.
 2. **2-Cálculos Válvula**: fluido, caudal volumétrico o másico, P1, P2, T1, gravedad específica,
-   viscosidad, Pv y Pc para los casos mínimo, normal y máximo; tipo de trim con sus factores
+   viscosidad, Pv y Pc para los casos mínimo, normal y máximo; calidad / variante del fluido (por ejemplo,
+   agua de mar, que corrige SG, μ y Pv por salinidad) y agua libre, que también usa la selección de materiales; tipo de trim con sus factores
    típicos FL, Fd y Kc (editables), diámetro de válvula y Cv nominal. Los diámetros y cédulas
    de tubería se copian desde 1-Sistema.
-3. **3-Materiales**: industria, fluido, fase, agentes químicos con su concentración, sólidos y norma de
-   servicio agrio. El programa recomienda el material de cuerpo, bonete, asiento, jaula, guía,
+3. **3-Materiales**: el fluido llega definido desde la solapa 2 (tipo, fluido, calidad / variante y agua
+   libre); aquí solo se agregan los datos complementarios: industria, agentes químicos con su
+   concentración, sólidos, pH y norma de servicio agrio. El programa recomienda el material de cuerpo, bonete, asiento, jaula, guía,
    obturador y vástago (modo AUTOMÁTICO) o verifica el elegido por el usuario (MANUAL, no
    recomendado), con galling, dureza por cavitación, ISO 15156 / ISO 17945 y límites P-T de ASME B16.34.
 4. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las

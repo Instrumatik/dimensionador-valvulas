@@ -28,6 +28,7 @@ dimensionador/
   ruido.py          Ruido aerodinámico IEC 60534-8-3 e hidrodinámico IEC 60534-8-4
   asme_b16_34.py    Clases de presión-temperatura ASME B16.34 por grupo de material
   datos_b16_34.py   Tablas numéricas de B16.34-2017 (49 grupos, clases 150 a 2500), generadas
+  fluido_servicio.py  Definición única del fluido: variantes, agua libre, corrección salina y datos para materiales
   materiales.py     Biblioteca de materiales por componente (ASTM/UNS, dureza, PREN, NACE, costo)
   quimica.py        Agentes químicos, normalización de unidades y compatibilidad A–D por material
   seleccion_materiales.py  Selección por componente: química, P-T, cavitación/dureza, galling,

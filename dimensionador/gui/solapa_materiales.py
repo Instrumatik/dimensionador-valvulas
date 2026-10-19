@@ -13,11 +13,7 @@ from ..modelos import Severidad
 N_AGENTES = 6
 SERVICIO = [  # clave de campo, etiqueta, opciones, ayuda, valor inicial
     ("industria", "Industria / proceso", SM.INDUSTRIAS, "mat_industria", "Otra"),
-    ("familia_fluido", "Familia de fluido", SM.FAMILIAS_FLUIDO, "mat_familia_fluido", "Agua"),
-    ("fluido", "Fluido principal", SM.FLUIDOS, "mat_fluido", "Agua industrial"),
-    ("fase", "Fase principal", SM.FASES, "mat_fase", "Líquido"),
     ("composicion", "Estado de la composición", SM.COMPOSICION, "mat_composicion", "Parcialmente conocida"),
-    ("acuosa", "Fase acuosa presente", SM.ACUOSA, "mat_acuosa", "Sí"),
     ("regimen", "Régimen operativo", SM.REGIMEN, "mat_regimen", "Continuo"),
     ("medio", "Medio esperado", SM.MEDIO, "mat_medio", "Por evaluar"),
     ("norma_agrio", "Norma de servicio agrio", SM.NORMA_AGRIO, "mat_norma_agrio", "Por determinar"),
@@ -39,15 +35,30 @@ class SolapaMateriales:
         cont = QWidget()
         lay = QVBoxLayout(cont)
         lay.addWidget(titulo_seccion("SELECCIÓN DE MATERIALES", AZUL))
-        nota = QLabel("Con pocos datos del servicio el programa propone el material de cada componente. Toma "
-                      "temperaturas, presión de diseño, rating, cavitación, flashing y caída de presión de las "
-                      "solapas 1 y 2. Use «Ver» o F1 para la explicación de cada dato.")
+        nota = QLabel("El fluido se define una sola vez, en 2-Cálculos Válvula. Aquí se agregan solo los datos "
+                      "complementarios para elegir materiales (industria, agentes químicos, sólidos, pH, norma de "
+                      "servicio agrio). Temperaturas, presiones, cavitación y flashing se toman del cálculo. Use "
+                      "«Ver» o F1 para la explicación de cada dato.")
         nota.setWordWrap(True)
         nota.setStyleSheet("color:#55606d;font-style:italic;padding:4px")
         lay.addWidget(nota)
 
+        # ---- fluido heredado de la solapa 2
+        g = QGroupBox("Fluido (definido en 2-Cálculos Válvula)")
+        h = QHBoxLayout(g)
+        self.mat_lbl_fluido = QLabel("")
+        self.mat_lbl_fluido.setWordWrap(True)
+        self.mat_lbl_fluido.setTextFormat(Qt.RichText)
+        self.mat_lbl_fluido.setStyleSheet("background:#eef2f6;border:1px solid #c9d3de;padding:6px")
+        h.addWidget(self.mat_lbl_fluido, 1)
+        h.addWidget(boton_ir(self.abrir_ayuda, "mat_fluido_heredado"))
+        ir = QPushButton("Cambiar en 2-Cálculos Válvula")
+        ir.clicked.connect(lambda: self.tabs.setCurrentIndex(1))
+        h.addWidget(ir)
+        lay.addWidget(g)
+
         # ---- servicio
-        g = QGroupBox("Servicio y fluido")
+        g = QGroupBox("Datos complementarios del servicio")
         grid = QGridLayout(g)
         self.mat_cb: dict[str, Combo] = {}
         for r, (k, et, ops, ay, ini) in enumerate(SERVICIO):
@@ -67,6 +78,12 @@ class SolapaMateriales:
         grid.setColumnStretch(4, 1)
         self.mat_cb["industria"].currentTextChanged.connect(self._mat_norma_sugerida)
         self._mat_norma_sugerida()
+        self.mat_lbl_pH_nota = QLabel("")
+        self.mat_lbl_pH_nota.setStyleSheet(f"color:{ACENTO};font-size:8pt")
+        grid.addWidget(self.mat_lbl_pH_nota, r, 3)
+        self.mat_lbl_solidos = QLabel("")
+        self.mat_lbl_solidos.setStyleSheet(f"color:{ACENTO};font-size:8pt")
+        grid.addWidget(self.mat_lbl_solidos, [x[0] for x in SERVICIO].index("solidos"), 3)
         lay.addWidget(g)
 
         # ---- agentes
@@ -110,6 +127,10 @@ class SolapaMateriales:
                 grid.addWidget(w, i + 1, j + 1)
             fam.currentTextChanged.connect(lambda _=None, i=i: self._mat_cambio_familia(i))
             ag.currentIndexChanged.connect(lambda _=None, i=i: self._mat_cambio_agente(i))
+            # los cloruros informados corrigen las propiedades de las aguas salinas (solapa 2)
+            ag.currentIndexChanged.connect(lambda *_: self._cambio_variante())
+            ed.editingFinished.connect(self._cambio_variante)
+            un.currentIndexChanged.connect(lambda *_: self._cambio_variante())
             ver.clicked.connect(lambda _=False, i=i: self._mat_ver_agente(i))
             self.mat_agentes.append((fam, ag, un, ed, fa))
             self._mat_cambio_familia(i)
@@ -183,6 +204,37 @@ class SolapaMateriales:
         return self._scroll(cont)
 
     # ------------------------------------------------------------ eventos
+    def _mat_fluido_heredado(self):
+        """Muestra lo que la solapa 2 define del fluido y bloquea los datos que de él dependen."""
+        if not hasattr(self, "mat_lbl_fluido"):
+            return
+        from .. import fluido_servicio as FS
+        t, fl, var = self.tipo(), self._fluido_actual(), self.cb_variante.currentText()
+        agua = self.cb_agua_libre.currentText()
+        salidas = self.res.salidas if self.res is not None and self.res.dim.tipo == t else None
+        fm = FS.para_materiales(t, None if fl == FS.USUARIO else fl, var,
+                                FS.agua_libre_sugerida(t, fl, var) if agua == FS.AUTO_AGUA else agua, salidas,
+                                bool(self.res and self.res.materiales and self.res.materiales.ctx.flashing))
+        partes = [f"<b>{_html.escape(fm.descripcion)}</b>", f"Tipo: {_html.escape(self.cb_tipo_fluido.currentText())}",
+                  f"Familia: {_html.escape(fm.familia)}", f"Fase: {_html.escape(fm.fase)}",
+                  f"Agua libre: {_html.escape(fm.acuosa)}"]
+        if self.res is not None and self.res.materiales is not None:
+            c = self.res.materiales.ctx
+            partes += [f"T {c.T_min_C:.0f} a {c.T_max_C:.0f} °C", f"P diseño {c.P_barg:.1f} bar g".replace(".", ","),
+                       f"cavitación {c.severidad_cav}" + (" · flashing" if c.flashing else "")]
+        self.mat_lbl_fluido.setText(" · ".join(partes))
+        seco = fm.acuosa == "No"
+        self.mat_ed_pH.setEnabled(not seco)
+        self.mat_lbl_pH_nota.setText("Sin agua libre: el pH no se usa." if seco else "")
+        sol = self.mat_cb["solidos"]
+        if fm.familia == "Slurry":
+            sol.setCurrentText("Presentes")
+            sol.setEnabled(False)
+            self.mat_lbl_solidos.setText("Slurry: sólidos presentes (lo define el fluido).")
+        else:
+            sol.setEnabled(True)
+            self.mat_lbl_solidos.setText("")
+
     def _mat_norma_sugerida(self):
         ind = self.mat_cb["industria"].currentText()
         n, motivo = SM._norma(SM.ServicioMateriales(industria=ind), True)
@@ -364,6 +416,7 @@ class SolapaMateriales:
             sel.setEnabled(aplica and modo.currentText() == "MANUAL")
             self._mat_texto_recomendacion(k)
         self.mat_resumen.setHtml(html_resumen(m))
+        self._mat_fluido_heredado()
 
     def _mat_analisis(self, k):
         if self.res is None or self.res.materiales is None:
@@ -446,7 +499,10 @@ def _alertas_html(alertas) -> str:
 
 def html_resumen(m: SM.ResultadoMateriales) -> str:
     ctx = m.ctx
-    p = [f"<p><b>Temperatura</b> {ctx.T_min_C:.0f} a {ctx.T_max_C:.0f} °C · <b>Presión de diseño</b> "
+    sv = m.servicio
+    p = [f"<p><b>Fluido</b> (solapa 2): {_e(sv.fluido)} · familia {_e(sv.familia_fluido)} · fase {_e(sv.fase)} · "
+         f"agua libre {_e(sv.acuosa)}</p>",
+         f"<p><b>Temperatura</b> {ctx.T_min_C:.0f} a {ctx.T_max_C:.0f} °C · <b>Presión de diseño</b> "
          f"{ctx.P_barg:.1f} bar g · <b>Rating</b> CL{ctx.clase} · <b>Cavitación</b> {ctx.severidad_cav}"
          + (" · <b>flashing</b>" if ctx.flashing else "") + f" · <b>ΔP máx.</b> {ctx.dP_max_kPa / 100:.1f} bar</p>",
          f"<p><b>Medio detectado:</b> {_e(m.medio_detectado)} (<a href='ayuda:mat_medio'>ayuda</a>) · "

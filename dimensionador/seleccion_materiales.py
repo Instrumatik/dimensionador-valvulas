@@ -56,13 +56,19 @@ IMPLICITOS = {
     "Agua de mar": [("cloruros", "mg/L", 19400, "Acuosa"), ("o2", "mg/L", 8, "Acuosa")],
     "Agua industrial": [("cloruros", "mg/L", 250, "Acuosa"), ("o2", "mg/L", 8, "Acuosa")],
     "Agua producida": [("cloruros", "mg/L", 60000, "Acuosa")],
+    "Agua potable": [("cloruros", "mg/L", 100, "Acuosa"), ("o2", "mg/L", 8, "Acuosa")],
+    "Sulfuro de hidrógeno": [("h2s", "% molar", 100, "Gas / vapor")],
+    "Cloro": [("cl2", "% molar", 100, "Gas / vapor")],
     "Hidrógeno": [("h2", "% molar", 100, "Gas / vapor")],
     "Oxígeno": [("o2", "% molar", 100, "Gas / vapor")],
     "Dióxido de carbono": [("co2", "% molar", 100, "Gas / vapor")],
     "Amoníaco": [("nh3", "% p/p", 100, "Gas / vapor")],
 }
 SECO_POR_DEFECTO = {"Vapor sobrecalentado", "Nitrógeno", "Aire", "Oxígeno", "Hidrógeno", "Gas combustible",
-                    "Diésel"}
+                    "Diésel", "Diésel / destilados", "Gasolina / naftas", "Aceite térmico / lubricante",
+                    "Argón", "Helio", "R134a"}
+# Calidades de agua sin sales ni ácidos: declarar esos agentes las contradice
+AGUAS_PURAS = {"Agua desmineralizada", "Agua de alimentación de caldera", "Condensado"}
 
 
 @dataclass
@@ -501,8 +507,9 @@ def _agentes(sv: ServicioMateriales, ctx: Contexto) -> tuple[list[Q.AgenteNormal
             notas.append(f"{sv.fluido}: se agrega {Q.AGENTES[clave].nombre.lower()} típico "
                          f"({_n(v, 0)} {u}) porque no se informó.")
     if sv.familia_fluido == "Salmuera" and not presentes & {"cloruros", "nacl", "cacl2", "mgcl2"}:
-        filas.append(Q.AgenteServicio("cloruros", "mg/L", 100000, "Acuosa"))
-        notas.append("Salmuera sin cloruros informados: se evalúa con 100.000 mg/L de Cl⁻.")
+        filas.append(Q.AgenteServicio("cloruros", "mg/L", 140000, "Acuosa"))
+        notas.append("Salmuera sin cloruros informados: se evalúa con 140.000 mg/L de Cl⁻ (≈ 20 % de NaCl, la "
+                     "misma salinidad con la que se corrigen sus propiedades en la solapa 2).")
     norm = [Q.normalizar(a, ctx.P_kPa, ctx.SG) for a in filas]
     return norm, notas
 
@@ -513,6 +520,69 @@ def _acuoso(sv: ServicioMateriales) -> bool:
     if sv.acuosa == "Desconocida" and sv.fluido in SECO_POR_DEFECTO:
         return False
     return True
+
+
+def _coherencia(sv: ServicioMateriales, agentes: list[Q.AgenteNormalizado], acuoso: bool) -> list[Alerta]:
+    """Contradicciones entre el fluido definido en la solapa 2 y los datos complementarios de materiales."""
+    out = []
+    ref = "Fluido definido en 2-Cálculos Válvula"
+    if sv.acuosa == "No":
+        acuosos = [n.agente.nombre for n in agentes if n.entrada.fase == "Acuosa"]
+        if acuosos:
+            out.append(Alerta("mat_agua_libre_contradiccion", Severidad.ADVERTENCIA,
+                              "Agentes en fase acuosa sin agua libre",
+                              f"En 2-Cálculos Válvula se indicó que no hay agua libre, pero {', '.join(acuosos)} se "
+                              "informaron disueltos en fase acuosa. Se evalúa con agua presente (conservador).",
+                              remedios=["Si hay agua libre o arrastre de condensado, indicar «Sí» o «Intermitente» en "
+                                        "«Agua libre» (solapa 2).",
+                                        "Si el servicio es seco, informar los agentes en fase «Gas / vapor»."],
+                              referencia=ref))
+        if sv.pH is not None:
+            out.append(Alerta("mat_pH_sin_agua", Severidad.INFO, "pH sin fase acuosa",
+                              "El pH solo tiene sentido con agua libre; con servicio seco no se usa.",
+                              referencia=ref))
+    if sv.fluido in AGUAS_PURAS:
+        sucios = [n.agente.nombre for n in agentes if n.agente.familia in ("Halogenuros / sales", "Ácidos inorgánicos")
+                  and (n.valor or 0) > (1 if n.agente.base == "mgL" else 0.001) and not n.supuesto]
+        if sucios:
+            out.append(Alerta("mat_calidad_agua", Severidad.ADVERTENCIA, "Calidad del agua contradictoria",
+                              f"La calidad declarada es «{sv.fluido}» (sin sales ni ácidos), pero se informaron "
+                              f"{', '.join(sucios)}. La selección usa los agentes informados.",
+                              remedios=["Corregir la calidad / variante del fluido en la solapa 2 (por ejemplo, agua "
+                                        "industrial, de mar o producida) o revisar las concentraciones."],
+                              referencia=ref))
+    if sv.pH is not None and acuoso:
+        if sv.familia_fluido == "Ácido" and sv.pH > 7:
+            out.append(Alerta("mat_pH_familia", Severidad.ADVERTENCIA, "pH alcalino en un ácido",
+                              f"El fluido es un ácido y el pH informado es {_n(sv.pH, 1)} (> 7).",
+                              remedios=["Revisar el pH o la variante del fluido."], referencia=ref))
+        elif sv.familia_fluido == "Alcalino" and sv.pH < 7:
+            out.append(Alerta("mat_pH_familia", Severidad.ADVERTENCIA, "pH ácido en un álcali",
+                              f"El fluido es alcalino y el pH informado es {_n(sv.pH, 1)} (< 7).",
+                              remedios=["Revisar el pH o la variante del fluido."], referencia=ref))
+    if sv.composicion == "Sin contaminantes conocidos" and any(not n.supuesto for n in agentes if n.entrada in sv.agentes):
+        out.append(Alerta("mat_composicion_contradiccion", Severidad.INFO, "Contaminantes informados",
+                          "El estado de la composición dice «Sin contaminantes conocidos», pero hay agentes cargados. "
+                          "Se evalúan los agentes informados.",
+                          remedios=["Cambiar el estado de la composición a «Confirmada por análisis» o «Parcialmente "
+                                    "conocida», o quitar los agentes."]))
+    if sv.familia_fluido == "Slurry" and sv.solidos == "Ausentes confirmados":
+        out.append(Alerta("mat_slurry_solidos", Severidad.ADVERTENCIA, "Slurry sin sólidos",
+                          "El fluido es un slurry y en materiales se declararon sólidos ausentes. Se evalúa con "
+                          "sólidos presentes.", remedios=["Indicar «Presentes» en «Sólidos»."], referencia=ref))
+    return out
+
+
+def completar_desde_calculo(sv: ServicioMateriales, dim, salidas, ctx: Contexto) -> ServicioMateriales:
+    """Toma el fluido de la solapa 2: familia, fluido, fase y fase acuosa (la solapa 3 no los define)."""
+    from dataclasses import replace
+    from . import fluido_servicio as FS
+    var = getattr(dim, "variante", "") or ""
+    agua = getattr(dim, "agua_libre", "") or FS.agua_libre_sugerida(dim.tipo, dim.fluido, var)
+    fm = FS.para_materiales(dim.tipo, dim.fluido, var, agua, salidas, ctx.flashing)
+    solidos = "Presentes" if fm.familia == "Slurry" and sv.solidos != "Presentes" and \
+        sv.solidos != "Ausentes confirmados" else sv.solidos
+    return replace(sv, familia_fluido=fm.familia, fluido=fm.fluido, fase=fm.fase, acuosa=fm.acuosa, solidos=solidos)
 
 
 def _norma(sv: ServicioMateriales, agrio: bool) -> tuple[str, str]:
@@ -690,6 +760,7 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
             alertas.append(Alerta("mat_agente_otro", Severidad.ADVERTENCIA, "Agente no catalogado",
                                   f"El agente «{n.entrada.texto or 'otro'}» no está en la base química del programa; "
                                   "su efecto no se evalúa.", remedios=["Consultar curvas de corrosión del fabricante."]))
+    alertas += _coherencia(sv, agentes, acuoso)
     if sv.medio not in ("Por evaluar",) and sv.medio.split(" (")[0] not in medio and \
             not (sv.medio == "Servicio mixto" and medio.startswith("Servicio mixto")):
         alertas.append(Alerta("mat_medio_distinto", Severidad.INFO, "Medio declarado distinto del detectado",

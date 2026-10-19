@@ -60,82 +60,6 @@ _e("mat_industria", "Industria / proceso",
            "dentro de una refinería → ISO 17945 / MR0103, que admite aceros al carbono P-No. 1 sin límite de "
            "dureza del metal base."))
 
-_e("mat_familia_fluido", "Familia de fluido",
-   "<p>Clasificación general del fluido. Opciones:</p><ul>"
-   "<li><b>Agua</b>: agua de proceso, de refrigeración, potable, desmineralizada, de mar.</li>"
-   "<li><b>Vapor</b>: vapor de agua saturado o sobrecalentado.</li>"
-   "<li><b>Gas</b>: aire, nitrógeno, oxígeno, hidrógeno, CO₂ y otros gases no hidrocarburos.</li>"
-   "<li><b>Hidrocarburo líquido</b>: crudo, condensado de gas, naftas, diésel, GLP líquido.</li>"
-   "<li><b>Hidrocarburo gaseoso</b>: gas natural, gas combustible, gas de refinería.</li>"
-   "<li><b>Ácido</b> y <b>Alcalino</b>: soluciones de ácidos o bases (requieren informar el agente).</li>"
-   "<li><b>Solvente</b>: alcoholes, cetonas, aromáticos, solventes clorados.</li>"
-   "<li><b>Salmuera</b>: agua con sales disueltas en alta concentración (agua de formación, salmueras de "
-   "perforación, CaCl₂). Si no se informan cloruros el programa evalúa con 100.000 mg/L de Cl⁻.</li>"
-   "<li><b>Mezcla multifásica</b>: gas + crudo + agua de un pozo.</li>"
-   "<li><b>Slurry</b>: líquido con sólidos en suspensión (pulpas mineras, cenizas). El programa exige "
-   "≥ 55 HRC y resistencia a la erosión 10/10 en obturador, asiento y jaula.</li>"
-   "<li><b>Otro</b>.</li></ul>",
-   MAT, relacionadas=["mat_fluido", "agente", "erosion"],
-   guia=_g("Es la categoría a la que pertenece el fluido principal.",
-           "Activa reglas: «Salmuera» agrega 100.000 mg/L de cloruros si no se informaron; «Slurry» fija el "
-           "requisito de desgaste más alto; «Ácido», «Alcalino» y «Solvente» sin agentes generan la alerta "
-           "«Indique el agente químico».",
-           "Orienta qué datos de composición hay que pedir al proceso.",
-           "Slurry → internos ≥ 55 HRC y erosión 10/10. Salmuera sin dato → Cl⁻ = 100.000 mg/L.",
-           "No aplica.", "No aplica.",
-           ["Agentes implícitos", "Dureza y erosión requeridas", "Alertas de datos"],
-           ["Elija «Slurry» solo si hay sólidos en forma continua; con trazas use «Sólidos: Trazas».",
-            "Con «Ácido» o «Alcalino» cargue siempre el agente y su concentración."],
-           "Pulpa de cobre con 30 % de sólidos: «Slurry» → el programa recomienda carburo de tungsteno o "
-           "cerámica en obturador y asiento."))
-
-_e("mat_fluido", "Fluido principal",
-   "<p>El fluido mayoritario. Algunos fluidos aportan agentes químicos implícitos que el programa agrega si "
-   "el usuario no los informó en la tabla de agentes:</p><ul>"
-   "<li><b>Agua de mar</b>: cloruros 19.400 mg/L y oxígeno disuelto 8 mg/L.</li>"
-   "<li><b>Agua industrial</b>: cloruros 250 mg/L y oxígeno 8 mg/L (agua aireada típica).</li>"
-   "<li><b>Agua producida</b> (agua de formación que sale con el petróleo): cloruros 60.000 mg/L.</li>"
-   "<li><b>Hidrógeno</b>, <b>Oxígeno</b>, <b>Dióxido de carbono</b>: 100 % molar en fase gas (presión "
-   "parcial = presión de servicio).</li>"
-   "<li><b>Amoníaco</b>: NH₃ al 100 %.</li></ul>"
-   "<p>El resto (agua desmineralizada, condensado, vapor saturado y sobrecalentado, gas natural, gas "
-   "combustible, crudo, diésel, nitrógeno, aire, mezcla / otro) no agrega agentes: sus contaminantes deben "
-   "cargarse. Con «Fase acuosa presente = Desconocida», vapor sobrecalentado, nitrógeno, aire, oxígeno, "
-   "hidrógeno, gas combustible y diésel se consideran secos; los demás, con agua.</p>",
-   MAT, relacionadas=["mat_familia_fluido", "mat_acuosa", "agente_cloruros", "agente_o2"],
-   guia=_g("Es el fluido que circula por la válvula en mayor proporción.",
-           "Agrega los agentes típicos del fluido cuando no se informan (por ejemplo el cloruro del agua de mar) "
-           "y define si, ante la duda, se supone agua libre.",
-           "Un mismo fluido puede ser inocuo o agresivo según sus contaminantes: el gas natural seco no corroe, "
-           "con agua, CO₂ y H₂S sí.",
-           "Agua de mar: 19.400 mg/L Cl⁻. Agua industrial: 250 mg/L Cl⁻. Agua producida: 60.000 mg/L Cl⁻.",
-           "No aplica.", "No aplica.",
-           ["Agentes implícitos", "Fase acuosa supuesta", "Compatibilidad química"],
-           ["Si conoce el análisis real, cargue los agentes: el valor informado reemplaza al implícito.",
-            "Para crudo y gas natural pida siempre H₂S, CO₂, cloruros del agua y contenido de agua."],
-           "Agua de mar a 25 °C sin datos adicionales: Cl⁻ 19.400 mg/L → el 316 queda en C y el programa "
-           "elige superdúplex CD3MWCuN para el cuerpo."))
-
-_e("mat_fase", "Fase principal",
-   "<p>Estado físico del fluido en la válvula: <b>Líquido</b>, <b>Gas</b>, <b>Vapor</b>, <b>Gas-líquido</b> "
-   "(bifásico), <b>Líquido-sólido</b> (con partículas), <b>Multifásico</b> (gas + aceite + agua) o "
-   "<b>Desconocida</b>. Sirve de referencia para revisar la coherencia con la solapa 2 y con la fase "
-   "acuosa. Los fenómenos que dependen de la fase (cavitación, flashing, flujo crítico) se toman del "
-   "cálculo de la solapa 2.</p><p>Las presiones parciales de gases (H₂S, CO₂, O₂…) informadas en ppmv o "
-   "% molar se calculan con la presión de entrada máxima de los casos.</p>",
-   MAT, relacionadas=["presion_parcial", "mat_acuosa", "cavitacion", "flashing"],
-   guia=_g("Es el estado físico del fluido al pasar por la válvula.",
-           "Documenta el servicio y ayuda a interpretar las unidades de los agentes (en gas se usan ppmv o "
-           "% molar; en líquido, mg/L o % p/p).",
-           "Una fase bifásica o multifásica aumenta la erosión; una fase líquido-sólido implica desgaste.",
-           "No tiene umbral numérico.",
-           "No aplica.", "No aplica.",
-           ["Interpretación de unidades", "Coherencia con la solapa 2"],
-           ["Coincidir con el tipo de fluido elegido en la solapa 2.",
-            "En gas húmedo elija «Gas-líquido» y «Fase acuosa presente: Sí»."],
-           "Gas natural con condensado y agua libre: «Gas-líquido»; el H₂S se carga en ppmv y el programa lo "
-           "convierte a presión parcial."))
-
 _e("mat_composicion", "Estado de la composición",
    "<p>Cuánto se sabe de la composición del fluido:</p><ul>"
    "<li><b>Confirmada por análisis</b>: análisis de laboratorio (cromatografía de gases, análisis de agua, "
@@ -145,8 +69,8 @@ _e("mat_composicion", "Estado de la composición",
    "<li><b>Sin contaminantes conocidos</b>: el proceso declara fluido limpio.</li>"
    "<li><b>Desconocida</b>.</li></ul>"
    "<p>Con «Desconocida» o «Parcialmente conocida» y sin agentes cargados el programa emite la alerta "
-   "<i>Composición del fluido incompleta</i>: la selección se basa solo en el fluido principal.</p>",
-   MAT, relacionadas=["agente", "mat_acuosa"],
+   "<i>Composición del fluido incompleta</i>: la selección se basa solo en el fluido definido en la solapa 2.</p>",
+   MAT, relacionadas=["agente", "agua_libre"],
    guia=_g("Es el grado de confianza en la composición química del fluido.",
            "Determina si el programa advierte que la selección puede no cubrir contaminantes.",
            "Cuanto menos confirmada la composición, más conservadora debe ser la elección.",
@@ -158,37 +82,13 @@ _e("mat_composicion", "Estado de la composición",
            "Crudo «Parcialmente conocida» sin agentes: el programa avisa y selecciona solo por temperatura, "
            "presión y cavitación."))
 
-_e("mat_acuosa", "Fase acuosa presente",
-   "<p>Indica si hay <b>agua libre</b> (líquida) en contacto con el metal. Es la condición más importante "
-   "para la corrosión: casi todos los mecanismos electroquímicos (corrosión por CO₂, SSC por H₂S, "
-   "picaduras por cloruros, ataque de ácidos) necesitan agua.</p><ul>"
-   "<li><b>Sí</b> y <b>Intermitente</b>: se evalúa con agua (intermitente incluye arranques, paradas y "
-   "condensación).</li><li><b>No</b>: se usan las reglas «sin agua libre» (por ejemplo, cloro seco o HCl "
-   "gaseoso seco atacan poco al acero; pero el cloro seco reacciona violentamente con titanio).</li>"
-   "<li><b>Desconocida</b>: se supone agua, salvo en fluidos normalmente secos (vapor sobrecalentado, "
-   "nitrógeno, aire, oxígeno, hidrógeno, gas combustible, diésel).</li></ul>"
-   "<p>Cómo confirmarlo: punto de rocío de agua del gas, BS&amp;W del crudo, drenajes de condensado, "
-   "temperatura de la línea frente al punto de rocío.</p>",
-   MAT, relacionadas=["servicio_agrio", "nace_mr0175", "corrosion_co2"],
-   guia=_g("Es la presencia de agua líquida en el fluido, aunque sea en pequeña cantidad.",
-           "Decide si se aplican las reglas químicas con agua o sin agua y si el servicio puede ser agrio: el "
-           "servicio agrio exige pH₂S ≥ 0,3 kPa con agua libre.",
-           "Sin agua libre la mayoría de los gases ácidos no corroen; con agua, una traza basta.",
-           "Sí / Intermitente / Desconocida (salvo fluidos secos) → con agua.",
-           "No aplica.", "No aplica.",
-           ["Compatibilidad química", "Determinación de servicio agrio", "Mecanismos detectados"],
-           ["Ante la duda deje «Desconocida» o «Intermitente»: es la opción conservadora.",
-            "Gas con deshidratación (TEG) a punto de rocío controlado puede declararse «No»."],
-           "Gas con 500 ppmv de H₂S a 50 bar: pH₂S = 2,5 kPa. Con agua → servicio agrio; con «No» → no es "
-           "agrio y no se exigen materiales NACE."))
-
 _e("mat_regimen", "Régimen operativo",
    "<p><b>Continuo</b>: operación permanente. <b>Intermitente</b>, <b>Batch</b> (por lotes) y "
    "<b>Emergencia</b> (opera solo en eventos, como una válvula de alivio o de despresurización): en paradas el "
    "fluido queda estanco, entra oxígeno, condensa agua y se forman depósitos; esto favorece picaduras y "
    "corrosión bajo depósitos y el programa lo anota en el informe recomendando drenaje o purga. "
    "<b>Desconocido</b>.</p>",
-   MAT, relacionadas=["picaduras", "mat_acuosa"],
+   MAT, relacionadas=["picaduras", "agua_libre"],
    guia=_g("Es la forma en que opera la válvula a lo largo del tiempo.",
            "Agrega una nota de corrosión en paradas cuando el régimen no es continuo.",
            "Los servicios intermitentes suelen corroer más que los continuos con el mismo fluido.",
@@ -403,7 +303,7 @@ _e("fase_agente", "Fase del agente",
    "(partículas, depósitos) o <b>Desconocida</b>.</p>"
    "<p>Un ácido informado en fase gas (por ejemplo HCl en ppmv) se evalúa, si hay agua, como condensado "
    "ácido de concentración alta, porque al condensar se concentra en las primeras gotas.</p>",
-   MAT, relacionadas=["unidad_quimica", "presion_parcial", "mat_acuosa"],
+   MAT, relacionadas=["unidad_quimica", "presion_parcial", "agua_libre"],
    guia=_g("Es la fase física en la que se encuentra el agente químico.",
            "Define la interpretación de la unidad y si se aplican las reglas con agua o sin agua.",
            "Los agentes solo atacan cuando llegan al metal disueltos en agua.",
@@ -1019,6 +919,97 @@ _e("costo_material", "Índice de costo",
            "CF8M por ser A."))
 
 # =====================================================================================
+# FLUIDO ÚNICO (desde 0.7.1 se define solo en 2-Cálculos Válvula)
+# =====================================================================================
+_e("variante_fluido", "Calidad / variante del fluido",
+   "<p>Completa la definición del fluido en la solapa <b>2-Cálculos Válvula</b>. Es la única pregunta sobre "
+   "qué fluido es: la solapa 3-Materiales la toma de aquí y no la repite. Aparece solo cuando el nombre del "
+   "fluido no alcanza:</p><ul>"
+   "<li><b>Agua / vapor de agua (líquido)</b>: agua industrial o de enfriamiento, potable, desmineralizada, de "
+   "alimentación de caldera, condensado, agua de mar, agua producida (yacimiento) o salmuera.</li>"
+   "<li><b>Definido por el usuario</b>: crudo, diésel, naftas, aceite térmico, ácido, alcalino, solvente, "
+   "slurry (líquidos); gas natural, gas combustible, gas ácido o gas de proceso (gases); vapor de "
+   "hidrocarburo o de proceso (vapores).</li></ul>"
+   "<p>Impacta en los dos cálculos:</p><ul>"
+   "<li><b>Válvula</b>: en agua de mar, agua producida y salmuera la densidad, la viscosidad y la presión de "
+   "vapor del agua pura se corrigen por salinidad (3,5 %, 10 % y 20 % de NaCl equivalente, o la que resulte de "
+   "los cloruros informados en la tabla de agentes). Cambian Cv, ΔP de bloqueo y cavitación.</li>"
+   "<li><b>Materiales</b>: define la familia del fluido y los agentes típicos que se agregan si no se informan "
+   "(agua de mar 19.400 mg/L de Cl⁻ y 8 mg/L de O₂; agua industrial 250 mg/L de Cl⁻; potable 100 mg/L; "
+   "producida 60.000 mg/L; salmuera 140.000 mg/L). Slurry exige internos ≥ 55 HRC; ácido, alcalino y solvente "
+   "piden el agente químico.</li></ul>",
+   MAT, formula="ρ/ρw ≈ 1 + 0,0073·w ; μ/μw ≈ 1 + 0,021·w + 0,00037·w² ; Pv/Pvw = x agua (Raoult, i = 2)",
+   tipicos="Agua de mar: w = 3,5 % → ρ ×1,026, μ ×1,08, Pv ×0,98. Salmuera 20 %: ρ ×1,15, μ ×1,57, Pv ×0,87.",
+   referencia="Propiedades de soluciones de NaCl (correlaciones orientativas); IEC 60534-2-1 para el efecto en Cv",
+   relacionadas=["fluido", "agua_libre", "mat_fluido_heredado", "agente_cloruros", "SG", "Pv"],
+   guia=_g("Es la calidad del fluido: qué agua es, o qué tipo de hidrocarburo, ácido o gas cuando sus "
+           "propiedades las carga el usuario.",
+           "Corrige las propiedades de las aguas salinas para el cálculo de la válvula y define la familia y los "
+           "agentes típicos para elegir materiales.",
+           "Dos aguas con la misma presión y temperatura pueden necesitar materiales muy distintos: el agua "
+           "desmineralizada admite acero al carbono o 316; el agua de mar exige dúplex o superdúplex.",
+           "Salinidad > 0 en agua de mar, producida y salmuera: se corrigen SG, μ y Pv.",
+           "Sin sales (desmineralizada, caldera, condensado): propiedades del agua pura y sin cloruros implícitos.",
+           "Con sales: SG mayor (más ΔP por el mismo caudal), Pv menor (algo menos de cavitación) y cloruros que "
+           "descartan aceros inoxidables comunes.",
+           ["SG, μ y Pv (solapa 2)", "Cv y cavitación", "Familia y agentes implícitos (solapa 3)",
+            "Dureza y erosión (slurry)"],
+           ["Elija la calidad real del agua: es la decisión que más cambia el material.",
+            "Si conoce los cloruros, cárguelos en 3-Materiales: corrigen también las propiedades.",
+            "Para crudo o gas natural cargue H₂S, CO₂ y cloruros del agua asociada."],
+           "Agua de mar a 25 °C: SG 1,02 (en lugar de 1,00) y Cl⁻ 19.400 mg/L → cuerpo superdúplex CD3MWCuN."))
+
+_e("agua_libre", "Agua libre (fase acuosa)",
+   "<p>Indica si hay <b>agua líquida</b> en contacto con el metal. Se define en 2-Cálculos Válvula porque es "
+   "una característica del fluido. Es la condición más importante para la corrosión: la corrosión por CO₂, el "
+   "agrietamiento por H₂S (SSC), las picaduras por cloruros y el ataque de ácidos necesitan agua.</p><ul>"
+   "<li><b>Fija</b> cuando el fluido la impone: «Sí» en agua líquida, salmuera, ácidos, álcalis y slurry; "
+   "«Según el cálculo» en vapor de agua (saturado → intermitente por condensado; sobrecalentado en todos "
+   "los casos → no).</li>"
+   "<li><b>Sí</b> e <b>Intermitente</b>: se evalúa con agua (intermitente incluye arranques, paradas y "
+   "condensación).</li><li><b>No</b>: reglas «sin agua libre» y el servicio no puede ser agrio.</li>"
+   "<li><b>Desconocida</b>: se supone agua, salvo en fluidos normalmente secos (aire, nitrógeno, oxígeno, "
+   "hidrógeno, gas combustible, diésel, vapor sobrecalentado).</li></ul>"
+   "<p>Cómo confirmarlo: punto de rocío de agua del gas, BS&amp;W del crudo, drenajes de condensado, "
+   "temperatura de la línea frente al punto de rocío. Si en 3-Materiales se cargan agentes «Acuosa» con agua "
+   "libre «No», el programa avisa y evalúa con agua (conservador).</p>",
+   MAT, relacionadas=["variante_fluido", "servicio_agrio", "nace_mr0175", "corrosion_co2",
+                      "mat_agua_libre_contradiccion"],
+   guia=_g("Es la presencia de agua líquida en el fluido, aunque sea en pequeña cantidad.",
+           "Decide si se aplican las reglas químicas con agua o sin agua y si el servicio puede ser agrio: el "
+           "servicio agrio exige pH₂S ≥ 0,3 kPa con agua libre. Sin agua libre el pH no se usa.",
+           "Sin agua libre la mayoría de los gases ácidos no corroen; con agua, una traza basta.",
+           "Sí / Intermitente / Desconocida (salvo fluidos secos) → con agua.",
+           "Servicio seco: se aceptan materiales más económicos y no se aplica NACE.",
+           "Con agua: se aplican cloruros, CO₂, H₂S y pH; puede exigirse NACE MR0175 / MR0103.",
+           ["Compatibilidad química", "Determinación de servicio agrio", "Mecanismos detectados", "Uso del pH"],
+           ["Ante la duda deje «Desconocida» o «Intermitente»: es la opción conservadora.",
+            "Gas deshidratado (TEG) a punto de rocío controlado puede declararse «No»."],
+           "Gas con 500 ppmv de H₂S a 50 bar: pH₂S = 2,5 kPa. Con agua → servicio agrio; con «No» → no es "
+           "agrio y no se exigen materiales NACE."))
+
+_e("mat_fluido_heredado", "Fluido definido en 2-Cálculos Válvula",
+   "<p>El recuadro superior de 3-Materiales muestra el fluido tal como se definió en la solapa 2 (tipo, "
+   "fluido, calidad / variante y agua libre) y lo que el programa deduce para materiales:</p><ul>"
+   "<li><b>Familia</b>: agua, salmuera, vapor, gas, hidrocarburo, ácido, alcalino, solvente, slurry.</li>"
+   "<li><b>Fase</b>: líquido o gas según el tipo; «gas-líquido» si algún caso tiene flashing; "
+   "«líquido-sólido» en slurry.</li>"
+   "<li><b>Agua libre</b>: la elegida o la que impone el fluido.</li></ul>"
+   "<p>Así no hay dos respuestas distintas para la misma pregunta. Para cambiar el fluido use el botón "
+   "«Cambiar en 2-Cálculos Válvula». En 3-Materiales solo se agregan datos complementarios: industria, "
+   "composición, régimen, medio esperado, norma de servicio agrio, sólidos, pH y agentes químicos.</p>",
+   MAT, relacionadas=["variante_fluido", "agua_libre", "tipo_fluido", "fluido"],
+   guia=_g("Es el resumen, de solo lectura, del fluido elegido en la solapa 2.",
+           "Garantiza que el cálculo de la válvula y la selección de materiales usen el mismo fluido.",
+           "La fase y el agua libre que ve aquí son las que usa la selección de materiales.",
+           "No tiene umbral numérico.", "No aplica.", "No aplica.",
+           ["Selección de materiales", "Informe técnico", "Memoria de cálculo"],
+           ["Verifique el recuadro antes de interpretar la recomendación de materiales.",
+            "Si el fluido no es correcto, cámbielo en la solapa 2 y recalcule."],
+           "Agua / vapor de agua — Agua de mar · Líquido · agua libre Sí · cavitación moderada."))
+
+
+# =====================================================================================
 # ALERTAS
 # =====================================================================================
 def _alerta(clave, titulo, texto, umbral, accion, ejemplo, relacionadas=(), referencia=""):
@@ -1104,7 +1095,7 @@ _alerta("mat_sin_agente", "Indique el agente químico",
         "evaluar la compatibilidad química.</p>",
         "Familia Ácido / Alcalino / Solvente sin agentes.",
         ["Cargar el agente, su unidad y concentración."],
-        "Familia «Ácido» sin agente: cargar «HCl, % p/p, 15».", ["agente", "mat_familia_fluido"])
+        "Familia «Ácido» sin agente: cargar «HCl, % p/p, 15».", ["agente", "variante_fluido"])
 _alerta("mat_sin_concentracion", "Agente sin concentración",
         "<p>Se cargó un agente sin concentración; el programa lo evaluó con un valor alto conservador propio "
         "del agente.</p>",
@@ -1128,7 +1119,7 @@ _alerta("mat_oxigeno", "Servicio de oxígeno",
         "<p>El oxígeno a presión puede encender metales y elastómeros por impacto de partículas o compresión "
         "adiabática. Requiere limpieza especial y materiales resistentes a la ignición (Monel, bronce, "
         "aleaciones de níquel) en zonas de alta velocidad; evitar titanio y NBR.</p>",
-        "Fluido principal Oxígeno.",
+        "Fluido Oxígeno (solapa 2).",
         ["Limpieza para servicio de oxígeno (ASTM G93).", "Consultar ASTM G88 / G94 y CGA G-4.4."],
         "Válvula de control de O₂ a 30 bar: cuerpo y trim de Monel en la zona de alta velocidad.",
         ["agente_o2"], "ASTM G88 / G94; CGA G-4.4")
@@ -1166,3 +1157,45 @@ _alerta("rating_verificado", "Rating verificado con el material del cuerpo",
         ["Mantener la clase o evaluar una menor si la tubería lo permite."],
         "CF8M CL300 a 100 °C admite 42,2 bar g; diseño 30 bar g → verificado.",
         ["b16_34_grupos", "rating", "rating_referencial"], "ASME B16.34")
+_alerta("mat_agua_libre_contradiccion", "Agentes en fase acuosa sin agua libre",
+        "<p>En 2-Cálculos Válvula se indicó que no hay agua libre, pero en 3-Materiales hay agentes informados "
+        "disueltos en fase acuosa. Las dos cosas no pueden ser ciertas a la vez: el programa evalúa con agua "
+        "(opción conservadora) hasta que se corrija uno de los datos.</p>",
+        "Agua libre «No» y algún agente con fase «Acuosa».",
+        ["Indicar «Sí» o «Intermitente» en «Agua libre» (solapa 2) si hay agua o condensado.",
+         "Si el servicio es seco, informar los agentes en fase «Gas / vapor»."],
+        "Gas seco con cloruros cargados en mg/L «Acuosa»: alerta y evaluación con agua.",
+        ["agua_libre", "fase_agente"])
+_alerta("mat_calidad_agua", "Calidad del agua contradictoria",
+        "<p>La calidad declarada en la solapa 2 es un agua sin sales ni ácidos (desmineralizada, alimentación "
+        "de caldera o condensado), pero se informaron sales o ácidos inorgánicos. La selección usa los agentes "
+        "informados.</p>",
+        "Agua pura declarada y halogenuros, sales o ácidos > 1 mg/L.",
+        ["Corregir la calidad / variante del fluido (agua industrial, de mar o producida).",
+         "Revisar las concentraciones del análisis."],
+        "Condensado con 500 mg/L de cloruros: probablemente es agua industrial o hay contaminación.",
+        ["variante_fluido", "agente_cloruros"])
+_alerta("mat_pH_familia", "pH incoherente con el fluido",
+        "<p>El pH informado no corresponde al tipo de fluido: un ácido con pH mayor que 7 o un álcali con pH "
+        "menor que 7.</p>",
+        "Ácido con pH > 7 o alcalino con pH < 7.",
+        ["Revisar el pH o la calidad / variante del fluido."],
+        "Soda cáustica con pH 4: dato mal cargado.", ["mat_pH", "variante_fluido"])
+_alerta("mat_pH_sin_agua", "pH sin fase acuosa",
+        "<p>Se informó pH pero el fluido no tiene agua libre: el pH solo existe en fase acuosa y no se usa.</p>",
+        "pH informado y agua libre «No».",
+        ["Borrar el pH o corregir el agua libre en la solapa 2."],
+        "Nitrógeno seco con pH 6: el pH se ignora.", ["mat_pH", "agua_libre"])
+_alerta("mat_slurry_solidos", "Slurry sin sólidos",
+        "<p>El fluido es un slurry (líquido con sólidos) y en 3-Materiales se declararon sólidos ausentes. Se "
+        "evalúa con sólidos presentes.</p>",
+        "Variante slurry y «Sólidos: Ausentes confirmados».",
+        ["Indicar «Presentes» en «Sólidos»."],
+        "Pulpa minera declarada sin sólidos: se corrige a presentes.", ["variante_fluido", "mat_solidos"])
+_alerta("mat_composicion_contradiccion", "Contaminantes informados",
+        "<p>Se declaró «Sin contaminantes conocidos» pero hay agentes en la tabla. El programa evalúa los agentes "
+        "informados.</p>",
+        "Composición «Sin contaminantes conocidos» y agentes cargados.",
+        ["Corregir el estado de la composición o quitar los agentes."],
+        "Agua industrial «sin contaminantes» con 300 mg/L de cloruros: se evalúan los cloruros.",
+        ["mat_composicion", "agente"])
