@@ -1,0 +1,388 @@
+{
+ "version": "0.8.1",
+ "sistema": "SI",
+ "campos": {
+  "id_proyecto": "Workshop N25 Valves Sizing",
+  "id_cliente": "Caso de práctica",
+  "id_tag": "LV-1201",
+  "id_servicio": "Control de nivel de agua del separador trifásico V-1201 a tanque skimmer",
+  "id_documento": "WS-03",
+  "id_revision": "0",
+  "id_preparado": "INSTRUMATIK S.A.S.",
+  "id_fecha": "24/10/2026",
+  "cuerpo": "Globo",
+  "rating": "CL600",
+  "nps_entrada": "4\"",
+  "nps_salida": "6\"",
+  "sch_entrada": "80",
+  "sch_salida": "40",
+  "ruido": "85",
+  "conexion": "RF bridada",
+  "cierre": "ANSI Clase V",
+  "tipo_fluido": "Líquido",
+  "fluido": "Agua / vapor de agua",
+  "variante": "Agua producida (yacimiento)",
+  "agua_libre": "Sí",
+  "tipo_caudal": "Volumétrico",
+  "tamano": "Automático",
+  "trim": "Globo, internos multietapa (anticavitación severa)",
+  "balance": "Desbalanceado",
+  "caracteristica": "Lineal",
+  "trim_ruido": "Estándar (pasaje único)",
+  "visc_salida": "Dinámica",
+  "mat_industria": "O&G Upstream",
+  "mat_composicion": "Confirmada por análisis",
+  "mat_regimen": "Continuo",
+  "mat_medio": "Por evaluar",
+  "mat_norma_agrio": "Por determinar",
+  "mat_solidos": "Presentes",
+  "mat_pH": "5,6",
+  "mat_ag0_familia": "Halogenuros / sales",
+  "mat_ag0_agente": "Cl⁻ — Cloruros",
+  "mat_ag0_unidad": "mg/L",
+  "mat_ag0_conc": "85000",
+  "mat_ag0_fase": "Acuosa",
+  "mat_ag1_familia": "Gases ácidos / reactivos",
+  "mat_ag1_agente": "H₂S — Sulfuro de hidrógeno",
+  "mat_ag1_unidad": "mg/L",
+  "mat_ag1_conc": "60",
+  "mat_ag1_fase": "Acuosa",
+  "mat_ag2_familia": "Gases ácidos / reactivos",
+  "mat_ag2_agente": "CO₂ — Dióxido de carbono",
+  "mat_ag2_unidad": "mg/L",
+  "mat_ag2_conc": "900",
+  "mat_ag2_fase": "Acuosa",
+  "mat_ag3_familia": "—",
+  "mat_ag3_agente": "—",
+  "mat_ag3_unidad": "mg/L",
+  "mat_ag3_conc": "",
+  "mat_ag3_fase": "Desconocida",
+  "mat_ag4_familia": "—",
+  "mat_ag4_agente": "—",
+  "mat_ag4_unidad": "mg/L",
+  "mat_ag4_conc": "",
+  "mat_ag4_fase": "Desconocida",
+  "mat_ag5_familia": "—",
+  "mat_ag5_agente": "—",
+  "mat_ag5_unidad": "mg/L",
+  "mat_ag5_conc": "",
+  "mat_ag5_fase": "Desconocida",
+  "mat_modo_cuerpo": "AUTOMÁTICO",
+  "mat_sel_cuerpo": "ASTM A494 CW6MC — Inconel 625 fundido",
+  "mat_modo_bonete": "AUTOMÁTICO",
+  "mat_sel_bonete": "ASTM A494 CW6MC — Inconel 625 fundido",
+  "mat_modo_asiento": "AUTOMÁTICO",
+  "mat_sel_asiento": "Carburo de tungsteno con ligante de níquel (inserto)",
+  "mat_modo_jaula": "AUTOMÁTICO",
+  "mat_sel_jaula": "Carburo de tungsteno con ligante de níquel (inserto)",
+  "mat_modo_guia": "AUTOMÁTICO",
+  "mat_sel_guia": "Inoxidable 410 templado (38–45 HRC)",
+  "mat_modo_obturador": "AUTOMÁTICO",
+  "mat_sel_obturador": "Carburo de tungsteno con ligante de níquel (inserto)",
+  "mat_modo_vastago": "AUTOMÁTICO",
+  "mat_sel_vastago": "Inconel 625 (N06625) barra",
+  "mat_modo_empaquetadura": "AUTOMÁTICO",
+  "mat_sel_empaquetadura": "Bonete con fuelle metálico + empaquetadura de respaldo"
+ },
+ "filas": {
+  "caudal": {
+   "unidad": "m³/h",
+   "valores": [
+    "40",
+    "90",
+    "130",
+    "0",
+    ""
+   ]
+  },
+  "P1": {
+   "unidad": "bar g",
+   "valores": [
+    "72",
+    "70",
+    "68",
+    "75",
+    ""
+   ]
+  },
+  "P2": {
+   "unidad": "bar g",
+   "valores": [
+    "3,5",
+    "3,5",
+    "3,5",
+    "0",
+    ""
+   ]
+  },
+  "T1": {
+   "unidad": "°C",
+   "valores": [
+    "85",
+    "85",
+    "85",
+    "",
+    ""
+   ]
+  },
+  "SG": {
+   "unidad": "-",
+   "valores": [
+    "1,06296",
+    "1,06286",
+    "1,06276",
+    "",
+    ""
+   ]
+  },
+  "M": {
+   "unidad": "kg/kmol",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "rho1": {
+   "unidad": "kg/m³",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "mu": {
+   "unidad": "cP",
+   "valores": [
+    "0,444449",
+    "0,444377",
+    "0,444306",
+    "",
+    ""
+   ]
+  },
+  "gamma": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Z1": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Pv": {
+   "unidad": "bar a",
+   "valores": [
+    "0,531007",
+    "0,531007",
+    "0,531007",
+    "",
+    ""
+   ]
+  },
+  "xT": {
+   "unidad": "-",
+   "valores": [
+    "0,81",
+    "0,81",
+    "0,81",
+    "",
+    "0,81"
+   ]
+  },
+  "FL": {
+   "unidad": "-",
+   "valores": [
+    "0,97",
+    "0,97",
+    "0,97",
+    "",
+    "0,97"
+   ]
+  },
+  "Fd": {
+   "unidad": "-",
+   "valores": [
+    "0,07",
+    "0,07",
+    "0,07",
+    "",
+    "0,07"
+   ]
+  },
+  "Kc": {
+   "unidad": "-",
+   "valores": [
+    "0,95",
+    "0,95",
+    "0,95",
+    "",
+    "0,95"
+   ]
+  },
+  "T2": {
+   "unidad": "°C",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Z2": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "rho2": {
+   "unidad": "kg/m³",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Pc": {
+   "unidad": "bar a",
+   "valores": [
+    "220,640"
+   ]
+  },
+  "P_diseno": {
+   "unidad": "bar g",
+   "valores": [
+    "85"
+   ]
+  },
+  "T_diseno": {
+   "unidad": "°C",
+   "valores": [
+    "110"
+   ]
+  },
+  "Rn": {
+   "unidad": "m",
+   "valores": [
+    "1"
+   ]
+  },
+  "area_salida": {
+   "unidad": "mm²",
+   "valores": [
+    ""
+   ]
+  }
+ },
+ "materiales": {
+  "servicio": {
+   "industria": "O&G Upstream",
+   "composicion": "Confirmada por análisis",
+   "regimen": "Continuo",
+   "medio": "Por evaluar",
+   "norma_agrio": "Por determinar",
+   "solidos": "Presentes"
+  },
+  "pH": "5,6",
+  "agentes": [
+   {
+    "familia": "Halogenuros / sales",
+    "agente": "cloruros",
+    "unidad": "mg/L",
+    "concentracion": "85000",
+    "fase": "Acuosa"
+   },
+   {
+    "familia": "Gases ácidos / reactivos",
+    "agente": "h2s",
+    "unidad": "mg/L",
+    "concentracion": "60",
+    "fase": "Acuosa"
+   },
+   {
+    "familia": "Gases ácidos / reactivos",
+    "agente": "co2",
+    "unidad": "mg/L",
+    "concentracion": "900",
+    "fase": "Acuosa"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   }
+  ],
+  "componentes": {
+   "cuerpo": {
+    "modo": "AUTOMÁTICO",
+    "material": "CW6MC"
+   },
+   "bonete": {
+    "modo": "AUTOMÁTICO",
+    "material": "CW6MC"
+   },
+   "asiento": {
+    "modo": "AUTOMÁTICO",
+    "material": "WC_Ni"
+   },
+   "jaula": {
+    "modo": "AUTOMÁTICO",
+    "material": "WC_Ni"
+   },
+   "guia": {
+    "modo": "AUTOMÁTICO",
+    "material": "410_HT"
+   },
+   "obturador": {
+    "modo": "AUTOMÁTICO",
+    "material": "WC_Ni"
+   },
+   "vastago": {
+    "modo": "AUTOMÁTICO",
+    "material": "625"
+   }
+  },
+  "empaquetadura": {
+   "modo": "AUTOMÁTICO",
+   "clave": "fuelle"
+  }
+ }
+}

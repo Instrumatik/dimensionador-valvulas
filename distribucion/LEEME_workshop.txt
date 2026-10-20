@@ -1,0 +1,22 @@
+N25 VALVES SIZING - INSTRUMATIK S.A.S.
+Paquete para asistentes del workshop (sábado 24 de octubre de 2026)
+
+1_Programa
+   N25-Valves-Sizing-Windows.zip   Descomprimir y abrir N25-Valves-Sizing\N25-Valves-Sizing.exe
+   N25-Valves-Sizing-macOS.zip     Descomprimir y abrir N25-Valves-Sizing.app
+   N25-Valves-Sizing-Linux.zip     Descomprimir y ejecutar N25-Valves-Sizing/N25-Valves-Sizing
+   No requiere instalación. Al abrirlo por primera vez pide su código personal de licencia
+   (VS1-...), que recibe por correo. Si Windows muestra «Windows protegió su PC», elija
+   «Más información» y luego «Ejecutar de todas formas».
+
+2_Kit_del_workshop
+   Casos_del_workshop_N25-Valves-Sizing (Word y PDF): los tres casos con todos sus datos,
+      los resultados de referencia y las preguntas para discutir.
+   casos: los proyectos .valvula (en el programa: Inicio > Abrir proyecto).
+   resultados_de_referencia: memoria de cálculo, hoja de datos e informe técnico de cada caso.
+   Planilla_comparacion_workshop_N25.xlsx: anote los resultados de su software; la diferencia
+      y el estado se calculan solos. Incluye una hoja para materiales y empaques.
+   Manual_seleccion_de_trim_N25-Valves-Sizing.pdf
+
+3_Kit_de_validacion
+   Guía del programa de validación de 30 días, planilla y 5 casos de referencia adicionales.

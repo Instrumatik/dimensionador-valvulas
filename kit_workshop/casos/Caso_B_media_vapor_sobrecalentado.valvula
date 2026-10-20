@@ -1,0 +1,388 @@
+{
+ "version": "0.8.1",
+ "sistema": "SI",
+ "campos": {
+  "id_proyecto": "Workshop N25 Valves Sizing",
+  "id_cliente": "Caso de práctica",
+  "id_tag": "PV-3410",
+  "id_servicio": "Reducción de vapor sobrecalentado de alta a media presión (cabezal MP)",
+  "id_documento": "WS-02",
+  "id_revision": "0",
+  "id_preparado": "INSTRUMATIK S.A.S.",
+  "id_fecha": "24/10/2026",
+  "cuerpo": "Globo",
+  "rating": "CL600",
+  "nps_entrada": "6\"",
+  "nps_salida": "8\"",
+  "sch_entrada": "80",
+  "sch_salida": "40",
+  "ruido": "85",
+  "conexion": "RF bridada",
+  "cierre": "ANSI Clase IV",
+  "tipo_fluido": "Vapor de agua (steam)",
+  "fluido": "Agua / vapor de agua",
+  "variante": "",
+  "agua_libre": "Según el cálculo",
+  "tipo_caudal": "Másico",
+  "tamano": "Automático",
+  "trim": "Globo, jaula caracterizada 4 ventanas, flujo de adentro hacia afuera de la jaula (tiende a abrir)",
+  "balance": "Balanceado",
+  "caracteristica": "Lineal",
+  "trim_ruido": "Estándar (pasaje único)",
+  "visc_salida": "Dinámica",
+  "mat_industria": "Generación eléctrica",
+  "mat_composicion": "Confirmada por análisis",
+  "mat_regimen": "Continuo",
+  "mat_medio": "Por evaluar",
+  "mat_norma_agrio": "No aplica (confirmado)",
+  "mat_solidos": "Ausentes confirmados",
+  "mat_pH": "",
+  "mat_ag0_familia": "—",
+  "mat_ag0_agente": "—",
+  "mat_ag0_unidad": "mg/L",
+  "mat_ag0_conc": "",
+  "mat_ag0_fase": "Desconocida",
+  "mat_ag1_familia": "—",
+  "mat_ag1_agente": "—",
+  "mat_ag1_unidad": "mg/L",
+  "mat_ag1_conc": "",
+  "mat_ag1_fase": "Desconocida",
+  "mat_ag2_familia": "—",
+  "mat_ag2_agente": "—",
+  "mat_ag2_unidad": "mg/L",
+  "mat_ag2_conc": "",
+  "mat_ag2_fase": "Desconocida",
+  "mat_ag3_familia": "—",
+  "mat_ag3_agente": "—",
+  "mat_ag3_unidad": "mg/L",
+  "mat_ag3_conc": "",
+  "mat_ag3_fase": "Desconocida",
+  "mat_ag4_familia": "—",
+  "mat_ag4_agente": "—",
+  "mat_ag4_unidad": "mg/L",
+  "mat_ag4_conc": "",
+  "mat_ag4_fase": "Desconocida",
+  "mat_ag5_familia": "—",
+  "mat_ag5_agente": "—",
+  "mat_ag5_unidad": "mg/L",
+  "mat_ag5_conc": "",
+  "mat_ag5_fase": "Desconocida",
+  "mat_modo_cuerpo": "AUTOMÁTICO",
+  "mat_sel_cuerpo": "ASTM A217 WC6 — acero 1¼Cr-½Mo fundido",
+  "mat_modo_bonete": "AUTOMÁTICO",
+  "mat_sel_bonete": "ASTM A217 WC6 — acero 1¼Cr-½Mo fundido",
+  "mat_modo_asiento": "AUTOMÁTICO",
+  "mat_sel_asiento": "316 con recargue de Stellite 6 (asiento y/o superficie de guiado)",
+  "mat_modo_jaula": "AUTOMÁTICO",
+  "mat_sel_jaula": "Inoxidable 316 / 316L (A479, A276)",
+  "mat_modo_guia": "AUTOMÁTICO",
+  "mat_sel_guia": "Inoxidable 410 templado (38–45 HRC)",
+  "mat_modo_obturador": "AUTOMÁTICO",
+  "mat_sel_obturador": "316 con recargue de Stellite 6 (asiento y/o superficie de guiado)",
+  "mat_modo_vastago": "AUTOMÁTICO",
+  "mat_sel_vastago": "Inoxidable 316 / 316L (A479, A276)",
+  "mat_modo_empaquetadura": "AUTOMÁTICO",
+  "mat_sel_empaquetadura": "Grafito flexible (anillos laminados + trenzas de carbono antiextrusión)"
+ },
+ "filas": {
+  "caudal": {
+   "unidad": "kg/h",
+   "valores": [
+    "8000",
+    "12000",
+    "18000",
+    "0",
+    ""
+   ]
+  },
+  "P1": {
+   "unidad": "bar g",
+   "valores": [
+    "41",
+    "40",
+    "39",
+    "43",
+    ""
+   ]
+  },
+  "P2": {
+   "unidad": "bar g",
+   "valores": [
+    "20",
+    "20",
+    "20",
+    "0",
+    ""
+   ]
+  },
+  "T1": {
+   "unidad": "°C",
+   "valores": [
+    "400",
+    "400",
+    "400",
+    "",
+    ""
+   ]
+  },
+  "SG": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "M": {
+   "unidad": "kg/kmol",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "rho1": {
+   "unidad": "kg/m³",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "mu": {
+   "unidad": "cP",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "gamma": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Z1": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Pv": {
+   "unidad": "bar a",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "xT": {
+   "unidad": "-",
+   "valores": [
+    "0,75",
+    "0,75",
+    "0,75",
+    "",
+    "0,75"
+   ]
+  },
+  "FL": {
+   "unidad": "-",
+   "valores": [
+    "0,9",
+    "0,9",
+    "0,9",
+    "",
+    "0,9"
+   ]
+  },
+  "Fd": {
+   "unidad": "-",
+   "valores": [
+    "0,41",
+    "0,41",
+    "0,41",
+    "",
+    "0,41"
+   ]
+  },
+  "Kc": {
+   "unidad": "-",
+   "valores": [
+    "0,7",
+    "0,7",
+    "0,7",
+    "",
+    "0,7"
+   ]
+  },
+  "T2": {
+   "unidad": "°C",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Z2": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "rho2": {
+   "unidad": "kg/m³",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Pc": {
+   "unidad": "bar a",
+   "valores": [
+    ""
+   ]
+  },
+  "P_diseno": {
+   "unidad": "bar g",
+   "valores": [
+    "46"
+   ]
+  },
+  "T_diseno": {
+   "unidad": "°C",
+   "valores": [
+    "440"
+   ]
+  },
+  "Rn": {
+   "unidad": "m",
+   "valores": [
+    "1"
+   ]
+  },
+  "area_salida": {
+   "unidad": "mm²",
+   "valores": [
+    ""
+   ]
+  }
+ },
+ "materiales": {
+  "servicio": {
+   "industria": "Generación eléctrica",
+   "composicion": "Confirmada por análisis",
+   "regimen": "Continuo",
+   "medio": "Por evaluar",
+   "norma_agrio": "No aplica (confirmado)",
+   "solidos": "Ausentes confirmados"
+  },
+  "pH": "",
+  "agentes": [
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   }
+  ],
+  "componentes": {
+   "cuerpo": {
+    "modo": "AUTOMÁTICO",
+    "material": "WC6"
+   },
+   "bonete": {
+    "modo": "AUTOMÁTICO",
+    "material": "WC6"
+   },
+   "asiento": {
+    "modo": "AUTOMÁTICO",
+    "material": "316_ST6"
+   },
+   "jaula": {
+    "modo": "AUTOMÁTICO",
+    "material": "316"
+   },
+   "guia": {
+    "modo": "AUTOMÁTICO",
+    "material": "410_HT"
+   },
+   "obturador": {
+    "modo": "AUTOMÁTICO",
+    "material": "316_ST6"
+   },
+   "vastago": {
+    "modo": "AUTOMÁTICO",
+    "material": "316"
+   }
+  },
+  "empaquetadura": {
+   "modo": "AUTOMÁTICO",
+   "clave": "grafito"
+  }
+ }
+}

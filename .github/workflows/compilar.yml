@@ -95,3 +95,18 @@ jobs:
         with:
           name: Paquete-completo-${{ env.P }}
           path: ${{ env.P }}/
+      # Paquete para asistentes: sin el generador de códigos
+      - name: Armar el paquete del workshop
+        run: |
+          WS="$P-Workshop"
+          mkdir -p "$WS/2_Kit_del_workshop"
+          cp -r "$P/1_Programa" "$WS/"
+          cp -r "$P/3_Kit_de_validacion" "$WS/"
+          cp -r kit_workshop/* "$WS/2_Kit_del_workshop/"
+          cp distribucion/LEEME_workshop.txt "$WS/LEEME.txt"
+          test ! -e "$WS/2_Generador_de_codigos_USO_INTERNO"
+          echo "WS=$WS" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.WS }}
+          path: ${{ env.WS }}/

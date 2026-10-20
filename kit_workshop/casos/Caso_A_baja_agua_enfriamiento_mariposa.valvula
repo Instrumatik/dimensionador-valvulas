@@ -1,0 +1,388 @@
+{
+ "version": "0.8.1",
+ "sistema": "SI",
+ "campos": {
+  "id_proyecto": "Workshop N25 Valves Sizing",
+  "id_cliente": "Caso de práctica",
+  "id_tag": "TV-2105",
+  "id_servicio": "Agua de enfriamiento al intercambiador E-2105 (control de temperatura)",
+  "id_documento": "WS-01",
+  "id_revision": "0",
+  "id_preparado": "INSTRUMATIK S.A.S.",
+  "id_fecha": "24/10/2026",
+  "cuerpo": "Mariposa triple excentricidad",
+  "rating": "CL150",
+  "nps_entrada": "12\"",
+  "nps_salida": "12\"",
+  "sch_entrada": "STD",
+  "sch_salida": "STD",
+  "ruido": "85",
+  "conexion": "Wafer",
+  "cierre": "ANSI Clase IV",
+  "tipo_fluido": "Líquido",
+  "fluido": "Agua / vapor de agua",
+  "variante": "Agua industrial / de enfriamiento",
+  "agua_libre": "Sí",
+  "tipo_caudal": "Volumétrico",
+  "tamano": "Automático",
+  "trim": "Mariposa triple excéntrica, 90°",
+  "balance": "Desbalanceado",
+  "caracteristica": "Lineal",
+  "trim_ruido": "Estándar (pasaje único)",
+  "visc_salida": "Dinámica",
+  "mat_industria": "Química",
+  "mat_composicion": "Confirmada por análisis",
+  "mat_regimen": "Continuo",
+  "mat_medio": "Por evaluar",
+  "mat_norma_agrio": "No aplica (confirmado)",
+  "mat_solidos": "Trazas",
+  "mat_pH": "7,8",
+  "mat_ag0_familia": "Halogenuros / sales",
+  "mat_ag0_agente": "Cl⁻ — Cloruros",
+  "mat_ag0_unidad": "mg/L",
+  "mat_ag0_conc": "250",
+  "mat_ag0_fase": "Acuosa",
+  "mat_ag1_familia": "—",
+  "mat_ag1_agente": "—",
+  "mat_ag1_unidad": "mg/L",
+  "mat_ag1_conc": "",
+  "mat_ag1_fase": "Desconocida",
+  "mat_ag2_familia": "—",
+  "mat_ag2_agente": "—",
+  "mat_ag2_unidad": "mg/L",
+  "mat_ag2_conc": "",
+  "mat_ag2_fase": "Desconocida",
+  "mat_ag3_familia": "—",
+  "mat_ag3_agente": "—",
+  "mat_ag3_unidad": "mg/L",
+  "mat_ag3_conc": "",
+  "mat_ag3_fase": "Desconocida",
+  "mat_ag4_familia": "—",
+  "mat_ag4_agente": "—",
+  "mat_ag4_unidad": "mg/L",
+  "mat_ag4_conc": "",
+  "mat_ag4_fase": "Desconocida",
+  "mat_ag5_familia": "—",
+  "mat_ag5_agente": "—",
+  "mat_ag5_unidad": "mg/L",
+  "mat_ag5_conc": "",
+  "mat_ag5_fase": "Desconocida",
+  "mat_modo_cuerpo": "AUTOMÁTICO",
+  "mat_sel_cuerpo": "ASTM A216 WCB — acero al carbono fundido",
+  "mat_modo_bonete": "AUTOMÁTICO",
+  "mat_sel_bonete": "ASTM A216 WCB — acero al carbono fundido",
+  "mat_modo_asiento": "AUTOMÁTICO",
+  "mat_sel_asiento": "Stellite 6 macizo (Co-Cr-W, fundido o forjado 6B)",
+  "mat_modo_jaula": "AUTOMÁTICO",
+  "mat_sel_jaula": "Inoxidable 410 templado (38–45 HRC)",
+  "mat_modo_guia": "AUTOMÁTICO",
+  "mat_sel_guia": "Inconel 718 (N07718) envejecido",
+  "mat_modo_obturador": "AUTOMÁTICO",
+  "mat_sel_obturador": "Inconel 718 (N07718) envejecido",
+  "mat_modo_vastago": "AUTOMÁTICO",
+  "mat_sel_vastago": "Dúplex 2205 (S31803 / S32205) barra",
+  "mat_modo_empaquetadura": "AUTOMÁTICO",
+  "mat_sel_empaquetadura": "Anillos en V de PTFE, simple, con resorte"
+ },
+ "filas": {
+  "caudal": {
+   "unidad": "m³/h",
+   "valores": [
+    "400",
+    "600",
+    "850",
+    "0",
+    ""
+   ]
+  },
+  "P1": {
+   "unidad": "bar g",
+   "valores": [
+    "4,6",
+    "4,3",
+    "3,9",
+    "6,8",
+    ""
+   ]
+  },
+  "P2": {
+   "unidad": "bar g",
+   "valores": [
+    "3,5",
+    "3,2",
+    "2,9",
+    "0",
+    ""
+   ]
+  },
+  "T1": {
+   "unidad": "°C",
+   "valores": [
+    "32",
+    "32",
+    "35",
+    "",
+    ""
+   ]
+  },
+  "SG": {
+   "unidad": "-",
+   "valores": [
+    "0,996129",
+    "0,996115",
+    "0,995101",
+    "",
+    ""
+   ]
+  },
+  "M": {
+   "unidad": "kg/kmol",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "rho1": {
+   "unidad": "kg/m³",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "mu": {
+   "unidad": "cP",
+   "valores": [
+    "0,764415",
+    "0,764414",
+    "0,719151",
+    "",
+    ""
+   ]
+  },
+  "gamma": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Z1": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Pv": {
+   "unidad": "bar a",
+   "valores": [
+    "0,0475957",
+    "0,0475957",
+    "0,0562902",
+    "",
+    ""
+   ]
+  },
+  "xT": {
+   "unidad": "-",
+   "valores": [
+    "0,35",
+    "0,35",
+    "0,35",
+    "",
+    "0,35"
+   ]
+  },
+  "FL": {
+   "unidad": "-",
+   "valores": [
+    "0,67",
+    "0,67",
+    "0,67",
+    "",
+    "0,67"
+   ]
+  },
+  "Fd": {
+   "unidad": "-",
+   "valores": [
+    "0,57",
+    "0,57",
+    "0,57",
+    "",
+    "0,57"
+   ]
+  },
+  "Kc": {
+   "unidad": "-",
+   "valores": [
+    "0,35",
+    "0,35",
+    "0,35",
+    "",
+    "0,35"
+   ]
+  },
+  "T2": {
+   "unidad": "°C",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Z2": {
+   "unidad": "-",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "rho2": {
+   "unidad": "kg/m³",
+   "valores": [
+    "",
+    "",
+    "",
+    "",
+    ""
+   ]
+  },
+  "Pc": {
+   "unidad": "bar a",
+   "valores": [
+    "220,640"
+   ]
+  },
+  "P_diseno": {
+   "unidad": "bar g",
+   "valores": [
+    "10"
+   ]
+  },
+  "T_diseno": {
+   "unidad": "°C",
+   "valores": [
+    "65"
+   ]
+  },
+  "Rn": {
+   "unidad": "m",
+   "valores": [
+    "1"
+   ]
+  },
+  "area_salida": {
+   "unidad": "mm²",
+   "valores": [
+    ""
+   ]
+  }
+ },
+ "materiales": {
+  "servicio": {
+   "industria": "Química",
+   "composicion": "Confirmada por análisis",
+   "regimen": "Continuo",
+   "medio": "Por evaluar",
+   "norma_agrio": "No aplica (confirmado)",
+   "solidos": "Trazas"
+  },
+  "pH": "7,8",
+  "agentes": [
+   {
+    "familia": "Halogenuros / sales",
+    "agente": "cloruros",
+    "unidad": "mg/L",
+    "concentracion": "250",
+    "fase": "Acuosa"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   },
+   {
+    "familia": "—",
+    "agente": null,
+    "unidad": "mg/L",
+    "concentracion": "",
+    "fase": "Desconocida"
+   }
+  ],
+  "componentes": {
+   "cuerpo": {
+    "modo": "AUTOMÁTICO",
+    "material": "WCB"
+   },
+   "bonete": {
+    "modo": "AUTOMÁTICO",
+    "material": "WCB"
+   },
+   "asiento": {
+    "modo": "AUTOMÁTICO",
+    "material": "ST6"
+   },
+   "jaula": {
+    "modo": "AUTOMÁTICO",
+    "material": "410_HT"
+   },
+   "guia": {
+    "modo": "AUTOMÁTICO",
+    "material": "718"
+   },
+   "obturador": {
+    "modo": "AUTOMÁTICO",
+    "material": "718"
+   },
+   "vastago": {
+    "modo": "AUTOMÁTICO",
+    "material": "2205"
+   }
+  },
+  "empaquetadura": {
+   "modo": "AUTOMÁTICO",
+   "clave": "ptfe_v"
+  }
+ }
+}
