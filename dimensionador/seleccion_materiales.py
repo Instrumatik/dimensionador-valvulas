@@ -25,6 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import asme_b16_34 as B
+from . import empaquetaduras as EM
 from . import materiales as MT
 from . import quimica as Q
 from .modelos import Alerta, Severidad, _n
@@ -109,6 +110,7 @@ class Contexto:
     blando: bool                     # el cierre requiere asiento blando
     SG: float = 1.0
     casos_cav: list[tuple[str, str, float, float, float]] = field(default_factory=list)  # caso, sev, Kapp, Kc, FL²
+    P_min_kPa: float = 101.325       # presión absoluta mínima (vacío en la empaquetadura)
 
 
 @dataclass
@@ -196,6 +198,7 @@ class ResultadoMateriales:
     galling: list[Galling]
     alertas: list[Alerta]
     notas: list[str]
+    empaquetadura: "EM.ResultadoEmpaquetadura | None" = None
 
     @property
     def cuerpo(self) -> MT.Material | None:
@@ -1044,8 +1047,11 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
                               remedios=["Exigir certificados con dureza (MTR) y procedimientos de soldadura "
                                         "calificados con dureza de ZAC ≤ 250 HV."],
                               referencia=norma))
+    emp = EM.seleccionar(sv, ctx, agentes, acuoso, agrio, sv.modos.get("empaquetadura", "AUTOMÁTICO"),
+                         sv.manual.get("empaquetadura"))
+    alertas += emp.alertas
     return ResultadoMateriales(sv, ctx, comps, agentes, mecs, agrio, pH2S, norma, norma_motivo, medio, req,
-                               motivo, gall, alertas, notas)
+                               motivo, gall, alertas, notas, emp)
 
 
 def _inserto(ctx, sv, agentes, acuoso) -> MT.Material | None:
@@ -1090,7 +1096,9 @@ def contexto(res, sv: ServicioMateriales | None = None) -> Contexto:
     cuerpo = CUERPOS[inst.cuerpo]
     from .proyecto import CIERRES
     n = CIERRES.index(inst.cierre)
-    blando = {"globo": n >= 5, "angulo": n >= 5, "globo_liner": True, "bola": n >= 5, "mariposa": n >= 4,
+    blando = {"globo": n >= 5, "angulo": n >= 5, "globo_liner": True, "bola_paso_completo": n >= 5,
+              "bola_paso_reducido": n >= 5, "bola_trunnion": n >= 5, "bola_segmentada": n >= 5,
+              "tapon_excentrico": n >= 5, "mariposa": n >= 4,
               "mariposa_doble": n >= 5}.get(inst.cuerpo, False)
     dPs = [c.P1 - c.P2 for c in dim.casos] + ([dim.cierre.dP] if dim.cierre else [])
     SG = getattr(dim.casos[0], "SG", 1.0) if dim.casos else 1.0
@@ -1100,4 +1108,4 @@ def contexto(res, sv: ServicioMateriales | None = None) -> Contexto:
                     rotativa=cuerpo.rotativa, jaula="jaula" in dim.trim or "multietapa" in dim.trim,
                     liner=inst.cuerpo == "globo_liner", compresible=dim.compresible, tipo=dim.tipo,
                     dP_max_kPa=max(dPs), severidad_cav=peor, flashing=flashing, blando=blando, SG=SG or 1.0,
-                    casos_cav=casos_cav)
+                    casos_cav=casos_cav, P_min_kPa=min([c.P2 for c in dim.casos] + [c.P1 for c in dim.casos]))

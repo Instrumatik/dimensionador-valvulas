@@ -1199,3 +1199,132 @@ _alerta("mat_composicion_contradiccion", "Contaminantes informados",
         ["Corregir el estado de la composición o quitar los agentes."],
         "Agua industrial «sin contaminantes» con 300 mg/L de cloruros: se evalúan los cloruros.",
         ["mat_composicion", "agente"])
+
+
+# =====================================================================================
+# EMPAQUETADURA Y BONETE
+# =====================================================================================
+_e("empaquetadura", "Empaquetadura del vástago (o del eje)",
+   "<p>La empaquetadura sella el paso del vástago (globo, ángulo) o del eje (bola, mariposa, tapón excéntrico) "
+   "a través del bonete o del prensaestopas. Es el punto por donde la válvula pierde fluido a la atmósfera "
+   "(emisión fugitiva). El programa evalúa cada tipo de la biblioteca y elige el apto de menor índice:</p><ul>"
+   "<li><b>Temperatura</b>: PTFE −46 a 232 °C (260 °C con carbono); grafito flexible −198 a 538 °C, que baja "
+   "a 371 °C con aire, oxígeno u oxidantes porque el grafito se oxida.</li>"
+   "<li><b>Presión</b> de diseño frente al límite típico del conjunto.</li>"
+   "<li><b>Química</b>: las mismas reglas A–D de los materiales, con las clases PTFE y grafito (el grafito no "
+   "resiste ácido nítrico concentrado, perclórico, hipoclorito fuerte ni otros oxidantes; el PTFE resiste casi "
+   "todo). D descarta, C penaliza.</li>"
+   "<li><b>Vacío</b> (presión mínima menor que unos 90 kPa abs): el PTFE en V simple deja entrar aire; se "
+   "exige PTFE doble, carga viva o fuelle.</li>"
+   "<li><b>Vapor</b> por encima de 150 °C penaliza el PTFE (flujo en frío, reajustes).</li>"
+   "<li><b>Emisión fugitiva</b> requerida según el fluido (ver «Emisión fugitiva»).</li></ul>"
+   "<p>Opciones: PTFE en V simple, PTFE en V doble, PTFE con carga viva, PTFE con carbono, grafito flexible, "
+   "grafito con carga viva y bonete con fuelle metálico (solo vástago ascendente; su metal, 316L, 625 o "
+   "C-276, se elige por compatibilidad química).</p>",
+   MAT, tipicos="PTFE en V: servicio general hasta 232 °C. Grafito: vapor y alta temperatura. Carga viva: "
+   "hidrocarburos y COV. Fuelle: tóxicos y letales.",
+   referencia="Emerson, Control Valve Handbook, cap. 5; ISO 15848-1; API 622 / 624 / 641",
+   relacionadas=["tipo_bonete", "emision_fugitiva", "mat_modo", "compatibilidad_ad"],
+   guia=_g("Es el sello del vástago o del eje de la válvula contra la atmósfera.",
+           "Evita la fuga de fluido al ambiente y define, junto con el bonete, la emisión fugitiva y la "
+           "fricción que debe vencer el actuador.",
+           "La empaquetadura recomendada es la de menor índice de costo que cumple temperatura, presión, "
+           "química, vacío y emisión.",
+           "PTFE ≤ 232 °C; grafito ≤ 538 °C (371 °C en medio oxidante); vacío < 90 kPa abs; vapor > 150 °C.",
+           "Por debajo de 232 °C el PTFE suele ser la opción más económica y de menor fricción.",
+           "Por encima de 232 °C se requiere grafito o un bonete prolongado.",
+           ["Tipo de bonete", "Fricción del actuador", "Hoja de datos", "Informe técnico"],
+           ["Exija el certificado de emisión cuando el fluido es tóxico o COV.",
+            "Con grafito, sume su fricción al dimensionar el actuador.",
+            "En agua o vapor pida grafito con inhibidor de corrosión."],
+           "Vapor a 300 °C: el PTFE queda descartado por temperatura y se elige grafito flexible con anillos "
+           "antiextrusión; alerta de fricción alta."))
+
+_e("tipo_bonete", "Tipo de bonete",
+   "<p>El bonete aloja la empaquetadura. El programa lo define por la temperatura y el fluido:</p><ul>"
+   "<li><b>Estándar</b>: temperatura entre −29 y 232 °C.</li>"
+   "<li><b>Estándar con empaquetadura de alta temperatura, o prolongado</b>: entre 232 y 427 °C.</li>"
+   "<li><b>Prolongado con aletas</b>: por encima de 427 °C, para bajar la temperatura en la empaquetadura "
+   "y proteger el actuador.</li>"
+   "<li><b>Prolongado para baja temperatura</b>: por debajo de −29 °C.</li>"
+   "<li><b>Criogénico prolongado</b>: por debajo de −101 °C (BS 6364 / MSS SP-134), para que la empaquetadura "
+   "trabaje cerca de la temperatura ambiente sin congelarse.</li>"
+   "<li><b>Con fuelle de estanqueidad</b>: cuando se elige el fuelle por fluido tóxico o letal.</li></ul>"
+   "<p>En las válvulas rotativas el mismo criterio se aplica al prensaestopas del eje.</p>",
+   MAT, referencia="Emerson, Control Valve Handbook, cap. 5; BS 6364",
+   relacionadas=["empaquetadura", "emision_fugitiva"],
+   guia=_g("Es la pieza superior del cuerpo que guía el vástago y aloja la empaquetadura.",
+           "Su largo aleja la empaquetadura de temperaturas extremas.",
+           "Un bonete prolongado indica que el fluido está demasiado caliente o frío para la empaquetadura.",
+           "−101 °C, −29 °C, 232 °C y 427 °C.",
+           "Por debajo de −29 °C se prolonga; por debajo de −101 °C es criogénico.",
+           "Por encima de 427 °C se prolonga con aletas.",
+           ["Empaquetadura", "Hoja de datos", "Altura de la válvula"],
+           ["Instale las válvulas criogénicas con el bonete a no más de 45° de la vertical.",
+            "Considere la altura extra del bonete prolongado en el montaje."],
+           "GNL a −162 °C: bonete criogénico prolongado y empaquetadura de PTFE trabajando cerca del ambiente."))
+
+_e("emision_fugitiva", "Emisión fugitiva",
+   "<p>Es la fuga de fluido a la atmósfera por la empaquetadura. El programa fija la exigencia por el "
+   "fluido:</p><ul>"
+   "<li><b>Muy baja</b>: fluidos tóxicos o letales (H₂S, cloro, HF, SO₂, amoníaco, monóxido de carbono, "
+   "benceno, servicio agrio). En válvulas de vástago ascendente se prefiere el fuelle (ISO 15848-1 clase A); "
+   "en rotativas, carga viva certificada.</li>"
+   "<li><b>Baja</b>: hidrocarburos, solventes y gas natural (COV e inflamables): carga viva certificada "
+   "ISO 15848-1 clase B (≤ 100 ppmv), API 622 / 624 (vástago ascendente) o API 641 (cuarto de vuelta).</li>"
+   "<li><b>Estándar</b>: el resto.</li></ul>",
+   MAT, referencia="ISO 15848-1:2015; API 622; API 624; API 641",
+   relacionadas=["empaquetadura", "tipo_bonete"],
+   guia=_g("Es la fuga de fluido al ambiente por el vástago o el eje.",
+           "Define qué empaquetaduras son aceptables según la peligrosidad del fluido.",
+           "«Baja» o «muy baja» exige empaquetadura certificada.",
+           "ISO 15848-1 clase A (fuelle), B (≤ 100 ppmv) y C (≤ 500 ppmv).",
+           "Fluido inocuo: empaquetadura estándar.",
+           "Fluido tóxico: fuelle o carga viva certificada.",
+           ["Empaquetadura", "Tipo de bonete", "Informe técnico"],
+           ["Pida el certificado de ensayo de emisión de la empaquetadura ofertada.",
+            "Verifique los requisitos ambientales locales de la planta."],
+           "Crudo: PTFE con carga viva certificada ISO 15848-1 clase B."))
+
+_alerta("empaque_manual", "Empaquetadura: selección manual",
+        "<p>La empaquetadura se eligió en modo manual. El programa la evalúa igual, pero la responsabilidad "
+        "por su aptitud queda fuera del alcance del programa.</p>",
+        "Modo MANUAL en la empaquetadura.",
+        ["Volver a AUTOMÁTICO o verificar la elección con el fabricante."],
+        "PTFE en V simple elegido a mano para un crudo: aviso manual y no apta por emisión.", ["empaquetadura"])
+_alerta("empaque_incompatible", "Empaquetadura no apta",
+        "<p>La empaquetadura elegida a mano no cumple temperatura, presión, química, vacío o emisión. El mensaje "
+        "enumera los motivos y propone la recomendada. Es una alerta crítica.</p>",
+        "Cualquier criterio de descarte.",
+        ["Usar la empaquetadura recomendada."],
+        "PTFE a 300 °C en vapor: supera su límite de 232 °C.", ["empaquetadura"])
+_alerta("empaque_sin_candidato", "Sin empaquetadura apta",
+        "<p>Ninguna empaquetadura de la biblioteca cumple todas las condiciones a la vez.</p>",
+        "Ninguna candidata apta.",
+        ["Revisar las condiciones o pedir una solución especial (doble empaquetadura con purga, sello de "
+         "barrera)."],
+        "Oxidante fuerte a 400 °C en vacío en una válvula rotativa.", ["empaquetadura"])
+_alerta("empaque_friccion", "Empaquetadura de fricción alta",
+        "<p>El grafito tiene más fricción que el PTFE: aumenta la fuerza o el par del actuador y la banda "
+        "muerta del posicionador.</p>",
+        "Empaquetadura de grafito.",
+        ["Sumar la fricción al dimensionar el actuador.", "Usar posicionador digital."],
+        "Vapor a 400 °C con grafito: sumar la fricción al actuador.", ["empaquetadura"])
+_alerta("empaque_emision", "Emisión fugitiva controlada",
+        "<p>El fluido exige empaquetadura de baja o muy baja emisión con certificado de ensayo.</p>",
+        "Fluido tóxico, letal, hidrocarburo o COV.",
+        ["Exigir certificado ISO 15848-1, API 622 / 624 o API 641."],
+        "Gas natural: carga viva certificada.", ["emision_fugitiva", "empaquetadura"], "ISO 15848-1")
+_alerta("bonete_prolongado", "Bonete prolongado",
+        "<p>La temperatura exige un bonete (o prensaestopas) prolongado o criogénico para proteger la "
+        "empaquetadura.</p>",
+        "T < −29 °C, T > 232 °C con PTFE, T > 427 °C.",
+        ["Considerar la altura extra en el montaje.", "Verificar con el fabricante."],
+        "Vapor a 480 °C: bonete prolongado con aletas.", ["tipo_bonete"])
+_alerta("bola_flotante_presion", "Bola flotante en clase alta",
+        "<p>En una bola flotante la presión empuja la bola contra el asiento de aguas abajo; en clases altas o "
+        "tamaños grandes el par y el desgaste del asiento crecen mucho. Por encima de CL600 se usa bola "
+        "trunnion (montada sobre muñones).</p>",
+        "Bola de paso completo o reducido (flotante) con rating mayor que CL600.",
+        ["Cambiar el estilo a «Bola trunnion».", "Consultar al fabricante el límite de su diseño."],
+        "Bola flotante de 6\" CL900: se recomienda trunnion.", ["estilo_cuerpo"], "API 6D / ISO 17292")

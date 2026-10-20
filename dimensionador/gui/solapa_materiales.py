@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QPushButton, QTextBrowser, QVBoxLayout, QWidget)
 
-from .. import materiales as MT, quimica as Q, seleccion_materiales as SM
+from .. import empaquetaduras as EM, materiales as MT, quimica as Q, seleccion_materiales as SM
 from ..modelos import Severidad
 
 N_AGENTES = 6
@@ -181,6 +181,43 @@ class SolapaMateriales:
         grid.setColumnStretch(5, 1)
         lay.addWidget(g)
 
+        # ---- empaquetadura y bonete
+        g = QGroupBox("Empaquetadura y bonete")
+        grid = QGridLayout(g)
+        lbl = QLabel("Empaquetadura del vástago")
+        lbl.setStyleSheet("font-weight:600")
+        modo = self._registrar("mat_modo_empaquetadura", Combo(), "mat_modo")
+        modo.addItems(SM.MODOS)
+        modo.setFixedWidth(130)
+        sel = self._registrar("mat_sel_empaquetadura", Combo(), "empaquetadura")
+        for e in EM.EMPAQUETADURAS.values():
+            sel.addItem(e.nombre, e.clave)
+        sel.setFixedWidth(430)
+        sel.setEnabled(False)
+        an = QPushButton("Análisis…")
+        an.setToolTip("Ver la justificación de la empaquetadura y del bonete")
+        an.clicked.connect(self._emp_analisis)
+        rec = QLabel("Recomendación: se calcula con «Calcular».")
+        rec.setWordWrap(True)
+        rec.setStyleSheet("color:#2f6fb0;font-size:8pt;padding-bottom:4px")
+        grid.addWidget(lbl, 0, 0)
+        grid.addWidget(boton_ir(self.abrir_ayuda, "empaquetadura"), 0, 1)
+        grid.addWidget(modo, 0, 2)
+        grid.addWidget(sel, 0, 3)
+        grid.addWidget(an, 0, 4)
+        grid.addWidget(rec, 1, 3, 1, 3)
+        self.mat_lbl_bonete = QLabel("Bonete: se calcula con «Calcular».")
+        self.mat_lbl_bonete.setWordWrap(True)
+        lb = QLabel("Tipo de bonete")
+        lb.setStyleSheet("font-weight:600")
+        grid.addWidget(lb, 2, 0)
+        grid.addWidget(boton_ir(self.abrir_ayuda, "tipo_bonete"), 2, 1)
+        grid.addWidget(self.mat_lbl_bonete, 2, 2, 1, 4)
+        grid.setColumnStretch(5, 1)
+        modo.currentTextChanged.connect(self._emp_cambio_modo)
+        self.mat_emp = (lbl, modo, sel, an, rec)
+        lay.addWidget(g)
+
         h = QHBoxLayout()
         b = QPushButton("Calcular")
         b.setStyleSheet("QPushButton{background:#f5b700;color:#0d3b66;font-weight:800;padding:5px 16px}")
@@ -289,6 +326,52 @@ class SolapaMateriales:
         if hasattr(self, "res") and self.res is not None and self.res.materiales is not None:
             self._mat_texto_recomendacion(k)
 
+    def _emp_cambio_modo(self, *_):
+        lbl, modo, sel, an, rec = self.mat_emp
+        manual = modo.currentText() == "MANUAL"
+        sel.setEnabled(manual)
+        sel.setStyleSheet("QComboBox{border:2px solid #c0392b}" if manual else "")
+        rec.setStyleSheet(f"color:{'#c0392b' if manual else '#2f6fb0'};font-size:8pt;padding-bottom:4px")
+        if manual:
+            self.statusBar().showMessage(AVISO_MANUAL)
+        if getattr(self, "res", None) is not None and self.res.materiales is not None:
+            self._emp_texto()
+
+    def _emp_texto(self):
+        e = self.res.materiales.empaquetadura
+        lbl, modo, sel, an, rec = self.mat_emp
+        if e is None:
+            return
+        t = (f"Recomendada: <b>{_html.escape(e.recomendada.nombre)}</b> · emisión requerida {_html.escape(e.emision_req)}"
+             if e.recomendada else "<b>Sin empaquetadura apta en la biblioteca</b>")
+        if modo.currentText() == "MANUAL":
+            t += "<br><span style='color:#c0392b'>" + _html.escape(AVISO_MANUAL) + "</span>"
+            al = [a for a in e.alertas if a.codigo == "empaque_incompatible"]
+            if al:
+                t += "<br><span style='color:#c0392b'><b>No apta:</b> " + _html.escape(al[0].mensaje[:300]) + "</span>"
+        rec.setText(t)
+        self.mat_lbl_bonete.setText(f"<b>{_html.escape(e.bonete)}</b><br><span style='color:#55606d;font-size:8pt'>"
+                                    f"{_html.escape(e.bonete_motivo)}</span>")
+
+    def _emp_analisis(self):
+        if self.res is None or self.res.materiales is None:
+            self.calcular()
+            if self.res is None or self.res.materiales is None:
+                return
+        d = QDialog(self)
+        d.setWindowTitle("Análisis de empaquetadura y bonete")
+        d.resize(900, 700)
+        v = QVBoxLayout(d)
+        t = QTextBrowser()
+        t.setOpenLinks(False)
+        t.anchorClicked.connect(lambda u: self.abrir_ayuda(u.toString()[6:]))
+        t.setHtml(html_empaquetadura(self.res.materiales.empaquetadura))
+        v.addWidget(t)
+        b = QPushButton("Cerrar")
+        b.clicked.connect(d.accept)
+        v.addWidget(b, 0, Qt.AlignRight)
+        d.exec()
+
     def _mat_nombres_componentes(self):
         if not hasattr(self, "mat_comp"):
             return
@@ -313,9 +396,10 @@ class SolapaMateriales:
             fam.setCurrentText(SIN_AGENTE)
             ed.clear()
             fa.setCurrentText("Desconocida")
-        for lbl, modo, sel, an, rec in self.mat_comp.values():
+        for lbl, modo, sel, an, rec in list(self.mat_comp.values()) + [self.mat_emp]:
             modo.setCurrentText("AUTOMÁTICO")
             rec.setText("Recomendación: se calcula con «Calcular».")
+        self.mat_lbl_bonete.setText("Bonete: se calcula con «Calcular».")
         self.mat_resumen.setHtml("<p style='color:#55606d'>Todavía no hay cálculo.</p>")
 
     def _mat_estado(self) -> dict:
@@ -326,7 +410,8 @@ class SolapaMateriales:
                              "concentracion": ed.text(), "fase": fa.currentText()}
                             for fam, ag, un, ed, fa in self.mat_agentes],
                 "componentes": {k: {"modo": c[1].currentText(), "material": c[2].currentData()}
-                                for k, c in self.mat_comp.items()}}
+                                for k, c in self.mat_comp.items()},
+                "empaquetadura": {"modo": self.mat_emp[1].currentText(), "clave": self.mat_emp[2].currentData()}}
 
     def _mat_cargar(self, d: dict):
         self._mat_nuevo()
@@ -355,6 +440,11 @@ class SolapaMateriales:
             if j >= 0:
                 c[2].setCurrentIndex(j)
             c[1].setCurrentText(x.get("modo", "AUTOMÁTICO"))
+        x = d.get("empaquetadura", {})
+        j = self.mat_emp[2].findData(x.get("clave"))
+        if j >= 0:
+            self.mat_emp[2].setCurrentIndex(j)
+        self.mat_emp[1].setCurrentText(x.get("modo", "AUTOMÁTICO"))
         self._mat_nombres_componentes()
 
     # ------------------------------------------------------------ lectura
@@ -376,6 +466,9 @@ class SolapaMateriales:
             raise ValueError("El pH debe ser un número entre 0 y 14.")
         modos = {k: c[1].currentText() for k, c in self.mat_comp.items()}
         manual = {k: c[2].currentData() for k, c in self.mat_comp.items() if c[1].currentText() == "MANUAL"}
+        modos["empaquetadura"] = self.mat_emp[1].currentText()
+        if modos["empaquetadura"] == "MANUAL":
+            manual["empaquetadura"] = self.mat_emp[2].currentData()
         return SM.ServicioMateriales(pH=pH, agentes=agentes, modos=modos, manual=manual, **v)
 
     # ------------------------------------------------------------ resultados
@@ -415,6 +508,12 @@ class SolapaMateriales:
                     sel.setCurrentIndex(i)
             sel.setEnabled(aplica and modo.currentText() == "MANUAL")
             self._mat_texto_recomendacion(k)
+        e = m.empaquetadura
+        if e is not None and e.elegida is not None and self.mat_emp[1].currentText() != "MANUAL":
+            i = self.mat_emp[2].findData(e.elegida.clave)
+            if i >= 0:
+                self.mat_emp[2].setCurrentIndex(i)
+        self._emp_texto()
         self.mat_resumen.setHtml(html_resumen(m))
         self._mat_fluido_heredado()
 
@@ -536,6 +635,12 @@ def html_resumen(m: SM.ResultadoMateriales) -> str:
         p.append("<h4>Agentes evaluados</h4><table width='100%' cellspacing='0' cellpadding='4' border='1' "
                  "style='border-collapse:collapse'><tr bgcolor='#dde5ee'><th>Agente</th><th>Valor normalizado</th>"
                  f"<th>Nota</th></tr>{g}</table>")
+    e = m.empaquetadura
+    if e is not None:
+        p.append("<h4>Empaquetadura y bonete <a href='ayuda:empaquetadura'>(ayuda)</a></h4>"
+                 f"<p><b>Empaquetadura:</b> {_e(e.texto)} ({_e(e.modo)}) · <b>Bonete:</b> {_e(e.bonete)} · "
+                 f"<b>Emisión requerida:</b> {_e(e.emision_req)}</p>"
+                 + "".join(f"<p style='color:#55606d'>• {_e(n)}</p>" for n in e.notas))
     for n in m.notas:
         p.append(f"<p style='color:#55606d'>• {_e(n)}</p>")
     p.append("<h4>Alertas</h4>" + _alertas_html(m.todas_las_alertas()))
@@ -574,4 +679,30 @@ def html_componente(m: SM.ResultadoMateriales, k: str) -> str:
     p.append("<h4>Alertas del componente</h4>" + _alertas_html(rc.alertas))
     if rc.elegido:
         p.append(html_ficha(rc.elegido))
+    return "".join(p)
+
+
+def html_empaquetadura(e: EM.ResultadoEmpaquetadura) -> str:
+    p = ["<h2 style='color:#3d5a80'>Empaquetadura y bonete</h2>",
+         f"<p><b>Modo:</b> {_e(e.modo)} · <b>Recomendada:</b> "
+         f"{_e(e.recomendada.nombre) if e.recomendada else 'sin empaquetadura apta'} · <b>Elegida:</b> "
+         f"{_e(e.texto)}</p>"]
+    if e.modo == "MANUAL":
+        p.append(f"<p style='color:#c0392b'><b>{_e(AVISO_MANUAL)}</b></p>")
+    p.append(f"<p><b>Bonete:</b> {_e(e.bonete)}. {_e(e.bonete_motivo)} <a href='ayuda:tipo_bonete'>(ayuda)</a></p>")
+    p.append(f"<p><b>Emisión fugitiva requerida:</b> {_e(e.emision_req)}. {_e(e.emision_motivo)} "
+             "<a href='ayuda:emision_fugitiva'>(ayuda)</a></p>")
+    if e.justificacion:
+        p.append("<h4>Justificación</h4><ul>" + "".join(f"<li>{_e(x)}</li>" for x in e.justificacion) + "</ul>")
+    if e.notas:
+        p.append("<h4>Notas de instalación</h4><ul>" + "".join(f"<li>{_e(x)}</li>" for x in e.notas) + "</ul>")
+    if e.alternativas:
+        p.append("<h4>Alternativas aptas</h4><ul>" + "".join(f"<li>{_e(a.nombre)} — {_e(b)}</li>"
+                                                            for a, b in e.alternativas) + "</ul>")
+    if e.descartadas:
+        p.append("<h4>Descartadas y motivo</h4><ul>" + "".join(f"<li><b>{_e(a.nombre)}</b>: {_e(b)}</li>"
+                                                              for a, b in e.descartadas) + "</ul>")
+    p.append("<h4>Alertas</h4>" + _alertas_html(e.alertas))
+    p.append("<p style='color:#55606d;font-size:8pt'>Valores genéricos de catálogo. Verificar con la hoja técnica "
+             "de la empaquetadura ofertada y su certificado de emisión.</p>")
     return "".join(p)

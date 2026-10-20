@@ -748,6 +748,12 @@ def _filas_material_internos(res: Resultado) -> list[list[str]]:
     filas = _comp_mat(res, "obturador", "asiento", "jaula", "guia", "vastago")
     if m.agrio:
         filas.append(["Servicio agrio", f"Sí: materiales según {m.norma}"])
+    e = m.empaquetadura
+    if e is not None:
+        filas += [["Empaquetadura", e.texto + (" · selección MANUAL" if e.modo == "MANUAL" else "")],
+                  ["Emisión fugitiva", f"Requerida {e.emision_req}"
+                   + (f"; {e.elegida.emision}" if e.elegida else "")],
+                  ["Tipo de bonete", e.bonete]]
     return filas
 
 
@@ -779,6 +785,14 @@ def _seccion_materiales_informe(doc: Documento, res: Resultado, n: int):
         doc.h3("Alertas de materiales y su resolución")
         doc.lista([f"[{NOMBRE_SEV[a.severidad]}] {a.titulo}" + (f": {a.remedios[0]}" if a.remedios else "")
                    for a in alertas])
+    e = m.empaquetadura
+    if e is not None:
+        doc.h3("Empaquetadura y bonete")
+        doc.tabla([["Empaquetadura", f"{e.texto} ({e.modo})"], ["Tipo de bonete", e.bonete],
+                   ["Emisión requerida", f"{e.emision_req}: {e.emision_motivo}"],
+                   ["Motivo del bonete", e.bonete_motivo]], anchos=[25, 75])
+        if e.notas:
+            doc.lista(e.notas)
     if m.notas:
         doc.lista(m.notas)
     doc.nota("Preselección de ingeniería: no reemplaza la aprobación del fabricante ni del especialista en "
@@ -862,6 +876,19 @@ def _seccion_materiales_memoria(doc: Documento, res: Resultado, n: int):
         doc.h3(f"{n}.7 Galling")
         doc.tabla([[g.par, f"{g.a} / {g.b}", g.nivel, g.motivo, g.remedio] for g in m.galling],
                   ["Pareja", "Materiales", "Riesgo", "Motivo", "Remedio"], anchos=[15, 17, 9, 30, 29])
+    e = m.empaquetadura
+    if e is not None:
+        doc.h3(f"{n}.8 Empaquetadura y bonete")
+        doc.p("Bases: límites de temperatura (con reducción del grafito en medio oxidante), presión, compatibilidad "
+              "química A–D, vacío, vapor, sólidos y exigencia de emisión fugitiva (ISO 15848-1; API 622 / 624 "
+              "para vástago ascendente, API 641 para cuarto de vuelta). Entre las aptas se elige el menor índice "
+              "de costo × factor químico × factores de servicio.")
+        doc.p(f"Elegida ({e.modo}): {e.texto}. Bonete: {e.bonete}. {e.bonete_motivo}")
+        items = list(e.justificacion) + list(e.notas)
+        if e.alternativas:
+            items.append("Alternativas aptas: " + "; ".join(f"{a.nombre} ({b})" for a, b in e.alternativas[:4]))
+        items += [f"Descartada: {a.nombre}. {b}" for a, b in e.descartadas]
+        doc.lista(items)
     for t in m.notas:
         doc.nota(t)
 

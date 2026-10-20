@@ -143,7 +143,7 @@ def por_familia(familia: str) -> list[Agente]:
 METALES = ["cs", "crmo", "crmo9", "ss304", "ss316", "ss317", "superaus", "duplex", "sduplex", "a20", "in825",
            "monel", "ni600", "ni_c", "ni625", "ni_b", "ti", "mart", "mart440", "ph", "cocr", "enc", "wc", "wc_ni",
            "ceram", "bronce"]
-POLIMEROS = ["ptfe", "vidrio", "peek", "fkm", "epdm", "nbr"]
+POLIMEROS = ["ptfe", "vidrio", "peek", "fkm", "epdm", "nbr", "grafito"]   # grafito flexible: empaquetaduras
 
 
 def r(*filas) -> list[tuple[float, float, float, str]]:
@@ -455,6 +455,19 @@ REGLAS["hno3"]["ni625"] = r((0, 65, 80, "A"), (0, 65, 100, "B"))
 REGLAS["fecl3"]["ni625"] = r((10000, 40, "B"), (60000, 25, "C"))
 REGLAS["hf"]["ni625"] = r((0, 10, 40, "C"))
 
+# Grafito flexible (empaquetaduras y juntas): casi inerte salvo frente a oxidantes fuertes.
+for _t in REGLAS.values():
+    if "_alias" not in _t:
+        _t.setdefault("grafito", A_)
+REGLAS["hno3"]["grafito"] = r((0, 5, 90, "B"), (0, 20, 40, "C"))
+REGLAS["h2so4"]["grafito"] = r((0, 70, 120, "A"), (0, 90, 60, "B"), (0, 96, 30, "C"))
+REGLAS["hclo4"]["grafito"] = D_
+REGLAS["hipoclorito"]["grafito"] = r((200, 60, "B"), (5000, 40, "C"))
+REGLAS["h2o2"]["grafito"] = r((0, 10, 40, "B"), (0, 30, 25, "C"))
+REGLAS["cl2"]["grafito"] = r((INF, 100, "B"))
+REGLAS["nitratos"]["grafito"] = r((INF, 100, "B"))
+REGLAS["so3"]["grafito"] = r((0, 1, 60, "B"))
+
 # Reglas sin agua libre (gas seco o fase orgánica). Lo no listado: A.
 SECO: dict[str, dict[str, list]] = {
     "cl2": {**_todos(ACERO, r((INF, 120, "A"), (INF, 200, "B"))), **_todos(AUST, r((INF, 150, "A"), (INF, 300, "B"))),
@@ -475,6 +488,7 @@ SECO: dict[str, dict[str, list]] = {
     "aminas": {"bronce": D_, "fkm": D_},
     "h2": {"ti": r((10, 80, "B"), (INF, 2000, "D"))},
 }
+SECO["o2"]["grafito"] = r((INF, 200, "A"), (INF, 370, "B"))   # grafito oxidable en O₂ caliente
 
 # Tabla cualitativa A–D (resistencia química a temperatura ambiente; extracto de las
 # filas que corresponden a los agentes del programa). Fuente: tabla de resistencia

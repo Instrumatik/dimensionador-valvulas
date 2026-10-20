@@ -60,5 +60,7 @@ def test_balanceado_avisos():
 
 def test_nombres_anteriores_de_la_jaula():
     for viejo, clave in NOMBRES_ANTERIORES.items():
-        assert clave in ESTILOS and ESTILOS[clave].nombre != viejo
+        from dimensionador.estilos import CUERPOS
+        nuevo = ESTILOS.get(clave) or CUERPOS.get(clave)
+        assert nuevo is not None and nuevo.nombre != viejo
     assert "de adentro hacia afuera" in ESTILOS["globo_jaula_4v_fuera"].nombre

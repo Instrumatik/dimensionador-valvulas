@@ -535,8 +535,16 @@ def _verificar_cierre(inst, cuerpo, T_d) -> list[Alerta]:
                              referencia=REF_CIERRE))
     elif inst.cuerpo == "globo_liner":
         blando = True
-    elif inst.cuerpo == "bola":
+    elif inst.cuerpo.startswith("bola") or inst.cuerpo == "tapon_excentrico":
         blando = n >= 5
+        if inst.cuerpo in ("bola_paso_completo", "bola_paso_reducido") and inst.rating > 600:
+            al.append(Alerta("bola_flotante_presion", Severidad.ADVERTENCIA, "Bola flotante en clase alta",
+                             f"En una bola flotante la presión empuja la bola contra el asiento de aguas abajo; con "
+                             f"CL{inst.rating} el par de maniobra, el desgaste del asiento y el riesgo de fuga son "
+                             "altos.", remedios=["Usar bola trunnion (montada en muñón) para CL900 y superiores.",
+                                                 "Si se mantiene flotante, pedir al fabricante el par y la carga "
+                                                 "admisible del asiento a la ΔP de cierre."],
+                             referencia="API 6D / ISO 17292"))
     elif inst.cuerpo == "mariposa":
         blando = n >= 4
         if n < 4:

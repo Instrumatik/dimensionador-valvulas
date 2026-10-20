@@ -9,7 +9,9 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
 
 ## Flujo de trabajo
 
-1. **1-Sistema**: identificación del proyecto, estilo de válvula, rating, diámetros y
+1. **1-Sistema**: identificación del proyecto, estilo de válvula (globo, ángulo, mariposa, bola de paso
+   completo o reducido, bola trunnion / Bola-T, bola segmentada con corte en V de 90°, 60° o 30° y tapón
+   excéntrico, cada uno con sus factores FL, xT, Fd y Kc), rating, diámetros y
    cédulas de tubería de entrada y salida, ruido permitido, conexión a proceso, presión y
    temperatura de diseño y clase de cierre.
 2. **2-Cálculos Válvula**: fluido, caudal volumétrico o másico, P1, P2, T1, gravedad específica,
@@ -22,6 +24,8 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    concentración, sólidos, pH y norma de servicio agrio. El programa recomienda el material de cuerpo, bonete, asiento, jaula, guía,
    obturador y vástago (modo AUTOMÁTICO) o verifica el elegido por el usuario (MANUAL, no
    recomendado), con galling, dureza por cavitación, ISO 15156 / ISO 17945 y límites P-T de ASME B16.34.
+   También elige la empaquetadura del vástago (PTFE, grafito, carga viva o fuelle) y el tipo de bonete
+   según temperatura, presión, química, vacío y emisión fugitiva (ISO 15848-1, API 622 / 624 / 641).
 4. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
    alertas, su intensidad y las soluciones posibles.
 5. **Memoria de cálculo**, **Hoja de datos** e **Informe técnico**: vistas previas que se

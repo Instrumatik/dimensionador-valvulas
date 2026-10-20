@@ -228,6 +228,37 @@ def test_solapa_materiales(app):
     assert w2._servicio_materiales().agentes[0].clave == ag.currentData()
 
 
+def test_empaquetadura_y_bola_trunnion(app):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("bola_trunnion"))
+    assert w.cb_trim.findData("bola_paso_completo_90") >= 0
+    w.cb_trim.setCurrentIndex(w.cb_trim.findData("bola_paso_completo_90"))
+    w.calcular()
+    e = w.res.materiales.empaquetadura
+    assert e is not None and "prensaestopas" in e.bonete
+    assert "Recomendada" in w.mat_emp[4].text() and e.bonete in w.mat_lbl_bonete.text()
+    modo, sel = w.mat_emp[1], w.mat_emp[2]
+    modo.setCurrentText("MANUAL")
+    sel.setCurrentIndex(sel.findData("grafito"))
+    w.calcular()
+    assert w.res.materiales.empaquetadura.elegida.clave == "grafito"
+    assert "Empaquetadura" in w.vistas["hoja_datos"].toPlainText()
+    w2 = VentanaPrincipal()
+    w2._cargar(w._estado())
+    assert w2.cb_cuerpo.currentData() == "bola_trunnion"
+    assert w2.cb_trim.currentData() == "bola_paso_completo_90"
+    assert w2.mat_emp[1].currentText() == "MANUAL" and w2.mat_emp[2].currentData() == "grafito"
+    # proyecto anterior a 0.8.0 con estilo «Bola»
+    est = w._estado()
+    est["campos"]["cuerpo"] = "Bola"
+    est["campos"]["trim"] = "Bola segmentada (V-notch)"
+    w3 = VentanaPrincipal()
+    w3._cargar(est)
+    assert w3.cb_cuerpo.currentData() == "bola_trunnion" and w3.cb_trim.currentData() == "bola_segmentada"
+
+
 def test_gas_seco_y_proyecto_070(app):
     from dimensionador.gui.ventana import VentanaPrincipal
     w = VentanaPrincipal()

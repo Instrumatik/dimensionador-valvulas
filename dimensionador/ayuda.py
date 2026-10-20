@@ -669,16 +669,30 @@ _e("estilo_cuerpo", "Estilo de válvula",
    "<li><b>Globo</b>: el más versátil; alto FL, admite internos anticavitación y multietapa.</li>"
    "<li><b>Globo con liner</b>: cuerpo revestido (PFA/PTFE) para fluidos corrosivos; limitado en "
    "temperatura.</li><li><b>Ángulo</b>: descarga a 90°; preferido para flashing y fluidos "
-   "erosivos.</li><li><b>Bola</b>: alta capacidad, bajo FL, apta para fluidos con sólidos y "
-   "viscosos.</li><li><b>Mariposa</b> concéntrica, de <b>doble</b> y de <b>triple "
+   "erosivos.</li>"
+   "<li><b>Bola de paso completo (flotante)</b>: el orificio de la bola igual a la conexión; máxima "
+   "capacidad y mínima pérdida. La bola flota entre los asientos y la presión la empuja contra el de "
+   "aguas abajo: habitual hasta 8\" y CL600.</li>"
+   "<li><b>Bola de paso reducido (flotante)</b>: orificio una o dos medidas menor; menos capacidad pero algo "
+   "más de FL y xT (cavita y se ahoga un poco más tarde) y menor par.</li>"
+   "<li><b>Bola trunnion (montada en muñón)</b>: la bola gira sobre muñones con cojinetes y son los asientos "
+   "los que se apoyan con resortes; par bajo y estable aun a alta presión. Para 2\" a 48\" y CL150 a "
+   "CL2500. Admite bola de paso completo, reducido o segmentada.</li>"
+   "<li><b>Bola segmentada (corte en V)</b>: un segmento de bola con borde en V de 90°, 60° o 30°; "
+   "característica isoporcentual, rangeabilidad alta (100 a 200:1) y efecto de corte para pulpas, fibras "
+   "y sólidos. Cierre clase IV metálico o VI blando.</li>"
+   "<li><b>Tapón excéntrico rotativo</b>: tapón esférico montado en un brazo excéntrico que se separa del "
+   "asiento al abrir (menos roce y desgaste); FL mayor que la bola (0,85 con flujo que tiende a abrir), "
+   "rangeabilidad 100:1, bueno con fluidos sucios, viscosos o erosivos y para ΔP medias.</li>"
+   "<li><b>Mariposa</b> concéntrica, de <b>doble</b> y de <b>triple "
    "excentricidad</b>: gran capacidad y bajo costo en diámetros grandes; FL bajo, cavitan antes.</li></ul>",
    relacionadas=["trim", "FL", "clase_cierre"])
 _e("rating", "Rating (clase de presión)",
    "<p>Clase de presión-temperatura del cuerpo según ASME B16.34: CL150, 300, 600, 900, 1500 o "
    "2500. La presión admisible baja al subir la temperatura y depende del material.</p>"
-   "<p>En esta versión el material todavía no se elige: el programa verifica el rating en forma "
-   "<b>referencial</b> con acero al carbono (grupo 1.1, p. ej. WCB) e indica la presión admisible "
-   "a la temperatura de diseño.</p>",
+   "<p>El programa verifica el rating con el grupo de ASME B16.34 del material del cuerpo elegido en "
+   "3-Materiales; si no hay material definido usa como referencia acero al carbono (grupo 1.1, WCB). Una "
+   "bola flotante en CL900 o superior genera un aviso: a esas presiones corresponde bola trunnion.</p>",
    referencia="ASME B16.34, Tabla 2-1.1", relacionadas=["P_diseno"])
 _e("nps", "Diámetro nominal de tubería (NPS)",
    "<p>Tamaño nominal de la tubería de entrada o de salida en pulgadas (NPS). Junto con la cédula "
@@ -730,7 +744,7 @@ _e("trim", "Tipo de trim hidrodinámico",
    "reemplazar por los certificados del fabricante.</p><ul><li><b>Contorneado</b>: obturador "
    "perfilado, estándar.</li><li><b>Jaula caracterizada de 4 ventanas</b>: guiado estable.</li>"
    "<li><b>Jaula de orificios</b> (60 o 120): anticavitación de etapa simple; bajo Fd retrasa la "
-   "cavitación.</li><li><b>Multietapa</b>: divide la caída de presión, para cavitación severa.</li></ul>"
+   "cavitación.</li><li><b>Multietapa</b>: divide la caída de presión, para cavitación severa.</li><li><b>Bola</b>: paso completo o reducido a 70° (rango de control recomendado) o 90° (máxima capacidad, FL y xT muy bajos); segmentada con V de 90°, 60° o 30° (menos capacidad y más rangeabilidad cuanto más cerrada la V). Solo la bola de paso total a 70° y la segmentada de 90° tienen factores en IEC 60534-2-1; el resto son estimaciones a confirmar con el fabricante.</li><li><b>Tapón excéntrico</b>: flujo que tiende a abrir (FL 0,85) o a cerrar (FL 0,68).</li></ul>"
    "<p><b>Sentido de flujo</b> (lo que más confunde):</p><ul>"
    "<li><b>Flujo tiende a abrir</b> (flujo bajo el obturador, «flow up»): el fluido entra por debajo del "
    "asiento y empuja el obturador hacia arriba, en el sentido de apertura. Es la dirección habitual.</li>"

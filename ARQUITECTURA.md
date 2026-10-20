@@ -33,6 +33,8 @@ dimensionador/
   quimica.py        Agentes químicos, normalización de unidades y compatibilidad A–D por material
   seleccion_materiales.py  Selección por componente: química, P-T, cavitación/dureza, galling,
                     servicio agrio (ISO 15156 / ISO 17945), modo manual y alertas
+  empaquetaduras.py Empaquetadura del vástago y tipo de bonete: temperatura, presión, química,
+                    vacío y emisión fugitiva (ISO 15848-1, API 622 / 624 / 641)
   tuberias.py       Diámetro exterior y espesor por NPS y cédula (ASME B36.10M / B36.19M)
   proyecto.py       Versión 2 (líquidos): datos de instalación y de dimensionamiento, Kapp/Kc,
                     verificaciones de rating, conexión, cierre y velocidad, recomendaciones

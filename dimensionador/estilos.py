@@ -18,6 +18,8 @@ from dataclasses import dataclass
 NOMBRES_ANTERIORES = {
     "Globo, jaula caracterizada 4 ventanas, flujo hacia afuera": "globo_jaula_4v_fuera",
     "Globo, jaula caracterizada 4 ventanas, flujo hacia adentro": "globo_jaula_4v_dentro",
+    "Bola segmentada (V-notch)": "bola_segmentada",
+    "Bola": "bola_trunnion",
 }
 
 
@@ -80,10 +82,31 @@ ESTILOS: dict[str, EstiloValvula] = {e.clave: e for e in [
                   "rotativa", 0.62, 0.35, 0.57, 30.0, "isoporcentual", 20),
     EstiloValvula("mariposa_alto_rendimiento_90", "Mariposa de alto rendimiento (doble excéntrica), 90°",
                   "rotativa", 0.67, 0.35, 0.57, 35.0, "isoporcentual", 30),
-    EstiloValvula("bola_segmentada", "Bola segmentada (V-notch)", "rotativa", 0.60, 0.30, 0.98, 25.0,
-                  "isoporcentual", 100),
+    EstiloValvula("bola_segmentada", "Bola segmentada, corte en V de 90° (V-notch)", "rotativa", 0.60, 0.30,
+                  0.98, 25.0, "isoporcentual", 100,
+                  "Factores de IEC 60534-2-1, Tabla 2 (bola segmentada). El borde en V corta fibras y sólidos."),
     EstiloValvula("bola_paso_total_70", "Bola de paso total, apertura 70°", "rotativa", 0.74, 0.42, 0.99, 30.0,
                   "isoporcentual", 50),
+    # --- bola (v0.8.0). Las de 90° y paso reducido y las V de 60°/30° no figuran en la Tabla 2 de
+    # IEC 60534-2-1: se estiman a partir de las de bola de paso total 70° y segmentada.
+    EstiloValvula("bola_paso_completo_90", "Bola de paso completo, apertura 90°", "rotativa", 0.55, 0.20, 0.99,
+                  45.0, "isoporcentual", 30,
+                  "A 90° la bola casi no restringe: FL y xT muy bajos (mucha recuperación de presión) y mayor "
+                  "tendencia a cavitar. Valores estimados (IEC solo publica la bola a 70°); para control se "
+                  "prefiere limitar la carrera a 70°."),
+    EstiloValvula("bola_paso_reducido_70", "Bola de paso reducido, apertura 70°", "rotativa", 0.80, 0.50, 0.99,
+                  14.0, "isoporcentual", 50,
+                  "El orificio de la bola es una o dos medidas menor que la conexión: menos capacidad, algo "
+                  "más de FL y xT que el paso completo. Valores estimados."),
+    EstiloValvula("bola_paso_reducido_90", "Bola de paso reducido, apertura 90°", "rotativa", 0.68, 0.33, 0.99,
+                  20.0, "isoporcentual", 30, "Valores estimados a partir de la bola de paso completo."),
+    EstiloValvula("bola_segmentada_v60", "Bola segmentada, corte en V de 60°", "rotativa", 0.65, 0.36, 0.98, 17.0,
+                  "isoporcentual", 150,
+                  "V más cerrada: menos capacidad, más rangeabilidad y mejor control a bajo caudal. Valores "
+                  "estimados a partir de la bola segmentada de IEC."),
+    EstiloValvula("bola_segmentada_v30", "Bola segmentada, corte en V de 30°", "rotativa", 0.72, 0.45, 0.98, 9.0,
+                  "isoporcentual", 200,
+                  "V estrecha para caudales bajos y fluidos fibrosos o con sólidos. Valores estimados."),
     EstiloValvula("globo_liner_contorneado", "Globo con liner, obturador contorneado, flujo tiende a abrir",
                   "globo", 0.90, 0.72, 0.46, 10.0, "isoporcentual", 30,
                   "Cuerpo revestido (PFA/PTFE): IEC no publica factores propios; se adoptan los del "
@@ -124,8 +147,20 @@ CUERPOS: dict[str, Cuerpo] = {c.clave: c for c in [
     Cuerpo("angulo", "Ángulo", ("angular_contorneado_abre", "angular_contorneado_cierra",
                                 "angular_jaula_abre", "angular_venturi"),
            0.5, 16, False, "Guiado superior / por jaula", -4.6),
-    Cuerpo("bola", "Bola", ("bola_segmentada", "bola_paso_total_70"), 1, 36, True,
-           "Eje guiado por cojinetes", -4.3),
+    Cuerpo("bola_paso_completo", "Bola de paso completo (flotante)", ("bola_paso_total_70", "bola_paso_completo_90"),
+           0.5, 8, True, "Bola flotante apoyada en los asientos; eje guiado por buje", -4.3),
+    Cuerpo("bola_paso_reducido", "Bola de paso reducido (flotante)", ("bola_paso_reducido_70", "bola_paso_reducido_90"),
+           0.5, 8, True, "Bola flotante apoyada en los asientos; eje guiado por buje", -4.3),
+    Cuerpo("bola_trunnion", "Bola trunnion / Bola-T (montada en muñones)", ("bola_paso_total_70", "bola_paso_completo_90",
+                                                                 "bola_paso_reducido_70", "bola_paso_reducido_90",
+                                                                 "bola_segmentada"),
+           2, 48, True, "Bola fija en muñones superior e inferior con cojinetes; asientos con resorte", -4.3),
+    Cuerpo("bola_segmentada", "Bola segmentada (corte en V)", ("bola_segmentada", "bola_segmentada_v60",
+                                                               "bola_segmentada_v30"),
+           1, 24, True, "Segmento guiado por eje pasante con cojinetes", -4.3),
+    Cuerpo("tapon_excentrico", "Tapón excéntrico rotativo", ("rotativa_obturador_excentrico_abre",
+                                                             "rotativa_obturador_excentrico_cierra"),
+           1, 12, True, "Tapón esférico en brazo flexible excéntrico; eje con cojinetes", -4.3),
     Cuerpo("mariposa", "Mariposa", ("mariposa_concentrica_60", "mariposa_concentrica_70"), 2, 60, True,
            "Eje guiado por cojinetes", -4.3),
     Cuerpo("mariposa_doble", "Mariposa doble excentricidad", ("mariposa_alto_rendimiento_90",), 2, 48,
@@ -203,7 +238,9 @@ KC_TIPICO = {
     "globo_liner_contorneado": 0.60,
     "angular_contorneado_abre": 0.65, "angular_contorneado_cierra": 0.55, "angular_jaula_abre": 0.65,
     "angular_venturi": 0.20,
-    "bola_segmentada": 0.25, "bola_paso_total_70": 0.30,
+    "bola_segmentada": 0.25, "bola_paso_total_70": 0.30, "bola_paso_completo_90": 0.20,
+    "bola_paso_reducido_70": 0.40, "bola_paso_reducido_90": 0.30, "bola_segmentada_v60": 0.30,
+    "bola_segmentada_v30": 0.35,
     "mariposa_concentrica_60": 0.35, "mariposa_concentrica_70": 0.30,
     "mariposa_alto_rendimiento_90": 0.35, "mariposa_triple_90": 0.35,
     "rotativa_obturador_excentrico_abre": 0.50, "rotativa_obturador_excentrico_cierra": 0.35,
