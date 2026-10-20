@@ -274,7 +274,8 @@ def memoria(res: Resultado, pr: Presentacion) -> Documento:
     doc.nota("Curva de Cv en función de la apertura de la válvula seleccionada (característica inherente) con "
              "los puntos de operación de cada caso.")
     _seccion_materiales_memoria(doc, res, 5)
-    doc.h2("6. Conclusión")
+    _seccion_equipo_memoria(doc, res, pr, 6)
+    doc.h2("7. Conclusión")
     doc.p(f"Válvula seleccionada: {_valvula_resumen(res)}")
     criticas = [a for _, a in res.alertas if a.severidad >= Severidad.ADVERTENCIA]
     if criticas:
@@ -338,9 +339,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         ["Fuga admisible", FUGA_CIERRE[i.cierre]],
         *_filas_material_internos(res),
     ], anchos=[35, 65])
-    doc.h2("Actuador y accesorios")
-    doc.tabla([["Actuador", "A definir (próxima versión: fuerza / par)"],
-               ["Posicionador y accesorios", "A definir"]], anchos=[35, 65])
+    _seccion_equipo_hoja(doc, res, pr)
     doc.h2("Notas")
     notas = [f"[{NOMBRE_SEV[a.severidad]}] {caso}: {a.titulo}" for caso, a in res.alertas
              if a.severidad >= Severidad.ADVERTENCIA]
@@ -403,7 +402,8 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
     doc.h2("7. Características recomendadas de la válvula")
     doc.tabla([[t, x] for t, x in res.recomendaciones], ["Aspecto", "Recomendación"], anchos=[25, 75])
     _seccion_materiales_informe(doc, res, 8)
-    doc.h2("9. Recomendaciones finales")
+    _seccion_equipo_informe(doc, res, pr, 9)
+    doc.h2("10. Recomendaciones finales")
     factores = "Cv, xT, FL y Fd" if res.dim.compresible else "Cv, FL, Fd y Kc"
     finales = [f"Solicitar al fabricante los valores certificados de {factores} del trim ofertado y "
                "repetir la verificación con esos datos."]
@@ -418,14 +418,19 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
     else:
         finales.append("Verificar el rating con el material definitivo del cuerpo (la verificación actual es "
                        "referencial con acero al carbono, grupo 1.1).")
+    if getattr(res, "equipo", None) is not None:
+        finales.append("Confirmar con el fabricante del actuador el modelo, el resorte y el ajuste de banco: el "
+                       "programa dimensiona con series genéricas y factores típicos de la industria.")
     doc.lista(finales)
-    doc.h2("10. Alcance y referencias")
+    doc.h2("11. Alcance y referencias")
     doc.lista(["IEC 60534-2-1:2011 / ANSI/ISA-75.01.01: ecuaciones de dimensionamiento.",
                *_referencias_fluido(res),
                "ANSI/FCI 70-2 / IEC 60534-4: clases de cierre.",
                "ASME B16.34: clases de presión-temperatura. ASME B36.10M / B36.19M: tuberías.",
                "NACE MR0175 / ISO 15156 y NACE MR0103 / ISO 17945: materiales para servicio agrio.",
                "ISA-RP75.23: regímenes de cavitación. ASTM G98: resistencia al galling.",
+               "Actuador: método de fuerzas A + B + C + D (vástago deslizante) y método de pares TB = A·ΔP + B, "
+               "TD = C·ΔPef (rotativas), práctica de la industria de válvulas de control.",
                f"Calculado con {PRODUCTO} {__version__} de {EMPRESA}. Software independiente de fabricantes."])
     return doc
 
@@ -640,7 +645,8 @@ def memoria_compresible(res: Resultado, pr: Presentacion) -> Documento:
     doc.nota("Curva de Cv en función de la apertura de la válvula seleccionada (característica inherente) con "
              "los puntos de operación de cada caso.")
     _seccion_materiales_memoria(doc, res, 5)
-    doc.h2("6. Conclusión")
+    _seccion_equipo_memoria(doc, res, pr, 6)
+    doc.h2("7. Conclusión")
     doc.p(f"Válvula seleccionada: {_valvula_resumen(res)}")
     criticas = [a for _, a in res.alertas if a.severidad >= Severidad.ADVERTENCIA]
     if criticas:
@@ -700,9 +706,7 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
         ["Fuga admisible", FUGA_CIERRE[i.cierre]],
         *_filas_material_internos(res),
     ], anchos=[35, 65])
-    doc.h2("Actuador y accesorios")
-    doc.tabla([["Actuador", "A definir (próxima versión: fuerza / par)"],
-               ["Posicionador y accesorios", "A definir"]], anchos=[35, 65])
+    _seccion_equipo_hoja(doc, res, pr)
     doc.h2("Notas")
     notas = [f"[{NOMBRE_SEV[a.severidad]}] {caso}: {a.titulo}" for caso, a in res.alertas
              if a.severidad >= Severidad.ADVERTENCIA]
@@ -1177,3 +1181,101 @@ def a_docx(docs: list[Documento], ruta: str, png_grafico: bytes | None = None):
     w.core_properties.title = " / ".join(d.titulo for d in docs)
     w.core_properties.author = ident.preparado or EMPRESA
     w.save(ruta)
+
+
+# ---------------------------------------------------------------------------
+# Actuador, posicionador y accesorios (solapas 4, 5 y 6)
+# ---------------------------------------------------------------------------
+_SIN_EQUIPO = "A definir: complete las solapas 4-Actuador, 5-Posicionador y 6-Accesorios y recalcule"
+
+
+def _aire_texto(pr: Presentacion, act) -> str:
+    if act.P_aire_min is None:
+        return "No informado"
+    u = "bar g" if pr.un("presion") in ("bar a", "bar g", "kPa a", "kPa g", "MPa a", "MPa g") else "psig"
+    a = U.desde_base(act.P_aire_min + 101.325, "presion", u)
+    t = f"{fmt(a, 3)}"
+    if act.P_aire_max is not None:
+        t += f" a {fmt(U.desde_base(act.P_aire_max + 101.325, 'presion', u), 3)}"
+    return f"{t} {u} (mínimo a máximo)"
+
+
+def _filas_actuador(res: Resultado, pr: Presentacion) -> list[list[str]]:
+    eq = res.equipo
+    act, ra = eq.datos.actuador, eq.actuador
+    filas = [["Tipo de actuador", act.tipo], ["Modo de falla", act.falla],
+             ["Volante (mando manual)", "Sí" if act.volante else "No"],
+             ["Aire de instrumentos disponible", _aire_texto(pr, act)]]
+    if not ra.rotativa:
+        filas.append(["Flujo (sentido)", act.flujo])
+    filas.append(["Selección", ra.seleccion or "—"])
+    filas += [[f, v] for f, v, _ in ra.filas if f not in ("Tamaño (serie genérica)",)]
+    return filas
+
+
+def _seccion_equipo_hoja(doc: Documento, res: Resultado, pr: Presentacion):
+    eq = getattr(res, "equipo", None)
+    doc.h2("Actuador")
+    if eq is None:
+        doc.tabla([["Actuador", _SIN_EQUIPO], ["Posicionador y accesorios", _SIN_EQUIPO]], anchos=[35, 65])
+        return
+    ra = eq.actuador
+    filas = _filas_actuador(res, pr)
+    if ra.requerido:
+        from . import actuadores as A
+        filas.insert(5, ["Par requerido (con margen 1,25)" if ra.rotativa else "Fuerza requerida (con margen 1,10)",
+                         A._Nm(ra.requerido) if ra.rotativa else A._N(ra.requerido)])
+    doc.tabla(filas, anchos=[35, 65])
+    doc.h2("Posicionador")
+    doc.tabla([[f, v] for f, v, _ in eq.posicionador.filas], anchos=[35, 65])
+    doc.h2("Accesorios")
+    doc.tabla([[f, v] for f, v, _ in eq.accesorios.filas] or [["Accesorios", "No requeridos"]], anchos=[35, 65])
+
+
+def _seccion_equipo_memoria(doc: Documento, res: Resultado, pr: Presentacion, n: int):
+    eq = getattr(res, "equipo", None)
+    doc.h2(f"{n}. Actuador, posicionador y accesorios")
+    if eq is None:
+        doc.p(_SIN_EQUIPO + ".")
+        return
+    ra = eq.actuador
+    if ra.rotativa:
+        doc.p("Método de pares para válvulas rotativas: par de arranque TB = A·ΔP_cierre + B y par dinámico "
+              "TD = C(θ)·ΔPef, con ΔPef = mín(ΔP, ΔP bloqueada) de cada caso y C interpolado en el ángulo de "
+              "apertura. Se dimensiona con el mayor de ambos por un margen de 1,25.")
+    else:
+        doc.p("Método de fuerzas para válvulas de vástago deslizante: F = A + B + C + D, donde A es el "
+              "desbalance estático del fluido sobre el obturador y el vástago, B la carga de asiento de la clase de "
+              "cierre, C la fricción de la empaquetadura y D las fuerzas adicionales. Presiones manométricas a "
+              "cierre en psi, áreas en in² y fuerzas en lbf (con su equivalente en N).")
+    doc.tabla([[a, b, c] for a, b, c in ra.fuerzas], ["Componente", "Valor", "Fórmula / base"], anchos=[30, 25, 45])
+    if ra.pasos:
+        doc.tabla([[a, b, c] for a, b, c in ra.pasos], ["Paso", "Ecuación", "Resultado"], anchos=[28, 47, 25])
+    doc.tabla(_filas_actuador(res, pr), ["Dato / resultado", "Valor"], anchos=[35, 65])
+    doc.h3("Posicionador")
+    doc.tabla([[f, v] for f, v, _ in eq.posicionador.filas], anchos=[35, 65])
+    if eq.posicionador.bloqueadas:
+        doc.lista([f"{s}: {m}." for s, m in eq.posicionador.bloqueadas.items()])
+    if eq.accesorios.filas:
+        doc.h3("Accesorios")
+        doc.tabla([[f, v] for f, v, _ in eq.accesorios.filas], anchos=[35, 65])
+    doc.nota("Tamaños de actuador de series genéricas (no corresponden a ningún fabricante). El fabricante confirma el "
+             "modelo, el resorte y el ajuste de banco.")
+
+
+def _seccion_equipo_informe(doc: Documento, res: Resultado, pr: Presentacion, n: int):
+    eq = getattr(res, "equipo", None)
+    doc.h2(f"{n}. Actuador, posicionador y accesorios")
+    if eq is None:
+        doc.p(_SIN_EQUIPO + ".")
+        return
+    ra = eq.actuador
+    doc.p(("Actuador apto: " if ra.ok else "El actuador NO cumple: ") + (ra.seleccion or "—") + ".")
+    doc.tabla([[a, b] for a, b, _ in ra.fuerzas], ["Componente", "Valor"], anchos=[45, 55])
+    doc.tabla(_filas_actuador(res, pr), anchos=[35, 65])
+    doc.h3("Posicionador")
+    doc.tabla([[f, v] for f, v, _ in eq.posicionador.filas], anchos=[35, 65])
+    doc.p(f"Acción sugerida: {eq.posicionador.accion_sugerida}. Set de aire sugerido: {eq.posicionador.set_sugerido}.")
+    if eq.accesorios.filas:
+        doc.h3("Accesorios")
+        doc.tabla([[f, v] for f, v, _ in eq.accesorios.filas], anchos=[35, 65])

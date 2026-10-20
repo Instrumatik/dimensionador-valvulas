@@ -32,9 +32,17 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    presión o vacío, trenzada, con carga viva, grafito simple, grafito de alta hermeticidad con resortes de
    17-7PH o Inconel 718, o fuelle; con carga viva, guía de temperatura y tipo) y el tipo de bonete
    según temperatura, presión, química, vacío y emisión fugitiva (ISO 15848-1, API 622 / 624 / 641).
-4. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
+4. **4-Actuador**, **5-Posicionador** y **6-Accesorios** (v0.9.0): con el tipo de actuador, el modo de
+   falla, el volante, el aire de instrumentos disponible (mínimo y máximo) y el sentido del flujo, el
+   programa calcula la fuerza (vástago deslizante: desbalance + carga de asiento por clase de cierre +
+   fricción de la empaquetadura elegida) o el par (rotativas: arranque y dinámico), elige el tamaño de
+   actuador genérico, el banco de resorte, la constante del resorte y la presión de aire necesaria, y
+   verifica el vástago, el aire y el volante. En el posicionador bloquea las señales de entrada que no
+   alcanzan la presión necesaria; en accesorios revisa la coherencia de la solenoide con el modo de falla.
+   Las celdas de texto que quedan vacías no aparecen en los entregables.
+5. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
    alertas, su intensidad y las soluciones posibles.
-5. **Memoria de cálculo**, **Hoja de datos** e **Informe técnico**: vistas previas que se
+6. **Memoria de cálculo**, **Hoja de datos** e **Informe técnico**: vistas previas que se
    exportan a Word editable o se imprimen desde *Inicio → Entregables*, por separado o todos
    juntos.
 

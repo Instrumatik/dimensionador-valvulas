@@ -146,6 +146,7 @@ class Resultado:
     T_diseno: float = 0.0
     curva: list[tuple[float, float]] = field(default_factory=list)
     materiales: object | None = None        # seleccion_materiales.ResultadoMateriales
+    equipo: object | None = None            # actuadores.ResultadoEquipo (solapas 4, 5 y 6)
 
     @property
     def cuerpo(self):
@@ -217,10 +218,11 @@ def _validar_factores(c, errores, gas: bool):
                               "entre 0,05 y 1,0."))
 
 
-def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, mat=None) -> Resultado:
-    """``mat`` (seleccion_materiales.ServicioMateriales) activa la selección de materiales."""
+def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, mat=None, equipo=None) -> Resultado:
+    """``mat`` (seleccion_materiales.ServicioMateriales) activa la selección de materiales; ``equipo``
+    (actuadores.Equipo) el dimensionamiento del actuador, del posicionador y de los accesorios."""
     if dim.compresible:
-        return _calcular_compresible(ident, inst, dim, mat)
+        return _equipo(_calcular_compresible(ident, inst, dim, mat), equipo)
     errores: list[Alerta] = []
     try:
         D1 = tuberias.diametro_interior(inst.nps_entrada, inst.sch_entrada)
@@ -315,6 +317,17 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, ma
                     rating_adm, P_d, T_d, curva, mres)
     res.recomendaciones = recomendaciones(res)
     _carreras(res)
+    return _equipo(res, equipo)
+
+
+def _equipo(res: Resultado, equipo) -> Resultado:
+    """Actuador, posicionador y accesorios con los resultados de las solapas 1 a 3."""
+    if equipo is None:
+        return res
+    from . import actuadores
+    res.equipo = actuadores.evaluar(res, equipo)
+    res.alertas += res.equipo.todas_las_alertas()
+    res.alertas.sort(key=lambda t: -t[1].severidad)
     return res
 
 

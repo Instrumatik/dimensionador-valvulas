@@ -17,6 +17,7 @@ from .. import __version__, ayuda, compresible as CG, entregables as E, fluido_s
 from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, NOMBRES_ANTERIORES, TAMANOS
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
+from .solapa_actuador import SolapaEquipo
 from .solapa_materiales import SolapaMateriales
 from ..proyecto import (CIERRES, CONEXIONES, RATINGS, CasoCierre, CasoGas, CasoLiquido, Dimensionamiento,
                         Identificacion, Instalacion, Resultado, RuidoAerodinamico, calcular)
@@ -556,7 +557,7 @@ def _migrar_fluido(s: dict) -> dict:
     return {**s, "campos": orden}
 
 
-class VentanaPrincipal(SolapaMateriales, QMainWindow):
+class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
     def __init__(self, licencia=None):
         super().__init__()
         self.licencia = licencia
@@ -581,6 +582,9 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
         self.tabs.addTab(self._con_panel(self._tab_instalacion(), 0), "1-Sistema")
         self.tabs.addTab(self._con_panel(self._tab_dimensionamiento(), 1), "2-Cálculos Válvula")
         self.tabs.addTab(self._con_panel(self._tab_materiales(), 2), "3-Materiales")
+        self.tabs.addTab(self._con_panel(self._tab_actuador(), 3), "4-Actuador")
+        self.tabs.addTab(self._con_panel(self._tab_posicionador(), 4), "5-Posicionador")
+        self.tabs.addTab(self._con_panel(self._tab_accesorios(), 5), "6-Accesorios")
         self.vistas: dict[str, Vista] = {}
         for codigo, titulo in (("memoria", "Memoria de cálculo"), ("hoja_datos", "Hoja de datos"),
                                ("informe_tecnico", "Informe técnico")):
@@ -591,6 +595,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
         self._cambio_cuerpo()
         self._cambio_fluido()
         self.aplicar_sistema("SI")
+        self._eq_aire_inicial()
         self._cambio_tipo_fluido()
         self._actualizar_vistas()
         self.statusBar().showMessage("Cargue los datos de instalación y de dimensionamiento y presione "
@@ -1229,6 +1234,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
             self.filas["Kc"].edits[j].setText(f"{kc:g}".replace(".", ",") if kc else "")
         self.cb_caract.setCurrentIndex(self.cb_caract.findData(e.caracteristica))
         self.cb_trim.setToolTip(e.nombre + (f"\n\n{e.nota}" if e.nota else ""))
+        self._act_flujo_desde_trim(k)
         self._mat_nombres_componentes()
 
     def _cambio_tipo_fluido(self):
@@ -1426,6 +1432,8 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
         self.f_area.elegir(pref["area"])
         self.f_puerto.elegir(pref["longitud"])
         self.f_carrera.elegir(pref["longitud"])
+        self.f_aire.elegir(man)
+        self.f_vastago.elegir(pref["longitud"])
         self._copiar_tuberias()
         if self.res is not None:
             self.calcular(silencioso=True)
@@ -1510,8 +1518,8 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
                 F["rho2"].poner_base(j, e.rho2)
 
     def _leer(self):
-        """Datos de las tres solapas: identificación, instalación, dimensionamiento y materiales."""
-        return (*self._leer_calculo(), self._servicio_materiales())
+        """Datos de las seis solapas: identificación, instalación, dimensionamiento, materiales y equipo."""
+        return (*self._leer_calculo(), self._servicio_materiales(), self._equipo_datos())
 
     def _leer_calculo(self):
         ident = Identificacion(**{k: ed.text().strip() for k, ed in self.ed_ident.items()})
@@ -1643,6 +1651,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
         self._mostrar_salidas()
         self._llenar_kpi()
         self._mostrar_materiales()
+        self._mostrar_equipo()
         self.lista_alertas.clear()
         for caso, a in res.alertas:
             inten = ""
@@ -1824,7 +1833,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
     # ------------------------------------------------------------ archivo
     def _todas_las_filas(self):
         return [*self.filas.values(), self.f_Pc, self.f_Pd, self.f_Td, self.f_Rn, self.f_area, self.f_puerto,
-                self.f_carrera]
+                self.f_carrera, self.f_aire, self.f_vastago]
 
     def _estado(self) -> dict:
         s = {"version": __version__, "sistema": self.sistema, "campos": {}, "filas": {}}
@@ -1833,6 +1842,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
         for f in self._todas_las_filas():
             s["filas"][f.clave] = {"unidad": f.unidad.currentText(), "valores": [e.text() for e in f.edits]}
         s["materiales"] = self._mat_estado()
+        s["equipo"] = {k: (w.currentText() if isinstance(w, QComboBox) else w.text()) for k, w in self.eq_w.items()}
         return s
 
     def _cargar(self, s: dict):
@@ -1860,6 +1870,13 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
                 e.setText(v)
         self.filas["caudal"].edits[CIERRE].setText("0")
         self._mat_cargar(s.get("materiales", {}))
+        for k, v in s.get("equipo", {}).items():  # en orden de registro: el tipo antes que la señal
+            w = self.eq_w.get(k)
+            if isinstance(w, QComboBox):
+                if w.findText(v) >= 0:
+                    w.setCurrentText(v)
+            elif w is not None:
+                w.setText(v)
         self.res = None
         self._actualizar_vistas()
 
@@ -1874,6 +1891,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
             ed.clear()
         self.ed_ident["revision"].setText("0")
         self._mat_nuevo()
+        self._eq_nuevo()
         self._cambio_trim()
         self.res = None
         self.ruta = None

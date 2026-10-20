@@ -312,3 +312,26 @@ def test_trim_carrera_y_juego_v082(app, tmp_path):
     assert ed.placeholderText() == "en % p/p"
     un.setCurrentText("ppmv")
     assert ed.placeholderText() == "en ppmv"
+
+
+def test_solapas_equipo(app, tmp_path):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    E = w.eq_w
+    E["act_falla"].setCurrentIndex(E["act_falla"].findText("Abre (FO)") if E["act_falla"].findText("Abre (FO)") >= 0 else 0)
+    E["pos_tag"].setText("ZY-101")
+    E["acc_quick_exhaust"].setText("1 unidad 1/2 NPT")
+    w.calcular()
+    eq = w.res.equipo
+    assert eq is not None and eq.actuador.seleccion
+    texto = w.vistas["hoja_datos"].toPlainText()
+    assert "Actuador" in texto and "ZY-101" in texto and "1 unidad 1/2 NPT" in texto
+    assert "Boosters" not in texto                        # celda vacía: no figura en los entregables
+    assert "Actuador" in w.vistas["memoria"].toPlainText()
+    estado = w._estado()
+    w2 = VentanaPrincipal()
+    w2._cargar(estado)
+    assert {k: (x.currentText() if hasattr(x, "currentText") else x.text()) for k, x in w2.eq_w.items()} == estado["equipo"]
+    w2.calcular()
+    assert w2.res.equipo.actuador.seleccion == eq.actuador.seleccion

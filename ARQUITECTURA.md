@@ -46,6 +46,10 @@ dimensionador/
   ayuda_mat_*.py    Ayuda de la solapa 3-Materiales (parámetros, componentes, alertas y agentes)
   gui/ventana.py    Interfaz PySide6: 1-Sistema, 2-Cálculos Válvula, 3-Materiales y entregables
   gui/solapa_materiales.py  Solapa 3-Materiales, análisis por componente y biblioteca
+  actuadores.py     Fuerzas (A+B+C+D) y pares de cierre, resorte y banco, tamaños genéricos de actuador,
+                    vástago, aire, volante, bloqueo de señales del posicionador y coherencia de accesorios
+  ayuda_actuador.py Ayuda de las solapas 4-Actuador, 5-Posicionador y 6-Accesorios
+  gui/solapa_actuador.py  Solapas 4-Actuador, 5-Posicionador y 6-Accesorios
 tests/              Validación contra ejemplos de las normas
 ```
 
@@ -60,11 +64,12 @@ tests/              Validación contra ejemplos de las normas
 | 4. Bifásico (método de suma de fases), ASME B16.34 grupos 1.1 y 2.2 con materiales ASTM | Hecho |
 | 5. Ejecutables Windows, macOS y Linux por GitHub Actions, con prueba de cálculo y de ventana | Hecho |
 | 7. Materiales (v0.7.0): selección por componente, galling, NACE, dureza por cavitación, biblioteca y ayuda | Hecho, en validación |
+| 8. Actuador, posicionador y accesorios (v0.9.0): fuerza/par, resorte, aire, vástago, señales y solenoide | Hecho, en validación |
 | 6. Versión 2 (solo líquidos): flujo 1-Sistema → 2-Cálculos Válvula, tuberías por cédula, Kc/Kapp, entregables Word e impresión, marca N25 Valves Sizing | Hecho, en validación |
 
 ## Próximos pasos sugeridos
 
-* Fuerza y par del actuador para la clase de cierre (anunciado en el informe técnico).
+* Datos certificados del actuador ofertado (área efectiva, resorte) para reemplazar los tamaños genéricos.
 * Volver a habilitar gases, vapor y bifásico en la interfaz de la versión 2.
 * Variación de FL y xT con la carrera (hoy se usan valores a carrera nominal).
 * Hoja de datos de válvula en formato IEC 60534-7 / ISA-20.

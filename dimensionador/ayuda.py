@@ -972,6 +972,15 @@ for _k, _d in _AG.ENTRADAS.items():
 GUIA.update(_MP.GUIA)
 GUIA.update(_AG.GUIA)
 
+# Solapas 4-Actuador, 5-Posicionador y 6-Accesorios
+from . import ayuda_actuador as _AC  # noqa: E402
+
+for _k, _d in _AC.ENTRADAS.items():
+    if _k in A:
+        raise KeyError(f"ayuda duplicada: {_k}")
+    _e(_k, **_d)
+GUIA.update(_AC.GUIA)
+
 
 def obtener(clave: str) -> EntradaAyuda | None:
     if clave in A:
