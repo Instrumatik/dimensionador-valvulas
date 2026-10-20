@@ -274,6 +274,9 @@ def seleccionar(sv, ctx, agentes, acuoso: bool, agrio: bool, modo: str = "AUTOM�
                                  req, req_motivo)
     if rec and rec.empaque.clave == "fuelle":
         res.bonete = "Con fuelle de estanqueidad" + (" y prolongado" if "rolongado" in bon else "")
+        res.bonete_motivo = ("Bonete con fuelle por la emisión fugitiva requerida (fluido tóxico o letal). "
+                             + (bon_motivo if not bon.startswith("Estándar (") else
+                                f"Temperatura de {_n(ctx.T_min_C, 0)} a {_n(ctx.T_max_C, 0)} °C: sin prolongación."))
     elegida = rec
     if modo == "MANUAL" and manual in EMPAQUETADURAS:
         elegida = next(v for v in evs if v.empaque.clave == manual)
