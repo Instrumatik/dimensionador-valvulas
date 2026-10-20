@@ -446,6 +446,12 @@ def evaluar_material(m: MT.Material, comp: str, ctx: Contexto, sv: ServicioMater
     if not m.blando and m.erosion < ero_min:
         ok = False
         motivos.append(f"Resistencia a la erosión {m.erosion}/10 menor que la requerida ({ero_min}/10).")
+    # grafitización: acero al carbono en servicio prolongado por encima de 425 °C
+    if comp in ("cuerpo", "bonete") and m.grupo in ("1.1", "1.2", "1.3", "1.4") and ctx.T_max_C > 425 \
+            and sv.regimen != "Emergencia":
+        ok = False
+        motivos.append(f"Acero al carbono a {_n(ctx.T_max_C, 0)} °C (> 425 °C) en servicio prolongado: riesgo de "
+                       "grafitización (usar Cr-Mo WC6 / WC9).")
     # presión-temperatura
     rating = clase_min = None
     if comp in ("cuerpo", "bonete") and m.grupo:
@@ -949,7 +955,7 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
                                                   f"{cuerpo.nombre} no figura en la Tabla 1 de B16.34; se usó el "
                                                   f"grupo {cuerpo.grupo} de {cuerpo.equivalente}.",
                                                   referencia="ASME B16.34, 2.1"))
-    if cuerpo and cuerpo.galling == "cs" and ctx.T_max_C > 425:
+    if cuerpo and cuerpo.grupo in ("1.1", "1.2", "1.3", "1.4") and ctx.T_max_C > 425:
         comps["cuerpo"].alertas.append(Alerta("grafitizacion", Severidad.ADVERTENCIA,
                                               "Riesgo de grafitización del acero al carbono",
                                               "Con exposición prolongada por encima de 425 °C la fase carburo del acero "

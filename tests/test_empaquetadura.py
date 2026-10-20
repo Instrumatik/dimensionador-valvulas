@@ -117,3 +117,15 @@ def test_catalogo_quimica_grafito():
         assert e.T_min_C < e.T_max_C and e.T_max_oxid_C <= e.T_max_C
     assert Q.nivel_regla("hno3", "grafito", 60, 25, True) == "D"
     assert Q.nivel_regla("cloruros", "grafito", 20000, 90, True) in "AB"
+
+
+def test_acero_al_carbono_descartado_sobre_425():
+    r, _ = _emp(dim=_dim(P1=9000, P2=8000, T=573, Pv=8590), rating=1500, T_diseno=713.15, P_diseno=10000)
+    m = r.materiales
+    assert m.ctx.T_max_C > 425
+    assert m.cuerpo.grupo not in ("1.1", "1.2", "1.3", "1.4")
+    assert "grafitizacion" not in {a.codigo for a in m.todas_las_alertas()}
+    # con fuelle a temperatura moderada no se informa bonete prolongado
+    sv = SM.ServicioMateriales(agentes=[Q.AgenteServicio("h2s", "mg/L", 500, "Acuosa")])
+    _, e = _emp(sv, _dim(fluido=FS.USUARIO, variante="Crudo"))
+    assert e.elegida.clave == "fuelle" and "bonete_prolongado" not in {a.codigo for a in e.alertas}

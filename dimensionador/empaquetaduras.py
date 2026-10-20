@@ -336,7 +336,7 @@ def seleccionar(sv, ctx, agentes, acuoso: bool, agrio: bool, modo: str = "AUTOM�
                                   req_motivo, remedios=["Exigir el certificado de ensayo de emisión: "
                                                         "ISO 15848-1, API 622 / 624 (lineal) o API 641 (rotativa)."],
                                   referencia=F_EMISION))
-    if not res.bonete.startswith("Estándar"):
+    if not bon.startswith("Estándar"):
         res.alertas.append(Alerta("bonete_prolongado", Severidad.INFO, "Bonete prolongado", bon_motivo,
                                   referencia=F_FISHER))
     return res
