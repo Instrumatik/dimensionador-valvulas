@@ -583,6 +583,7 @@ class AgenteNormalizado:
     kPa: float | None = None       # presión parcial cuando corresponde
     supuesto: bool = False         # se usó la concentración conservadora por falta de dato
     notas: list[str] = field(default_factory=list)
+    masa_en_gas: bool = False      # se informó en % p/p o ppm masa estando en fase gas (convertido a molar)
 
     @property
     def unidad_base(self) -> str:
@@ -603,11 +604,18 @@ def _w_desde_molar(x_pct: float, MW: float) -> float:
     return 100 * x * MW / (x * MW + (1 - x) * 18.015)
 
 
-def normalizar(a: AgenteServicio, P_kPa: float, SG: float = 1.0) -> AgenteNormalizado:
+def _fmt(x: float) -> str:
+    return f"{x:.4g}".replace(".", ",")
+
+
+def normalizar(a: AgenteServicio, P_kPa: float, SG: float = 1.0, M_gas: float | None = None) -> AgenteNormalizado:
     """Convierte la concentración ingresada a la unidad base del agente.
 
     P_kPa es la presión absoluta del servicio (para pasar de ppmv o % molar en
     gas a presión parcial). SG es la densidad relativa del líquido (mg/L ↔ ppm).
+    M_gas es la masa molar del gas [kg/kmol]: con ella una fracción en masa
+    informada en fase gas (% p/p, ppm masa) se pasa a fracción molar,
+    y_i = w_i · M_gas / M_i (sin dato se usa la del aire, 28,97 kg/kmol).
     """
     ag = AGENTES[a.clave]
     u, v = a.unidad, a.concentracion
@@ -620,6 +628,15 @@ def normalizar(a: AgenteServicio, P_kPa: float, SG: float = 1.0) -> AgenteNormal
         if ag.base == "kPa":
             n.valor = n.kPa
         return n
+    if a.fase == "Gas / vapor" and u in ("% p/p", "ppm masa"):
+        w = v / 100 if u == "% p/p" else v * 1e-6
+        Mm = M_gas or 28.97
+        y = min(1.0, w * Mm / ag.MW) if ag.MW else w
+        n.masa_en_gas = True
+        n.notas.append(f"Informado en {u} en fase gas: convertido a fracción molar y = w·M/Mi = {_fmt(y * 100)} % "
+                       f"molar (M del gas {_fmt(Mm)} kg/kmol{'' if M_gas else ', la del aire por falta de dato'}). "
+                       "Para gases la unidad habitual es ppmv o % molar.")
+        u, v = "% molar", y * 100
     gas = u in UNIDADES_GAS or (u == "% molar" and a.fase == "Gas / vapor")
     if gas:
         p = v * 100 if u == "bar(a) parcial" else v if u == "kPa parcial" else \

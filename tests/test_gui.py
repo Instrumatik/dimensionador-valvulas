@@ -277,3 +277,38 @@ def test_gas_seco_y_proyecto_070(app):
     estado["campos"]["mat_familia_fluido"] = "Agua"
     w2._cargar(estado)
     assert w2.cb_variante.currentText() == "Agua producida (yacimiento)"
+
+
+def test_trim_carrera_y_juego_v082(app, tmp_path):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    w.calcular()
+    assert "mm" in w.salidas["carrera"].celdas[0].text()
+    assert "Carrera nominal" in w.lbl_resumen.text() and "estimad" in w.lbl_geo.text()
+    # puerto y carrera certificados, en pulgadas
+    w.f_puerto.elegir("in", convertir=False)
+    w.f_puerto.edits[0].setText("5,375")
+    w.f_carrera.elegir("in", convertir=False)
+    w.f_carrera.edits[0].setText("3")
+    # juego de internos elegido
+    i = w.mat_juego.findData("N25-T12")
+    w.mat_juego.setCurrentIndex(i)
+    assert not w.mat_comp["obturador"][1].isEnabled()
+    w.calcular()
+    g = w.res.geometria
+    assert g.puerto_certificado and g.texto_puerto.startswith("5 3/8 in")
+    assert w.res.materiales.juego_usuario == "N25-T12"
+    assert "N25-T12" in w.mat_lbl_juego.text()
+    # se guarda y se vuelve a abrir
+    s = w._estado()
+    w2 = VentanaPrincipal()
+    w2._cargar(s)
+    assert w2.mat_juego.currentData() == "N25-T12" and w2.f_carrera.edits[0].text() == "3"
+    # el texto guía de la concentración sigue a la unidad
+    fam, ag, un, ed, fa = w2.mat_agentes[0]
+    fam.setCurrentText("Gases ácidos / reactivos")
+    un.setCurrentText("% p/p")
+    assert ed.placeholderText() == "en % p/p"
+    un.setCurrentText("ppmv")
+    assert ed.placeholderText() == "en ppmv"

@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from . import quimica as Q
 from .modelos import Alerta, Severidad, _n
 
-F_FISHER = "Emerson, Control Valve Handbook, 5.ª ed., cap. 5 (empaquetaduras y bonetes)"
+F_PRACTICA = "Práctica de la industria de válvulas de control (empaquetaduras y bonetes); ASME B16.34"
 F_EMISION = "ISO 15848-1:2015; API 622 (empaquetadura), API 624 (vástago ascendente), API 641 (cuarto de vuelta)"
 
 
@@ -38,6 +38,14 @@ class Empaquetadura:
     solo_lineal: bool = False  # fuelle: solo vástago ascendente
     descripcion: str = ""
     notas: tuple = ()
+    tipo: str = ""            # disposición: anillos en V, presión / vacío, carga viva, trenzada, cinta moldeada
+
+    @property
+    def guia_temperatura(self) -> str:
+        """Guía rápida de temperatura: hasta 232 °C (PTFE) o por encima (grafito)."""
+        if self.T_max_C <= 260:
+            return f"Hasta {_n(self.T_max_C, 0)} °C ({_n(self.T_max_C * 9 / 5 + 32, 0)} °F)"
+        return f"Por encima de 232 °C (450 °F), hasta {_n(self.T_max_C, 0)} °C"
 
     @property
     def baja_emision(self) -> bool:
@@ -51,30 +59,30 @@ class Empaquetadura:
 
 EMPAQUETADURAS: dict[str, Empaquetadura] = {e.clave: e for e in [
     Empaquetadura("ptfe_v", "Anillos en V de PTFE, simple, con resorte", ("ptfe",), -46, 232, 232, 103,
-                  "estándar", False, "baja", 1.0, False,
+                  "estándar", False, "baja", 1.0, False, tipo="Anillos en V con resorte",
                   descripcion="Juego de anillos en V (chevron) de PTFE virgen con adaptadores macho y hembra y un "
                               "resorte que mantiene la carga. Es la empaquetadura estándar de las válvulas de "
                               "control: baja fricción (buena precisión de posicionamiento) y resistencia química "
                               "casi universal.",
                   notas=("Fluye en frío con presión y temperatura altas: no supera 232 °C.",)),
-    Empaquetadura("ptfe_v_doble", "Anillos en V de PTFE, doble (opuestos)", ("ptfe",), -46, 232, 232, 103,
-                  "estándar", False, "baja", 1.3, True,
+    Empaquetadura("ptfe_v_doble", "PTFE doble en V, para presión y vacío (juegos opuestos)", ("ptfe",), -46, 232, 232, 103,
+                  "estándar", False, "baja", 1.3, True, tipo="Presión / vacío",
                   descripcion="Dos juegos de anillos en V enfrentados: uno sella la presión y otro impide la "
                               "entrada de aire. Para vacío y para servicios con presión alternada.",
                   notas=("Requiere vástago bien terminado (Ra ≤ 0,4 µm).",)),
     Empaquetadura("ptfe_cv", "PTFE con carga viva (resortes Belleville), baja emisión", ("ptfe",), -46, 232,
-                  232, 207, "baja (ISO 15848-1 clase B, ≤ 100 ppmv)", True, "baja", 2.5, True,
+                  232, 207, "baja (ISO 15848-1 clase B, ≤ 100 ppmv)", True, "baja", 2.5, True, tipo="Carga viva",
                   descripcion="Anillos de PTFE con resortes de disco (Belleville) que mantienen la carga de "
                               "compresión con el desgaste y los ciclos térmicos. Baja emisión fugitiva sin "
                               "reajustes frecuentes.",
                   notas=("Certificar la emisión con ensayo ISO 15848-1 o API 622 / 641.",)),
     Empaquetadura("ptfe_carbono", "Anillos de PTFE con carbono / grafito (relleno)", ("ptfe",), -46, 260, 260,
-                  138, "estándar", False, "media", 1.5, False,
+                  138, "estándar", False, "media", 1.5, False, tipo="Anillos moldeados",
                   descripcion="PTFE cargado con carbono o grafito: menos flujo en frío, mejor conductividad "
                               "térmica y algo más de temperatura que el PTFE virgen.",
                   notas=("No usar con oxidantes fuertes por el carbono del relleno.",)),
-    Empaquetadura("grafito", "Grafito flexible (anillos laminados + trenzas de carbono antiextrusión)",
-                  ("grafito",), -198, 538, 371, 414, "estándar", False, "alta", 1.3, False,
+    Empaquetadura("grafito", "Grafito simple: cinta moldeada + trenzas de carbono antiextrusión",
+                  ("grafito",), -198, 538, 371, 414, "estándar", False, "alta", 1.3, False, tipo="Cinta moldeada",
                   descripcion="Anillos de grafito flexible expandido con anillos de trenza de carbono en los "
                               "extremos para evitar la extrusión. Para alta temperatura, vapor y servicio "
                               "contra fuego (fire-safe).",
@@ -82,15 +90,63 @@ EMPAQUETADURAS: dict[str, Empaquetadura] = {e.clave: e for e in [
                          "En agua o vapor, usar grafito con inhibidor de corrosión (o arandela de sacrificio) "
                          "para evitar la corrosión galvánica del vástago.",
                          "Se oxida en aire u oxidantes por encima de unos 371 °C.")),
-    Empaquetadura("grafito_cv", "Grafito con carga viva (resortes Belleville), baja emisión", ("grafito",),
+    Empaquetadura("grafito_cv", "Grafito de baja fricción con carga viva (resortes Belleville), baja emisión", ("grafito",),
                   -198, 371, 371, 414, "baja (ISO 15848-1 clase B/C, API 622 / 624)", True, "alta", 3.0, True,
+                  tipo="Carga viva",
                   descripcion="Grafito flexible con resortes de disco que compensan la relajación y el "
                               "desgaste: baja emisión fugitiva en alta presión y temperatura.",
                   notas=("Fricción alta: verificar el actuador.",
                          "Certificar la emisión con ensayo ISO 15848-1, API 622 o API 624 / 641.")),
+    # ---- v0.8.2
+    Empaquetadura("ptfe_v_doble_p", "PTFE doble en V, para presión (dos juegos en serie)", ("ptfe",), -46, 232, 232,
+                  103, "estándar", False, "baja", 1.2, False, tipo="Presión / vacío",
+                  descripcion="Dos juegos de anillos en V orientados a la presión, uno sobre otro, con un anillo "
+                              "distanciador: el segundo juego respalda al primero y alarga los intervalos de "
+                              "mantenimiento en presión alta o ciclos frecuentes.",
+                  notas=("No sirve para vacío: los anillos solo sellan en el sentido de la presión.",)),
+    Empaquetadura("ptfe_v_doble_vac", "PTFE doble en V, para vacío (juegos invertidos)", ("ptfe",), -46, 232, 232,
+                  3.5, "estándar", False, "baja", 1.25, True, tipo="Presión / vacío",
+                  descripcion="Juegos de anillos en V invertidos para que la presión atmosférica los cierre e "
+                              "impida la entrada de aire al proceso.",
+                  notas=("Solo para vacío o presiones muy bajas: con presión interna los anillos se abren.",)),
+    Empaquetadura("ptfe_carbono_cv_doble", "PTFE/carbono con carga viva, doble juego, baja emisión", ("ptfe",), -46,
+                  232, 232, 207, "baja (ISO 15848-1 clase B, ≤ 100 ppmv)", True, "baja", 3.0, True,
+                  tipo="Carga viva",
+                  descripcion="Dos juegos de anillos de PTFE cargado con carbono separados por un anillo "
+                              "distanciador, con resortes de disco: redundancia para emisión baja y presión o "
+                              "vacío.", notas=("No usar con oxidantes fuertes por el carbono del relleno.",
+                                               "Certificar la emisión con ensayo ISO 15848-1 o API 622 / 641.")),
+    Empaquetadura("ptfe_vidrio_cv", "PTFE/vidrio con carga viva, baja emisión", ("ptfe", "vidrio"), -46, 232, 232,
+                  207, "baja (ISO 15848-1 clase B, ≤ 100 ppmv)", True, "baja", 2.6, True, tipo="Carga viva",
+                  descripcion="Anillos de PTFE cargado con fibra de vidrio y resortes de disco: menos flujo en frío "
+                              "que el PTFE virgen y apto con oxidantes, donde no se admite el carbono.",
+                  notas=("El vidrio es atacado por HF y álcalis concentrados calientes.",)),
+    Empaquetadura("grafito_hs_718", "Grafito de alta hermeticidad con carga viva, resortes de Inconel 718",
+                  ("grafito",), -198, 538, 371, 414, "baja (ISO 15848-1 clase B, API 622 / 624)", True, "alta",
+                  3.6, True, tipo="Carga viva",
+                  descripcion="Anillos de grafito de alta densidad con anillos antiextrusión y resortes de disco de "
+                              "Inconel 718, que conservan la carga a alta temperatura: baja emisión por encima del "
+                              "límite de los resortes de acero.",
+                  notas=("Fricción alta: verificar el actuador.", "Se oxida en aire por encima de unos 371 °C.")),
+    Empaquetadura("grafito_hs_177", "Grafito de alta hermeticidad con carga viva, resortes de 17-7PH",
+                  ("grafito",), -198, 343, 343, 414, "baja (ISO 15848-1 clase B, API 622 / 624)", True, "alta",
+                  3.3, True, tipo="Carga viva",
+                  descripcion="Como la anterior con resortes de disco de 17-7PH, más económicos, limitados a unos "
+                              "343 °C.", notas=("Fricción alta: verificar el actuador.",)),
+    Empaquetadura("ptfe_trenzado", "PTFE trenzado (empaquetadura de compresión)", ("ptfe",), -46, 232, 232, 69,
+                  "estándar", False, "media", 1.1, False, tipo="Trenzada",
+                  descripcion="Anillos de trenza de hilo de PTFE comprimidos por el prensaestopas. Económica y "
+                              "tolerante a vástagos con desgaste, pero requiere reapriete periódico.",
+                  notas=("Pierde carga con el tiempo: no es apta para baja emisión.",)),
+    Empaquetadura("ptfe_trenzado_lub", "PTFE trenzado con lubricador y válvula de aislamiento", ("ptfe",), -46,
+                  232, 232, 69, "estándar", False, "media", 1.4, False, tipo="Trenzada",
+                  descripcion="Trenza de PTFE con un anillo distanciador alimentado por un lubricador y una válvula "
+                              "de aislamiento: el lubricante sella y reduce la fricción. Para fluidos que "
+                              "cristalizan o con sólidos finos.",
+                  notas=("El lubricante debe ser compatible con el proceso.",)),
     Empaquetadura("fuelle", "Bonete con fuelle metálico + empaquetadura de respaldo", ("fuelle",), -198, 538,
                   538, 100, "muy baja (ISO 15848-1 clase A, estanqueidad total)", False, "baja", 6.0, True,
-                  solo_lineal=True,
+                  solo_lineal=True, tipo="Fuelle + respaldo",
                   descripcion="Un fuelle metálico soldado al vástago y al bonete forma una barrera estanca; la "
                               "empaquetadura queda como respaldo. Para fluidos letales o tóxicos, alta pureza "
                               "o cuando no se admite ninguna emisión.",
@@ -98,6 +154,11 @@ EMPAQUETADURAS: dict[str, Empaquetadura] = {e.clave: e for e in [
                          "Vida limitada por ciclos y por presión: pedir la presión admisible y la vida en "
                          "ciclos del fuelle al fabricante.")),
 ]}
+# Orden de presentación: PTFE, PTFE con carga viva, grafito y fuelle
+_ORDEN = ("ptfe_v", "ptfe_v_doble_p", "ptfe_v_doble_vac", "ptfe_v_doble", "ptfe_trenzado", "ptfe_trenzado_lub",
+          "ptfe_carbono", "ptfe_cv", "ptfe_carbono_cv_doble", "ptfe_vidrio_cv", "grafito", "grafito_cv",
+          "grafito_hs_177", "grafito_hs_718", "fuelle")
+EMPAQUETADURAS = {k: EMPAQUETADURAS[k] for k in _ORDEN}
 
 # Metales del fuelle, del más común al más resistente
 FUELLE_METALES = ("316", "625", "C276")
@@ -290,7 +351,7 @@ def seleccionar(sv, ctx, agentes, acuoso: bool, agrio: bool, modo: str = "AUTOM�
             res.alertas.append(Alerta("empaque_incompatible", Severidad.CRITICA, "Empaquetadura no apta",
                                       f"{elegida.empaque.nombre}: " + " ".join(elegida.motivos),
                                       remedios=[f"Usar {rec.empaque.nombre}." if rec else
-                                                "Consultar al fabricante."], referencia=F_FISHER))
+                                                "Consultar al fabricante."], referencia=F_PRACTICA))
     res.eval_elegida = elegida
     if elegida is None:
         res.alertas.append(Alerta("empaque_sin_candidato", Severidad.CRITICA, "Sin empaquetadura apta",
@@ -298,7 +359,7 @@ def seleccionar(sv, ctx, agentes, acuoso: bool, agrio: bool, modo: str = "AUTOM�
                                   "emisión a la vez.",
                                   remedios=["Revisar las condiciones o consultar una solución especial al "
                                             "fabricante (empaquetadura doble con purga, sello de barrera)."],
-                                  referencia=F_FISHER))
+                                  referencia=F_PRACTICA))
         return res
     e = elegida.empaque
     res.justificacion = [
@@ -330,7 +391,7 @@ def seleccionar(sv, ctx, agentes, acuoso: bool, agrio: bool, modo: str = "AUTOM�
                                   "actuador y la banda muerta del posicionador.",
                                   remedios=["Sumar la fricción de la empaquetadura al dimensionar el actuador.",
                                             "Usar posicionador digital para compensar la banda muerta."],
-                                  referencia=F_FISHER))
+                                  referencia=F_PRACTICA))
     if req != "estándar":
         res.alertas.append(Alerta("empaque_emision", Severidad.INFO, "Emisión fugitiva controlada",
                                   req_motivo, remedios=["Exigir el certificado de ensayo de emisión: "
@@ -338,5 +399,5 @@ def seleccionar(sv, ctx, agentes, acuoso: bool, agrio: bool, modo: str = "AUTOM�
                                   referencia=F_EMISION))
     if not bon.startswith("Estándar"):
         res.alertas.append(Alerta("bonete_prolongado", Severidad.INFO, "Bonete prolongado", bon_motivo,
-                                  referencia=F_FISHER))
+                                  referencia=F_PRACTICA))
     return res

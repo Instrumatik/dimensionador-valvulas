@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QPushButton, QTextBrowser, QVBoxLayout, QWidget)
 
-from .. import empaquetaduras as EM, materiales as MT, quimica as Q, seleccion_materiales as SM
+from .. import empaquetaduras as EM, juegos_trim as JT, materiales as MT, quimica as Q, seleccion_materiales as SM
 from ..modelos import Severidad
 
 N_AGENTES = 6
@@ -23,6 +23,7 @@ AYUDA_COMP = {k: "comp_" + k for k in MT.COMPONENTES}
 SIN_AGENTE = "—"
 COLOR_SEV = {Severidad.INFO: "#2f6fb0", Severidad.ADVERTENCIA: "#d9771e", Severidad.CRITICA: "#c0392b",
              Severidad.ERROR: "#7d1f9e"}
+POR_COMPONENTE = "Por componente (modo de cada pieza)"
 AVISO_MANUAL = ("Selección MANUAL: no recomendada. La responsabilidad por la aptitud del material queda fuera "
                 "del alcance del programa.")
 
@@ -131,6 +132,7 @@ class SolapaMateriales:
             ag.currentIndexChanged.connect(lambda *_: self._cambio_variante())
             ed.editingFinished.connect(self._cambio_variante)
             un.currentIndexChanged.connect(lambda *_: self._cambio_variante())
+            un.currentIndexChanged.connect(lambda _=None, i=i: self._mat_guia_unidad(i))
             ver.clicked.connect(lambda _=False, i=i: self._mat_ver_agente(i))
             self.mat_agentes.append((fam, ag, un, ed, fa))
             self._mat_cambio_familia(i)
@@ -151,6 +153,24 @@ class SolapaMateriales:
         grid.addWidget(w, r, 2)
         grid.addWidget(QLabel("<b>Material</b>"), r, 3)
         r += 1
+        lbl = QLabel("Juego de internos")
+        lbl.setStyleSheet("font-weight:600")
+        self.mat_juego = self._registrar("mat_juego", Combo(), "juego_trim")
+        self.mat_juego.addItem(POR_COMPONENTE, "")
+        for j in JT.JUEGOS.values():
+            self.mat_juego.addItem(j.texto, j.clave)
+        self.mat_juego.setFixedWidth(560)
+        self.mat_juego.setToolTip("Elija un juego estándar para fijar asiento, jaula y obturador juntos; el programa "
+                                  "verifica su aptitud. «Por componente» deja que cada pieza use su modo.")
+        self.mat_lbl_juego = QLabel("Juego estándar: se calcula con «Calcular».")
+        self.mat_lbl_juego.setWordWrap(True)
+        self.mat_lbl_juego.setStyleSheet("color:#2f6fb0;font-size:8pt;padding-bottom:4px")
+        grid.addWidget(lbl, r, 0)
+        grid.addWidget(boton_ir(self.abrir_ayuda, "juego_trim"), r, 1)
+        grid.addWidget(self.mat_juego, r, 2, 1, 3)
+        grid.addWidget(self.mat_lbl_juego, r + 1, 2, 1, 4)
+        self.mat_juego.currentIndexChanged.connect(self._mat_cambio_juego)
+        r += 2
         for k, nombre in MT.COMPONENTES.items():
             lbl = QLabel(nombre)
             lbl.setStyleSheet("font-weight:600")
@@ -306,8 +326,39 @@ class SolapaMateriales:
                 fa.setCurrentText("Gas / vapor")
             elif a.base != "kPa" and fa.currentText() == "Desconocida":
                 fa.setCurrentText("Acuosa")
-        if clave:
+        self._mat_guia_unidad(i)
+
+    def _mat_guia_unidad(self, i):
+        fam, ag, un, ed, fa = self.mat_agentes[i]
+        if ag.currentData():
             ed.setPlaceholderText(f"en {un.currentText()}")
+
+    def _mat_cambio_juego(self, *_):
+        clave = self.mat_juego.currentData()
+        for k in ("asiento", "jaula", "obturador"):
+            lbl, modo, sel, an, rec = self.mat_comp[k]
+            modo.setEnabled(not clave)
+            if clave:
+                j = sel.findData(JT.JUEGOS[clave].piezas()[k])
+                if j >= 0:
+                    sel.setCurrentIndex(j)
+                sel.setEnabled(False)
+        if not clave:
+            self._mat_nombres_componentes()
+
+    def _mat_texto_juego(self):
+        m = self.res.materiales
+        if not m.juegos:
+            self.mat_lbl_juego.setText("No aplica a válvulas rotativas (el programa no usa juegos de internos en "
+                                       "bola, mariposa ni tapón excéntrico).")
+            return
+        aptos = [v.juego.clave for v in sorted(m.juegos, key=lambda v: v.puntaje) if v.ok]
+        t = f"<b>{_html.escape(m.juego_texto)}</b>"
+        if m.juego_usuario and m.juego and not m.juego.ok:
+            t += ("<br><span style='color:#c0392b'><b>No apto:</b> "
+                  + _html.escape(" ".join(m.juego.motivos)[:300]) + "</span>")
+        t += "<br>Juegos estándar aptos: " + (", ".join(aptos) if aptos else "ninguno")
+        self.mat_lbl_juego.setText(t)
 
     def _mat_ver_agente(self, i):
         clave = self.mat_agentes[i][1].currentData()
@@ -344,6 +395,9 @@ class SolapaMateriales:
             return
         t = (f"Recomendada: <b>{_html.escape(e.recomendada.nombre)}</b> · emisión requerida {_html.escape(e.emision_req)}"
              if e.recomendada else "<b>Sin empaquetadura apta en la biblioteca</b>")
+        if e.elegida is not None:
+            t += (f"<br>Tipo: {_html.escape(e.elegida.tipo)} · carga viva: {'sí' if e.elegida.carga_viva else 'no'} · "
+                  f"{_html.escape(e.elegida.guia_temperatura)}")
         if modo.currentText() == "MANUAL":
             t += "<br><span style='color:#c0392b'>" + _html.escape(AVISO_MANUAL) + "</span>"
             al = [a for a in e.alertas if a.codigo == "empaque_incompatible"]
@@ -382,8 +436,11 @@ class SolapaMateriales:
         for c, (lbl, modo, sel, an, rec) in self.mat_comp.items():
             lbl.setText(nombres[c])
             aplica = (c != "jaula" or jaula) and (c != "guia" or not jaula)
+            fijo = bool(self.mat_juego.currentData()) and c in ("asiento", "jaula", "obturador")
             for w in (modo, sel, an):
-                w.setEnabled(aplica if w is not sel else aplica and modo.currentText() == "MANUAL")
+                w.setEnabled(aplica if w is not sel else aplica and modo.currentText() == "MANUAL" and not fijo)
+            if fijo:
+                modo.setEnabled(False)
             if not aplica:
                 rec.setText("No aplica con el trim elegido" + (" (sin jaula)." if c == "jaula" else
                                                                " (el obturador se guía en la jaula)."))
@@ -400,6 +457,8 @@ class SolapaMateriales:
             modo.setCurrentText("AUTOMÁTICO")
             rec.setText("Recomendación: se calcula con «Calcular».")
         self.mat_lbl_bonete.setText("Bonete: se calcula con «Calcular».")
+        self.mat_juego.setCurrentIndex(0)
+        self.mat_lbl_juego.setText("Juego estándar: se calcula con «Calcular».")
         self.mat_resumen.setHtml("<p style='color:#55606d'>Todavía no hay cálculo.</p>")
 
     def _mat_estado(self) -> dict:
@@ -411,7 +470,8 @@ class SolapaMateriales:
                             for fam, ag, un, ed, fa in self.mat_agentes],
                 "componentes": {k: {"modo": c[1].currentText(), "material": c[2].currentData()}
                                 for k, c in self.mat_comp.items()},
-                "empaquetadura": {"modo": self.mat_emp[1].currentText(), "clave": self.mat_emp[2].currentData()}}
+                "empaquetadura": {"modo": self.mat_emp[1].currentText(), "clave": self.mat_emp[2].currentData()},
+                "juego_trim": self.mat_juego.currentData() or ""}
 
     def _mat_cargar(self, d: dict):
         self._mat_nuevo()
@@ -446,6 +506,9 @@ class SolapaMateriales:
             self.mat_emp[2].setCurrentIndex(j)
         self.mat_emp[1].setCurrentText(x.get("modo", "AUTOMÁTICO"))
         self._mat_nombres_componentes()
+        j = self.mat_juego.findData(d.get("juego_trim", ""))
+        self.mat_juego.setCurrentIndex(max(0, j))
+        self._mat_cambio_juego()
 
     # ------------------------------------------------------------ lectura
     def _servicio_materiales(self) -> SM.ServicioMateriales:
@@ -469,7 +532,8 @@ class SolapaMateriales:
         modos["empaquetadura"] = self.mat_emp[1].currentText()
         if modos["empaquetadura"] == "MANUAL":
             manual["empaquetadura"] = self.mat_emp[2].currentData()
-        return SM.ServicioMateriales(pH=pH, agentes=agentes, modos=modos, manual=manual, **v)
+        return SM.ServicioMateriales(pH=pH, agentes=agentes, modos=modos, manual=manual,
+                                     juego_trim=self.mat_juego.currentData() or "", **v)
 
     # ------------------------------------------------------------ resultados
     def _mat_texto_recomendacion(self, k):
@@ -502,11 +566,14 @@ class SolapaMateriales:
             aplica = rc.aplica
             modo.setEnabled(aplica)
             an.setEnabled(aplica)
-            if modo.currentText() != "MANUAL" and rc.elegido:
+            fijo = bool(self.mat_juego.currentData()) and k in ("asiento", "jaula", "obturador")
+            if (modo.currentText() != "MANUAL" or fijo) and rc.elegido:
                 i = sel.findData(rc.elegido.clave)
                 if i >= 0:
                     sel.setCurrentIndex(i)
-            sel.setEnabled(aplica and modo.currentText() == "MANUAL")
+            sel.setEnabled(aplica and modo.currentText() == "MANUAL" and not fijo)
+            if fijo:
+                modo.setEnabled(False)
             self._mat_texto_recomendacion(k)
         e = m.empaquetadura
         if e is not None and e.elegida is not None and self.mat_emp[1].currentText() != "MANUAL":
@@ -514,6 +581,7 @@ class SolapaMateriales:
             if i >= 0:
                 self.mat_emp[2].setCurrentIndex(i)
         self._emp_texto()
+        self._mat_texto_juego()
         self.mat_resumen.setHtml(html_resumen(m))
         self._mat_fluido_heredado()
 
@@ -615,6 +683,12 @@ def html_resumen(m: SM.ResultadoMateriales) -> str:
     p.append("<table width='100%' cellspacing='0' cellpadding='4' border='1' style='border-collapse:collapse'>"
              "<tr bgcolor='#dde5ee'><th>Componente</th><th>Modo</th><th>Material</th><th>Dureza</th></tr>"
              f"{filas}</table>")
+    if m.juegos:
+        aptos = [v.juego.texto for v in sorted(m.juegos, key=lambda v: v.puntaje) if v.ok]
+        p.append(f"<p><b>Juego de internos</b> (<a href='ayuda:juego_trim'>ayuda</a>): {_e(m.juego_texto)}"
+                 + (f". {_e(m.juego.juego.aplicacion)}" if m.juego and m.juego.juego.aplicacion else "")
+                 + "<br><span style='color:#55606d'>Aptos para este servicio: "
+                 + (_e("; ".join(aptos)) if aptos else "ninguno") + "</span></p>")
     if m.galling:
         g = "".join(f"<tr><td>{_e(x.par)}</td><td>{_e(x.a)} / {_e(x.b)}</td><td>{_e(x.nivel)}</td>"
                     f"<td>{_e(x.motivo)}</td></tr>" for x in m.galling)
@@ -638,7 +712,10 @@ def html_resumen(m: SM.ResultadoMateriales) -> str:
     e = m.empaquetadura
     if e is not None:
         p.append("<h4>Empaquetadura y bonete <a href='ayuda:empaquetadura'>(ayuda)</a></h4>"
-                 f"<p><b>Empaquetadura:</b> {_e(e.texto)} ({_e(e.modo)}) · <b>Bonete:</b> {_e(e.bonete)} · "
+                 f"<p><b>Empaquetadura:</b> {_e(e.texto)} ({_e(e.modo)})"
+                 + (f" · {_e(e.elegida.tipo)} · carga viva {'sí' if e.elegida.carga_viva else 'no'} · "
+                    f"{_e(e.elegida.guia_temperatura)}" if e.elegida else "")
+                 + f" · <b>Bonete:</b> {_e(e.bonete)} · "
                  f"<b>Emisión requerida:</b> {_e(e.emision_req)}</p>"
                  + "".join(f"<p style='color:#55606d'>• {_e(n)}</p>" for n in e.notas))
     for n in m.notas:
@@ -692,6 +769,16 @@ def html_empaquetadura(e: EM.ResultadoEmpaquetadura) -> str:
     p.append(f"<p><b>Bonete:</b> {_e(e.bonete)}. {_e(e.bonete_motivo)} <a href='ayuda:tipo_bonete'>(ayuda)</a></p>")
     p.append(f"<p><b>Emisión fugitiva requerida:</b> {_e(e.emision_req)}. {_e(e.emision_motivo)} "
              "<a href='ayuda:emision_fugitiva'>(ayuda)</a></p>")
+    if e.elegida is not None:
+        x = e.elegida
+        p.append(f"<p><b>Tipo:</b> {_e(x.tipo)} · <b>Carga viva:</b> {'sí' if x.carga_viva else 'no'} · "
+                 f"<b>Guía de temperatura:</b> {_e(x.guia_temperatura)}</p>")
+    p.append("<h4>Catálogo de empaquetaduras</h4><table width='100%' cellspacing='0' cellpadding='3' border='1' "
+             "style='border-collapse:collapse'><tr bgcolor='#dde5ee'><th>Empaquetadura</th><th>Carga viva</th>"
+             "<th>Guía de temperatura</th><th>Tipo</th></tr>" + "".join(
+                 f"<tr><td>{_e(x.nombre)}</td><td>{'Sí' if x.carga_viva else 'No'}</td>"
+                 f"<td>{_e(x.guia_temperatura)}</td><td>{_e(x.tipo)}</td></tr>" for x in EM.EMPAQUETADURAS.values())
+             + "</table>")
     if e.justificacion:
         p.append("<h4>Justificación</h4><ul>" + "".join(f"<li>{_e(x)}</li>" for x in e.justificacion) + "</ul>")
     if e.notas:

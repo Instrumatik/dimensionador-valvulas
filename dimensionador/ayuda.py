@@ -267,6 +267,30 @@ _e("tamano", "Diámetro de la válvula",
    "verifica esa válvula.</p>",
    relacionadas=["apertura", "D1", "Kv_nominal"])
 
+_e("trim_size", "Tamaño del trim (diámetro del puerto)",
+   "<p>Diámetro del orificio del asiento por el que pasa el fluido. Junto con la carrera define la "
+   "capacidad del trim y es el dato con que el fabricante identifica el juego de internos.</p>"
+   "<p>En blanco el programa lo <b>estima</b>: un trim pleno de globo o ángulo tiene un puerto de "
+   "alrededor de 0,875 × el diámetro nominal; si el Cv nominal es menor que el típico (trim reducido) "
+   "el puerto se reduce con la raíz de la relación de Cv. Se informa en pulgadas, redondeado al 1/16 "
+   "más cercano, y en milímetros.</p><p>En válvulas rotativas el dato es el orificio de la bola, el "
+   "disco de la mariposa o el asiento del tapón excéntrico.</p><p>Si tiene la hoja del fabricante, cargue "
+   "el puerto certificado: reemplaza al estimado en la pantalla y en los documentos.</p>",
+   tipicos="Trim pleno: 2\" ≈ 1 3/4 in (44 mm); 4\" ≈ 3 1/2 in (89 mm); 8\" ≈ 7 in (178 mm)",
+   relacionadas=["carrera_nominal", "tamano", "Kv_nominal"])
+
+_e("carrera_nominal", "Carrera nominal y carrera de operación del vástago",
+   "<p>La <b>carrera nominal</b> (rated travel) es el recorrido total del vástago entre la válvula "
+   "cerrada y abierta del todo. La <b>carrera de operación</b> de cada caso es la apertura estimada × la "
+   "carrera nominal, y se muestra en milímetros y en pulgadas.</p><p>En blanco el programa usa la carrera "
+   "normalizada habitual de un trim pleno del tamaño equivalente al puerto (3/4, 1 1/8, 1 1/2, 2, 3, 4 in…); "
+   "los trims de orificios y multietapa llevan la medida siguiente porque reparten el paso a lo largo de "
+   "la jaula.</p><p>En válvulas rotativas la carrera es la rotación del eje (60°, 70° o 90° según el "
+   "estilo).</p><p>La carrera define la carrera del actuador y la calibración del posicionador: confirme "
+   "la certificada con el fabricante.</p>",
+   tipicos="Globo pleno: 2\" 1 1/8 in (28,6 mm); 4\" 2 in (50,8 mm); 8\" 3 in (76,2 mm)",
+   relacionadas=["trim_size", "apertura"])
+
 _e("D1", "Diámetro interior de la tubería",
    "<p>Diámetro interior de la tubería aguas arriba (D1) y aguas abajo (D2). Si son mayores que la "
    "válvula se consideran reductores concéntricos y se calculan FP, FLP y xTP. Dejar en blanco "

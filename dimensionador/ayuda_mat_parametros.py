@@ -1110,11 +1110,36 @@ _alerta("mat_agente_otro", "Agente no catalogado",
         "Benceno clorado como contaminante: verificar con tablas del fabricante.", ["agente"])
 _alerta("mat_medio_distinto", "Medio declarado distinto del detectado",
         "<p>El medio esperado elegido por el usuario no coincide con el que el programa detecta con los datos "
-        "(agentes, cavitación, flashing, sólidos). Es informativa.</p>",
+        "(agentes, cavitación, flashing, sólidos). Siempre gana la condición más exigente: si los datos muestran "
+        "servicio agrio (pH₂S ≥ 0,3 kPa con agua libre), se aplica ISO 15156 / ISO 17945 aunque no se haya "
+        "declarado.</p><p>Es informativa, salvo cuando los datos detectan <b>servicio agrio no declarado</b>: "
+        "entonces es una advertencia, para que la diferencia no pase desapercibida.</p>",
         "Medio declarado distinto del detectado (salvo «Por evaluar»).",
         ["Revisar los datos cargados o el medio declarado."],
         "Declarado «Sin mecanismo confirmado» pero hay cavitación severa: detectado «Servicio erosivo».",
         ["mat_medio", "mecanismos_falla"])
+_alerta("mat_unidad_gas", "Unidad de masa en fase gas",
+        "<p>Un agente marcado en fase «Gas / vapor» se informó en % p/p o ppm masa. El programa lo convierte a "
+        "fracción molar con y = w · M / Mi (M, masa molar del gas de la solapa 2; sin dato, la del aire) y de ahí a "
+        "presión parcial. Así se evita tratarlo como si estuviera disuelto en un líquido.</p>",
+        "Agente en fase gas con unidad % p/p o ppm masa.",
+        ["Informar los gases en ppmv o % molar, como los entregan los análisis cromatográficos."],
+        "H₂S 0,5 % p/p en gas natural de M = 18 kg/kmol: y = 0,005 × 18 / 34,08 = 0,26 % molar.",
+        ["unidad_quimica", "agente_h2s"])
+_alerta("mat_juego", "Juego de internos elegido por el usuario",
+        "<p>Asiento, jaula y obturador vienen del juego estándar elegido en el desplegable «Juego de internos». "
+        "El programa verifica cada pieza con sus reglas y avisa si alguna no es apta.</p>",
+        "Juego de internos distinto de «Por componente».",
+        ["Revisar las alertas de cada pieza.", "Volver a «Por componente» para que el programa elija."],
+        "Juego N25-T12 en agua con cavitación moderada: el asiento de 316 queda no apto por dureza.",
+        ["juego_trim"])
+_alerta("mat_juego_cierre", "Juego de internos y clase de cierre",
+        "<p>El juego elegido no tiene el tipo de asiento que pide la clase de cierre: asiento blando solo en clase "
+        "VI, metal-metal en las demás.</p>",
+        "Juego con asiento blando sin clase VI, o metal-metal con clase VI.",
+        ["Elegir un juego con el tipo de asiento que corresponde."],
+        "Clase VI con el juego N25-T12 (metal-metal): elegir N25-T14 (asiento blando).",
+        ["juego_trim", "clase_cierre"])
 _alerta("mat_oxigeno", "Servicio de oxígeno",
         "<p>El oxígeno a presión puede encender metales y elastómeros por impacto de partículas o compresión "
         "adiabática. Requiere limpieza especial y materiales resistentes a la ignición (Monel, bronce, "
@@ -1218,12 +1243,24 @@ _e("empaquetadura", "Empaquetadura del vástago (o del eje)",
    "exige PTFE doble, carga viva o fuelle.</li>"
    "<li><b>Vapor</b> por encima de 150 °C penaliza el PTFE (flujo en frío, reajustes).</li>"
    "<li><b>Emisión fugitiva</b> requerida según el fluido (ver «Emisión fugitiva»).</li></ul>"
-   "<p>Opciones: PTFE en V simple, PTFE en V doble, PTFE con carga viva, PTFE con carbono, grafito flexible, "
-   "grafito con carga viva y bonete con fuelle metálico (solo vástago ascendente; su metal, 316L, 625 o "
-   "C-276, se elige por compatibilidad química).</p>",
+   "<p>El catálogo indica para cada una si lleva <b>carga viva</b> (resortes de disco que mantienen la "
+   "compresión), su <b>guía de temperatura</b> (hasta 232 °C / 450 °F para PTFE, por encima para grafito) y el "
+   "<b>tipo</b> de disposición:</p><ul>"
+   "<li><b>Anillos en V con resorte</b>: PTFE en V simple, la estándar.</li>"
+   "<li><b>Presión / vacío</b>: PTFE doble en V para presión (dos juegos en serie), para vacío (juegos "
+   "invertidos, solo presiones muy bajas) o para presión y vacío (juegos opuestos).</li>"
+   "<li><b>Trenzada</b>: PTFE trenzado de compresión, con o sin lubricador y válvula de aislamiento; económica "
+   "pero requiere reapriete.</li>"
+   "<li><b>Anillos moldeados</b>: PTFE con carbono.</li>"
+   "<li><b>Carga viva</b> (baja emisión): PTFE, PTFE/carbono doble, PTFE/vidrio (apto con oxidantes), grafito "
+   "de baja fricción y grafito de alta hermeticidad con resortes de 17-7PH (hasta 343 °C) o de Inconel 718 "
+   "(hasta 538 °C).</li>"
+   "<li><b>Cinta moldeada</b>: grafito simple con trenzas antiextrusión.</li>"
+   "<li><b>Fuelle + respaldo</b>: bonete con fuelle metálico (solo vástago ascendente; su metal, 316L, 625 o "
+   "C-276, se elige por compatibilidad química).</li></ul>",
    MAT, tipicos="PTFE en V: servicio general hasta 232 °C. Grafito: vapor y alta temperatura. Carga viva: "
    "hidrocarburos y COV. Fuelle: tóxicos y letales.",
-   referencia="Emerson, Control Valve Handbook, cap. 5; ISO 15848-1; API 622 / 624 / 641",
+   referencia="Práctica de la industria de válvulas; ISO 15848-1; API 622 / 624 / 641",
    relacionadas=["tipo_bonete", "emision_fugitiva", "mat_modo", "compatibilidad_ad"],
    guia=_g("Es el sello del vástago o del eje de la válvula contra la atmósfera.",
            "Evita la fuga de fluido al ambiente y define, junto con el bonete, la emisión fugitiva y la "
@@ -1240,6 +1277,40 @@ _e("empaquetadura", "Empaquetadura del vástago (o del eje)",
            "Vapor a 300 °C: el PTFE queda descartado por temperatura y se elige grafito flexible con anillos "
            "antiextrusión; alerta de fricción alta."))
 
+_e("juego_trim", "Juego de internos (trim estándar)",
+   "<p>En la práctica los internos no se piden pieza por pieza sino como un <b>juego</b>: asiento, jaula y "
+   "obturador de materiales elegidos juntos para que las parejas deslizantes no sufran galling, que las durezas "
+   "acompañen la severidad del servicio y que las dilataciones sean compatibles. El programa trae 17 juegos con "
+   "código propio (N25-T01 a N25-T17) y nombre funcional: martensíticos, 316 con jaula ENC, Stellite en asiento "
+   "y guía, Stellite macizo, 316L, 321 estabilizado, 440C, juegos con asiento blando y juegos NACE.</p>"
+   "<p>Después de elegir cada material, el programa:</p><ul>"
+   "<li>evalúa cada juego con las mismas reglas que a los materiales sueltos (temperatura, química, servicio "
+   "agrio, dureza y resistencia a cavitación y erosión), el galling obturador–asiento y obturador–jaula y el "
+   "tipo de asiento que pide la clase de cierre (blando solo en clase VI);</li>"
+   "<li>informa el juego que coincide con la selección o, si la selección es una combinación especial, el juego "
+   "estándar apto más económico, y la lista de juegos aptos.</li></ul>"
+   "<p>Si elige un juego en el desplegable, sus tres materiales reemplazan a los de asiento, jaula y obturador; "
+   "el programa verifica su aptitud y avisa si alguno no sirve. «Por componente» vuelve a la selección pieza "
+   "por pieza.</p><p>No aplica a válvulas rotativas.</p>",
+   MAT, tipicos="Agua limpia: N25-T01 o T12. ΔP alta: T10 / T11. Cavitación severa: T06 o T13. Servicio agrio "
+   "con ΔP alta: T16.",
+   referencia="Práctica de la industria de válvulas; ISO 15156-3; ASTM G98",
+   relacionadas=["galling", "cavitacion_dureza", "mat_modo", "comp_obturador"],
+   guia=_g("Es una combinación probada de materiales de asiento, jaula y obturador.",
+           "Permite especificar los internos como un conjunto compatible y verificar que ese conjunto sirve para "
+           "el servicio.",
+           "El juego que coincide con la selección confirma que es una combinación estándar; si no coincide, la "
+           "selección es especial y conviene consultarla con el fabricante.",
+           "Asiento blando solo en clase VI y hasta unos 232 °C; dureza mínima según la cavitación; galling alto "
+           "descarta el juego.",
+           "Con servicio limpio y ΔP baja alcanzan los juegos de 316 o martensíticos.",
+           "Con cavitación, flashing o sólidos se requieren juegos con Stellite, 440C o 17-4PH endurecido.",
+           ["Hoja de datos", "Informe técnico", "Memoria de cálculo"],
+           ["Use el juego estándar apto cuando la selección por componente sea una combinación especial.",
+            "Si elige un juego, revise las alertas: el programa avisa qué pieza no es apta y por qué."],
+           "Agua de enfriamiento con cavitación moderada: los juegos de 316 quedan descartados por dureza y el "
+           "programa propone N25-T11 (316 con Stellite y jaula 17-4PH)."))
+
 _e("tipo_bonete", "Tipo de bonete",
    "<p>El bonete aloja la empaquetadura. El programa lo define por la temperatura y el fluido:</p><ul>"
    "<li><b>Estándar</b>: temperatura entre −29 y 232 °C.</li>"
@@ -1251,7 +1322,7 @@ _e("tipo_bonete", "Tipo de bonete",
    "trabaje cerca de la temperatura ambiente sin congelarse.</li>"
    "<li><b>Con fuelle de estanqueidad</b>: cuando se elige el fuelle por fluido tóxico o letal.</li></ul>"
    "<p>En las válvulas rotativas el mismo criterio se aplica al prensaestopas del eje.</p>",
-   MAT, referencia="Emerson, Control Valve Handbook, cap. 5; BS 6364",
+   MAT, referencia="Práctica de la industria de válvulas; BS 6364",
    relacionadas=["empaquetadura", "emision_fugitiva"],
    guia=_g("Es la pieza superior del cuerpo que guía el vástago y aloja la empaquetadura.",
            "Su largo aleja la empaquetadura de temperaturas extremas.",

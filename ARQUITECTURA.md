@@ -33,6 +33,8 @@ dimensionador/
   quimica.py        Agentes químicos, normalización de unidades y compatibilidad A–D por material
   seleccion_materiales.py  Selección por componente: química, P-T, cavitación/dureza, galling,
                     servicio agrio (ISO 15156 / ISO 17945), modo manual y alertas
+  juegos_trim.py    Juegos de internos estándar (N25-T01…T17): asiento, jaula y obturador compatibles
+  geometria.py      Tamaño del trim (puerto) y carrera del vástago, estimados o certificados
   empaquetaduras.py Empaquetadura del vástago y tipo de bonete: temperatura, presión, química,
                     vacío y emisión fugitiva (ISO 15848-1, API 622 / 624 / 641)
   tuberias.py       Diámetro exterior y espesor por NPS y cédula (ASME B36.10M / B36.19M)

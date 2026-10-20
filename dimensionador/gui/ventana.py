@@ -441,6 +441,7 @@ SALIDAS = [
     ("#", "Resultados de dimensionamiento", None, None, 0, "GVS"),
     ("Cv", "Coeficiente de flujo (Cv)", "kv_cv", None, 4, "LGVS"),
     ("apertura", "Apertura estimada", "apertura", "%", 3, "LGVS"),
+    ("carrera", "Carrera de operación", "carrera_nominal", "texto", 0, "LGVS"),
     ("caudal_otro", "Flujo másico", "flujo_masico", "caudal_otro", 4, "LGVS"),
     ("Kapp", "Coef. cavitación de la aplicación (Kapp)", "Kapp", None, 3, "L"),
     ("dP", "Presión diferencial ΔP", "dP", "presion_dif", 4, "LGVS"),
@@ -975,6 +976,22 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
         for k, t in E.CARACTERISTICA.items():
             self.cb_caract.addItem(t, k)
         self._fila(grid, r, "Característica inherente", self.cb_caract, "caracteristica"); r += 1
+        self.f_puerto = FilaUnidad("puerto", "Tamaño del trim (puerto) certificado", ("longitud",), grid, r,
+                                   self.abrir_ayuda, 1, "trim_size")
+        self.f_puerto.edits[0].setPlaceholderText("estimado")
+        self.f_puerto.edits[0].setToolTip("En blanco: se estima con el diámetro de la válvula y el Cv nominal. "
+                                          "Cargue el diámetro del puerto certificado de la válvula ofertada.")
+        r += 1
+        self.f_carrera = FilaUnidad("carrera", "Carrera nominal del vástago certificada", ("longitud",), grid, r,
+                                    self.abrir_ayuda, 1, "carrera_nominal")
+        self.f_carrera.edits[0].setPlaceholderText("estimada")
+        self.f_carrera.edits[0].setToolTip("En blanco: carrera normalizada típica para el puerto. Solo globo y "
+                                           "ángulo; en las rotativas la carrera es la rotación del eje.")
+        r += 1
+        self.lbl_geo = QLabel("Se calcula con «Calcular».")
+        self.lbl_geo.setStyleSheet("color:#2f6fb0;font-size:8pt")
+        grid.addWidget(self.lbl_geo, r, 2, 1, 3)
+        r += 1
         # Datos de ruido aerodinámico (compresibles)
         sub = QLabel("<b>Datos para ruido aerodinámico (IEC 60534-8-3)</b>")
         grid.addWidget(sub, r, 0, 1, 4)
@@ -1253,6 +1270,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
 
     def _limpiar_resultados(self):
         self.lbl_resumen.setText("Sin cálculo.")
+        self.lbl_geo.setText("Se calcula con «Calcular».")
         self._llenar_kpi()
         self.lista_alertas.clear()
         self.detalle_alerta.clear()
@@ -1406,6 +1424,8 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
         self.f_Td.elegir(pref["temperatura"])
         self.f_Rn.elegir(pref["distancia"])
         self.f_area.elegir(pref["area"])
+        self.f_puerto.elegir(pref["longitud"])
+        self.f_carrera.elegir(pref["longitud"])
         self._copiar_tuberias()
         if self.res is not None:
             self.calcular(silencioso=True)
@@ -1547,13 +1567,25 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
                 raise ValueError("Falta la presión crítica del líquido.")
             return ident, inst, Dimensionamiento(casos, Pc, self.cb_trim.currentData(), self.cb_tamano.currentData(),
                                                  self.cb_caract.currentData(), fluido, cierre,
-                                                 balanceado=self._balanceado(), **self._datos_fluido())
+                                                 balanceado=self._balanceado(), **self._geo_cert(),
+                                                 **self._datos_fluido())
         ruido_g = RuidoAerodinamico(self.cb_trim_ruido.currentData(), self.f_Rn.valor_base(0) or 1.0,
                                     self.f_area.valor_base(0))
         dim = Dimensionamiento(casos, None, self.cb_trim.currentData(), self.cb_tamano.currentData(),
                                self.cb_caract.currentData(), "Agua / vapor de agua" if t == "steam" else fluido,
-                               cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado(), **self._datos_fluido())
+                               cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado(), **self._geo_cert(),
+                               **self._datos_fluido())
         return ident, inst, dim
+
+    def _geo_cert(self) -> dict:
+        """Puerto y carrera certificados (en blanco = estimados por el programa)."""
+        out = {}
+        for k, f in (("puerto_mm", self.f_puerto), ("carrera_mm", self.f_carrera)):
+            v = f.valor_base(0)
+            if v is not None and v <= 0:
+                raise ValueError(f"«{f.lbl.text()}» debe ser mayor que cero.")
+            out[k] = v
+        return out
 
     def _datos_fluido(self) -> dict:
         t, fl, var = self.tipo(), self._fluido_actual(), self.cb_variante.currentText()
@@ -1599,8 +1631,13 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
                   Severidad.ADVERTENCIA: ("#d9771e", "Hay advertencias para revisar."),
                   Severidad.CRITICA: ("#c0392b", "Hay condiciones críticas: vea las alertas y el informe técnico."),
                   Severidad.ERROR: ("#7d1f9e", "Hay datos inválidos.")}[peor]
+        geo = res.geometria
+        self.lbl_geo.setText(f"Calculado: {geo.nombre_puerto.lower()} {geo.texto_puerto} · "
+                             + (geo.texto_carrera.lower() if geo.rotativa else f"carrera {geo.texto_carrera}"))
         self.lbl_resumen.setText(
             f"<b>Válvula: {_html.escape(E._valvula_resumen(res))}</b><br>"
+            f"{_html.escape(geo.nombre_puerto)}: <b>{_html.escape(geo.texto_puerto)}</b> · "
+            f"{'Rotación' if geo.rotativa else 'Carrera nominal'}: <b>{_html.escape(geo.texto_carrera)}</b><br>"
             f"Cv máximo requerido: <b>{fmt(max(s['Cv'] for s in res.salidas))}</b> · "
             f"<span style='color:{estado[0]}'><b>{estado[1]}</b></span>")
         self._mostrar_salidas()
@@ -1786,7 +1823,8 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
 
     # ------------------------------------------------------------ archivo
     def _todas_las_filas(self):
-        return [*self.filas.values(), self.f_Pc, self.f_Pd, self.f_Td, self.f_Rn, self.f_area]
+        return [*self.filas.values(), self.f_Pc, self.f_Pd, self.f_Td, self.f_Rn, self.f_area, self.f_puerto,
+                self.f_carrera]
 
     def _estado(self) -> dict:
         s = {"version": __version__, "sistema": self.sistema, "campos": {}, "filas": {}}
@@ -1840,6 +1878,7 @@ class VentanaPrincipal(SolapaMateriales, QMainWindow):
         self.res = None
         self.ruta = None
         self.lbl_resumen.setText("Sin cálculo.")
+        self.lbl_geo.setText("Se calcula con «Calcular».")
         self._llenar_kpi()
         self.lista_alertas.clear()
         for fs in self.salidas.values():

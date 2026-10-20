@@ -22,10 +22,11 @@ corrosión del proyecto, con certificados y normas vigentes.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from . import asme_b16_34 as B
 from . import empaquetaduras as EM
+from . import juegos_trim as JT
 from . import materiales as MT
 from . import quimica as Q
 from .modelos import Alerta, Severidad, _n
@@ -88,6 +89,7 @@ class ServicioMateriales:
     agentes: list[Q.AgenteServicio] = field(default_factory=list)
     modos: dict[str, str] = field(default_factory=dict)       # componente -> AUTOMÁTICO / MANUAL
     manual: dict[str, str] = field(default_factory=dict)      # componente -> clave de material
+    juego_trim: str = ""                                      # clave de juegos_trim.JUEGOS ("" = por componente)
 
 
 @dataclass
@@ -111,6 +113,7 @@ class Contexto:
     SG: float = 1.0
     casos_cav: list[tuple[str, str, float, float, float]] = field(default_factory=list)  # caso, sev, Kapp, Kc, FL²
     P_min_kPa: float = 101.325       # presión absoluta mínima (vacío en la empaquetadura)
+    M_gas: float | None = None       # masa molar del gas o vapor [kg/kmol] (fracciones en masa → molar)
 
 
 @dataclass
@@ -182,6 +185,14 @@ class Mecanismo:
 
 
 @dataclass
+class EvaluacionJuego:
+    juego: JT.JuegoTrim
+    ok: bool
+    puntaje: float
+    motivos: list[str]
+
+
+@dataclass
 class ResultadoMateriales:
     servicio: ServicioMateriales
     ctx: Contexto
@@ -199,6 +210,18 @@ class ResultadoMateriales:
     alertas: list[Alerta]
     notas: list[str]
     empaquetadura: "EM.ResultadoEmpaquetadura | None" = None
+    juegos: list[EvaluacionJuego] = field(default_factory=list)
+    juego: EvaluacionJuego | None = None     # el que coincide con la selección o el apto más económico
+    juego_coincide: bool = False
+    juego_usuario: str = ""
+
+    @property
+    def juego_texto(self) -> str:
+        if self.juego is None:
+            return "Combinación especial (ningún juego estándar es apto)"
+        if self.juego_coincide:
+            return self.juego.juego.texto
+        return f"Combinación especial; juego estándar apto más cercano: {self.juego.juego.texto}"
 
     @property
     def cuerpo(self) -> MT.Material | None:
@@ -519,7 +542,7 @@ def _agentes(sv: ServicioMateriales, ctx: Contexto) -> tuple[list[Q.AgenteNormal
         filas.append(Q.AgenteServicio("cloruros", "mg/L", 140000, "Acuosa"))
         notas.append("Salmuera sin cloruros informados: se evalúa con 140.000 mg/L de Cl⁻ (≈ 20 % de NaCl, la "
                      "misma salinidad con la que se corrigen sus propiedades en la solapa 2).")
-    norm = [Q.normalizar(a, ctx.P_kPa, ctx.SG) for a in filas]
+    norm = [Q.normalizar(a, ctx.P_kPa, ctx.SG, ctx.M_gas) for a in filas]
     return norm, notas
 
 
@@ -765,6 +788,12 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
                                   f"No se informó la concentración de {n.agente.nombre.lower()}; se evaluó con un valor "
                                   f"alto conservador ({n.texto()}).",
                                   remedios=["Ingresar la concentración medida para afinar la selección."]))
+        if n.masa_en_gas:
+            alertas.append(Alerta("mat_unidad_gas", Severidad.ADVERTENCIA,
+                                  f"{n.agente.nombre}: unidad de masa en fase gas",
+                                  f"{n.agente.nombre} está en fase gas y se informó en {n.entrada.unidad}. "
+                                  + n.notas[0], remedios=["Informar la concentración del gas en ppmv o % molar, que "
+                                                          "es como la entregan los análisis cromatográficos."]))
         if n.agente.clave == "otro":
             alertas.append(Alerta("mat_agente_otro", Severidad.ADVERTENCIA, "Agente no catalogado",
                                   f"El agente «{n.entrada.texto or 'otro'}» no está en la base química del programa; "
@@ -772,9 +801,14 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
     alertas += _coherencia(sv, agentes, acuoso)
     if sv.medio not in ("Por evaluar",) and sv.medio.split(" (")[0] not in medio and \
             not (sv.medio == "Servicio mixto" and medio.startswith("Servicio mixto")):
-        alertas.append(Alerta("mat_medio_distinto", Severidad.INFO, "Medio declarado distinto del detectado",
+        agrio_no_declarado = agrio and sv.medio not in ("Servicio agrio", "Servicio mixto")
+        alertas.append(Alerta("mat_medio_distinto", Severidad.ADVERTENCIA if agrio_no_declarado else Severidad.INFO,
+                              "Servicio agrio detectado y no declarado" if agrio_no_declarado else
+                              "Medio declarado distinto del detectado",
                               f"Medio esperado declarado: {sv.medio.lower()}; según los datos: {medio.lower()}. "
-                              "Revise los datos o el medio declarado."))
+                              + (f"Los datos dan pH₂S = {_n(pH2S, 2)} kPa con agua libre: se aplica {norma} aunque "
+                                 "no se haya declarado. " if agrio_no_declarado else "")
+                              + "Revise los datos o el medio declarado."))
     if sv.regimen in ("Intermitente", "Batch", "Emergencia"):
         notas.append(f"Régimen {sv.regimen.lower()}: en paradas el fluido queda estanco (oxígeno, condensación, "
                      "depósitos), lo que favorece picaduras y corrosión bajo depósitos; prever drenaje o purga.")
@@ -792,6 +826,13 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
                               remedios=["Verificar con las curvas de Nelson (API RP 941) y usar Cr-Mo o inoxidable."],
                               referencia="API RP 941"))
 
+    juego_usr = JT.JUEGOS.get(sv.juego_trim)
+    if juego_usr:
+        sv = replace(sv, modos=dict(sv.modos), manual=dict(sv.manual))
+        for c, k in juego_usr.piezas().items():
+            if c == "jaula" and not ctx.jaula:
+                continue
+            sv.modos[c], sv.manual[c] = "MANUAL", k
     comps: dict[str, ResultadoComponente] = {}
     nombres = MT.COMPONENTES_ROTATIVA if ctx.rotativa else MT.COMPONENTES
     for k, nombre in nombres.items():
@@ -888,11 +929,17 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
                 e.motivos.insert(0, f"El material no se usa habitualmente como {rc.nombre.lower()}.")
             rc.elegido = m
             rc.eval_elegido = e
-            rc.alertas.append(Alerta("mat_manual", Severidad.ADVERTENCIA, f"{rc.nombre}: selección manual",
-                                     f"El material de {rc.nombre.lower()} ({m.nombre}) fue elegido manualmente. La "
-                                     "selección manual no es recomendada: la responsabilidad por su aptitud queda "
-                                     "fuera del alcance del programa." + (f" Recomendado: {rc.recomendado.nombre}."
-                                                                          if rc.recomendado and rc.recomendado != m else "")))
+            recom = f" Recomendado: {rc.recomendado.nombre}." if rc.recomendado and rc.recomendado != m else ""
+            if juego_usr and rc.clave in juego_usr.piezas():
+                rc.alertas.append(Alerta("mat_juego", Severidad.ADVERTENCIA, f"{rc.nombre}: juego de internos elegido",
+                                         f"El material de {rc.nombre.lower()} ({m.nombre}) viene del juego "
+                                         f"{juego_usr.texto}, elegido por el usuario. El programa verifica su aptitud "
+                                         "pero no lo eligió." + recom))
+            else:
+                rc.alertas.append(Alerta("mat_manual", Severidad.ADVERTENCIA, f"{rc.nombre}: selección manual",
+                                         f"El material de {rc.nombre.lower()} ({m.nombre}) fue elegido manualmente. La "
+                                         "selección manual no es recomendada: la responsabilidad por su aptitud queda "
+                                         "fuera del alcance del programa." + recom))
             if not e.ok:
                 rc.alertas.append(Alerta("mat_incompatible", Severidad.CRITICA, f"{rc.nombre}: material no apto",
                                          f"{m.nombre}: " + _unir(e.motivos),
@@ -902,7 +949,8 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
                 rc.alertas.append(Alerta("mat_quimica_regular", Severidad.ADVERTENCIA,
                                          f"{rc.nombre}: compatibilidad química regular",
                                          f"{m.nombre} tiene compatibilidad C con el fluido: vida reducida."))
-            rc.justificacion.insert(0, "Modo MANUAL: el material lo eligió el usuario.")
+            rc.justificacion.insert(0, f"Material del juego de internos {juego_usr.texto}." if juego_usr and
+                                    rc.clave in juego_usr.piezas() else "Modo MANUAL: el material lo eligió el usuario.")
             explicar(rc, e)
         else:
             rc.modo = "AUTOMÁTICO"
@@ -991,7 +1039,14 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
     ev = evaluar_todos("asiento")
     mejor = escoger(comps["asiento"], ev, [obt] if obt else None)
     aplicar_modo(comps["asiento"], ev, mejor)
-    if ctx.blando:
+    if juego_usr and juego_usr.blando != ctx.blando:
+        comps["asiento"].alertas.append(Alerta(
+            "mat_juego_cierre", Severidad.ADVERTENCIA, "Juego de internos y clase de cierre",
+            f"El juego {juego_usr.texto} " + ("lleva asiento blando y la clase de cierre no lo requiere." if
+                                               juego_usr.blando else "es metal-metal y la clase de cierre requiere "
+                                               "asiento blando (clase VI)."),
+            remedios=["Elegir un juego con el tipo de asiento que pide la clase de cierre."]))
+    if ctx.blando or (juego_usr and juego_usr.blando):
         ins = _inserto(ctx, sv, agentes, acuoso)
         comps["asiento"].inserto = ins
         if ins:
@@ -1056,8 +1111,50 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
     emp = EM.seleccionar(sv, ctx, agentes, acuoso, agrio, sv.modos.get("empaquetadura", "AUTOMÁTICO"),
                          sv.manual.get("empaquetadura"))
     alertas += emp.alertas
-    return ResultadoMateriales(sv, ctx, comps, agentes, mecs, agrio, pH2S, norma, norma_motivo, medio, req,
-                               motivo, gall, alertas, notas, emp)
+    res = ResultadoMateriales(sv, ctx, comps, agentes, mecs, agrio, pH2S, norma, norma_motivo, medio, req,
+                              motivo, gall, alertas, notas, emp)
+
+    # Juegos de internos estándar
+    def evaluar_juego(j: JT.JuegoTrim) -> EvaluacionJuego:
+        ok, pts, mot = True, 0.0, []
+        piezas = {c: MT.MATERIALES[k] for c, k in j.piezas().items() if c != "jaula" or ctx.jaula}
+        for c, m in piezas.items():
+            if c not in m.componentes:
+                ok = False
+                mot.append(f"{m.nombre} no se usa como {nombres[c].lower()}.")
+                continue
+            e = evaluar_material(m, c, ctx, sv, agentes, acuoso, agrio, norma, pH2S, azufre, req.get(c),
+                                 desg.get(c, (0, 0)))
+            pts += e.puntaje
+            if not e.ok:
+                ok = False
+                mot.append(f"{nombres[c]} ({m.clave}): {_unir(e.motivos)}")
+        for c in ("asiento", "jaula"):
+            if c in piezas and riesgo_galling(piezas["obturador"], piezas[c], ctx.T_max_C)[0] == "ALTO":
+                ok = False
+                mot.append(f"Riesgo alto de galling {nombres['obturador'].lower()} – {nombres[c].lower()}.")
+        if j.blando != ctx.blando:
+            ok = False
+            mot.append("Lleva asiento blando y la clase de cierre no lo requiere." if j.blando else
+                       "Es metal-metal y la clase de cierre requiere asiento blando.")
+        if j.blando and ctx.T_max_C > MT.MATERIALES["PTFE"].T_max_C:
+            ok = False
+            mot.append(f"El inserto de PTFE no admite {_n(ctx.T_max_C, 0)} °C.")
+        return EvaluacionJuego(j, ok, pts, mot)
+
+    if not ctx.rotativa:
+        res.juegos = [evaluar_juego(j) for j in JT.JUEGOS.values()]
+        res.juego_usuario = juego_usr.clave if juego_usr else ""
+        elegidos = {c: (comps[c].elegido.clave if comps[c].elegido else None) for c in ("asiento", "jaula", "obturador")}
+        igual = [v for v in res.juegos if JT.coincide(v.juego, elegidos, ctx.jaula, ctx.blando)]
+        if juego_usr:
+            igual = [v for v in res.juegos if v.juego is juego_usr] or igual
+        aptos = sorted((v for v in res.juegos if v.ok), key=lambda v: v.puntaje)
+        if igual:
+            res.juego, res.juego_coincide = igual[0], True
+        elif aptos:
+            res.juego = aptos[0]
+    return res
 
 
 def _inserto(ctx, sv, agentes, acuoso) -> MT.Material | None:
@@ -1108,10 +1205,13 @@ def contexto(res, sv: ServicioMateriales | None = None) -> Contexto:
               "mariposa_doble": n >= 5}.get(inst.cuerpo, False)
     dPs = [c.P1 - c.P2 for c in dim.casos] + ([dim.cierre.dP] if dim.cierre else [])
     SG = getattr(dim.casos[0], "SG", 1.0) if dim.casos else 1.0
+    M_gas = 18.015 if dim.tipo == "steam" else (getattr(dim.casos[0], "M", None) if dim.casos and dim.compresible
+                                                 else None)
     return Contexto(T_max_C=T_max, T_min_C=T_min, P_barg=(res.P_diseno - 101.325) / 100,
                     P_kPa=max(c.P1 for c in dim.casos), clase=inst.rating,
                     bridada="bridada" in inst.conexion.lower() or inst.conexion == "Wafer",
                     rotativa=cuerpo.rotativa, jaula="jaula" in dim.trim or "multietapa" in dim.trim,
                     liner=inst.cuerpo == "globo_liner", compresible=dim.compresible, tipo=dim.tipo,
                     dP_max_kPa=max(dPs), severidad_cav=peor, flashing=flashing, blando=blando, SG=SG or 1.0,
-                    casos_cav=casos_cav, P_min_kPa=min([c.P2 for c in dim.casos] + [c.P1 for c in dim.casos]))
+                    casos_cav=casos_cav, P_min_kPa=min([c.P2 for c in dim.casos] + [c.P1 for c in dim.casos]),
+                    M_gas=M_gas)

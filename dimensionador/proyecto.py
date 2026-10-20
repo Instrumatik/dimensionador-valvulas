@@ -119,6 +119,8 @@ class Dimensionamiento:
     variante: str = ""                 # calidad / variante del fluido (fluido_servicio.variantes)
     agua_libre: str = ""               # Sí, No, Intermitente, Desconocida ("" = la que sugiere el fluido)
     salinidad_pct: float = 0.0         # % p/p NaCl eq. con que se corrigieron SG, μ y Pv (0 = sin corrección)
+    puerto_mm: float | None = None     # diámetro del puerto certificado (None = estimado)
+    carrera_mm: float | None = None    # carrera nominal certificada (None = estimada)
 
     @property
     def compresible(self) -> bool:
@@ -156,6 +158,16 @@ class Resultado:
     @property
     def nps_valvula(self) -> float:
         return self.informe.d_pulg
+
+    @property
+    def geometria(self):
+        """Tamaño del trim (puerto) y carrera del vástago, estimados o certificados."""
+        from . import geometria as G
+        from .estilos import kv_nominal
+        d = self.nps_valvula
+        DI = next((di for p, _, di in TAMANOS if abs(p - d) < 1e-6), None)
+        return G.estimar(self.dim.trim, self.cuerpo.rotativa, d, self.Cv_nominal,
+                         kv_nominal(self.trim, d) / 0.865, DI, self.dim.puerto_mm, self.dim.carrera_mm)
 
     def peor(self) -> Severidad:
         return max([a.severidad for _, a in self.alertas] or [Severidad.INFO])
@@ -302,7 +314,14 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, ma
     res = Resultado(ident, inst, dim, inf, salidas, alertas, [], D1, D2, tp1, tp2, Cv_nom,
                     rating_adm, P_d, T_d, curva, mres)
     res.recomendaciones = recomendaciones(res)
+    _carreras(res)
     return res
+
+
+def _carreras(res: Resultado):
+    geo = res.geometria
+    for s in res.salidas:
+        s["carrera"] = geo.operacion(s["apertura"])
 
 
 def _materiales(mat, inst, dim, salidas, P_d, T_d):
@@ -820,6 +839,7 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
     res = Resultado(ident, inst, dim, inf, salidas, alertas, [], D1, D2, tp1, tp2, Cv_nom,
                     rating_adm, P_d, T_d, curva, mres)
     res.recomendaciones = recomendaciones(res)
+    _carreras(res)
     return res
 
 

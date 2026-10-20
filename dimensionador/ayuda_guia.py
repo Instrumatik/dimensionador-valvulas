@@ -4054,3 +4054,41 @@ GUIA = {
         ],
     },
 }
+
+
+GUIA["trim_size"] = {
+    'que_es': 'Es el diámetro del orificio del asiento por el que pasa el fluido (tamaño del trim).',
+    'que_hace': ('Define, junto con la carrera, la capacidad del trim. Es el dato con que el fabricante identifica '
+                 'el juego de internos y el que se pide en la hoja de datos.'),
+    'que_indica': ('Un puerto menor que el pleno indica un trim reducido: la válvula tiene más capacidad de la que '
+                   'el servicio necesita y se achica el paso para controlar mejor.'),
+    'umbrales': ('Trim pleno de globo: alrededor de 0,875 × el diámetro nominal. El programa redondea al 1/16 in y '
+                 'lo informa también en mm.'),
+    'por_debajo': 'Un puerto mucho menor que el pleno (trim reducido) aumenta la velocidad en el asiento.',
+    'por_encima': 'No puede superar el puerto pleno del cuerpo.',
+    'afecta': ['Carrera nominal estimada', 'Hoja de datos', 'Memoria de cálculo'],
+    'recomendaciones': [
+        'Cargue el puerto certificado cuando tenga la hoja del fabricante.',
+        'Si el Cv nominal es mucho menor que el típico, verifique que el fabricante ofrezca ese trim reducido.',
+    ],
+    'ejemplo': ('Válvula de globo de 8": puerto pleno estimado 0,875 × 8 = 7 in (177,8 mm). Un trim reducido con la '
+                'mitad del Cv tendría un puerto de unos 7 × √0,5 ≈ 4 15/16 in.'),
+}
+GUIA["carrera_nominal"] = {
+    'que_es': 'Es el recorrido total del vástago entre la válvula cerrada y abierta del todo (rated travel).',
+    'que_hace': ('Fija la carrera del actuador y la calibración del posicionador. La carrera de operación de cada '
+                 'caso es la apertura × la carrera nominal.'),
+    'que_indica': ('La carrera de operación dice cuántos milímetros se mueve el vástago en cada caso: sirve para '
+                   'verificar la resolución del posicionador a aperturas bajas.'),
+    'umbrales': ('Serie normalizada habitual: 3/4, 1 1/8, 1 1/2, 2, 3 y 4 in. Los trims de orificios llevan la '
+                 'medida siguiente.'),
+    'por_debajo': 'Con carreras de operación de pocos milímetros el control pierde resolución.',
+    'por_encima': 'Una carrera mayor necesita un actuador de más carrera y más volumen de aire.',
+    'afecta': ['Carrera de operación por caso', 'Hoja de datos', 'Memoria de cálculo'],
+    'recomendaciones': [
+        'Cargue la carrera certificada del fabricante cuando la tenga.',
+        'En válvulas rotativas la carrera es la rotación del eje (60°, 70° o 90°).',
+    ],
+    'ejemplo': ('Globo de 4" con carrera nominal de 2 in (50,8 mm) y apertura de 62 %: carrera de operación '
+                '0,62 × 50,8 = 31,5 mm (1,24 in).'),
+}

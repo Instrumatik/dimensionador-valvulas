@@ -18,13 +18,19 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    viscosidad, Pv y Pc para los casos mínimo, normal y máximo; calidad / variante del fluido (por ejemplo,
    agua de mar, que corrige SG, μ y Pv por salinidad) y agua libre, que también usa la selección de materiales; tipo de trim con sus factores
    típicos FL, Fd y Kc (editables), diámetro de válvula y Cv nominal. Los diámetros y cédulas
-   de tubería se copian desde 1-Sistema.
+   de tubería se copian desde 1-Sistema. El programa informa el tamaño del trim (diámetro del puerto) en
+   pulgadas y milímetros, la carrera nominal del vástago y la carrera de operación de cada caso (en las
+   rotativas, la rotación del eje); si se cargan el puerto y la carrera certificados, reemplazan a los estimados.
 3. **3-Materiales**: el fluido llega definido desde la solapa 2 (tipo, fluido, calidad / variante y agua
    libre); aquí solo se agregan los datos complementarios: industria, agentes químicos con su
    concentración, sólidos, pH y norma de servicio agrio. El programa recomienda el material de cuerpo, bonete, asiento, jaula, guía,
    obturador y vástago (modo AUTOMÁTICO) o verifica el elegido por el usuario (MANUAL, no
    recomendado), con galling, dureza por cavitación, ISO 15156 / ISO 17945 y límites P-T de ASME B16.34.
-   También elige la empaquetadura del vástago (PTFE, grafito, carga viva o fuelle) y el tipo de bonete
+   Evalúa además 17 juegos de internos estándar (asiento, jaula y obturador compatibles, con código propio
+   N25-T01 a N25-T17), informa el que coincide con la selección o el apto más económico y permite elegir
+   uno completo. También elige la empaquetadura del vástago (15 opciones: PTFE en V simple o doble para
+   presión o vacío, trenzada, con carga viva, grafito simple, grafito de alta hermeticidad con resortes de
+   17-7PH o Inconel 718, o fuelle; con carga viva, guía de temperatura y tipo) y el tipo de bonete
    según temperatura, presión, química, vacío y emisión fugitiva (ISO 15848-1, API 622 / 624 / 641).
 4. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
    alertas, su intensidad y las soluciones posibles.
