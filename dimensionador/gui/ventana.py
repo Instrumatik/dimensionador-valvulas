@@ -596,6 +596,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self._cambio_fluido()
         self.aplicar_sistema("SI")
         self._eq_aire_inicial()
+        self._act_concordancia()
         self._cambio_tipo_fluido()
         self._actualizar_vistas()
         self.statusBar().showMessage("Cargue los datos de instalación y de dimensionamiento y presione "
@@ -1221,6 +1222,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         i = self.cb_tamano.findData(actual)
         self.cb_tamano.setCurrentIndex(max(0, i))
         self._cambio_trim()
+        self._act_concordancia()
 
     def _cambio_trim(self):
         k = self.cb_trim.currentData()
@@ -1877,6 +1879,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                     w.setCurrentText(v)
             elif w is not None:
                 w.setText(v)
+        self._act_concordancia()  # un proyecto anterior puede traer un actuador que no corresponde a la válvula
         self.res = None
         self._actualizar_vistas()
 

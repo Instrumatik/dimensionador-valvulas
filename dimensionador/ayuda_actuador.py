@@ -55,13 +55,17 @@ _e("act_tipo", "Tipo de actuador",
    "<li><b>Electrohidráulico</b>: bomba y cilindro hidráulico propios; mucho empuje o par y falla por resorte.</li>"
    "<li><b>Piñón y cremallera</b> y <b>yugo escocés</b>: cuarto de vuelta, solo para rotativas. El primero da "
    "par constante; el segundo da par máximo en los extremos (arranque y asiento) y mínimo en la mitad.</li>"
-   "<li><b>Manual</b>: volante o reductor.</li></ul>",
+   "<li><b>Manual</b>: volante o reductor.</li></ul>"
+   "<p>La lista se ajusta a la válvula de 1-Sistema: con globo o ángulo quedan bloqueados piñón y cremallera y yugo "
+   "escocés; con mariposa, bola o tapón excéntrico quedan bloqueados el diafragma y los pistones. Eléctrico, "
+   "electrohidráulico y manual sirven para las dos. Las opciones bloqueadas se ven con el motivo al pasar el "
+   "mouse.</p>",
    ACT, referencia=REF_F, relacionadas=["act_falla", "act_metodo", "act_tamano"],
    guia=_g("Es la tecnología que mueve el vástago o el eje de la válvula.",
            "Define la serie de tamaños, la presión máxima admisible y cómo se obtiene la posición de falla.",
            "Un tipo mal elegido se ve en el resultado: tamaños enormes, aire insuficiente o una falla imposible.",
            "Diafragma: hasta unos 3,4 bar en carcasa. Multiresorte: hasta unos 6 bar. Pistón: hasta unos 10 bar. "
-           "Piñón y cremallera y yugo escocés: solo rotativas.",
+           "Piñón y cremallera y yugo escocés: solo rotativas. Diafragma y pistones: solo vástago deslizante.",
            "No aplica.", "No aplica.",
            ["Fuerza o par disponible", "Ajuste de banco y resorte", "Señales del posicionador", "Accesorios"],
            ["Use diafragma y resorte en control con ΔP moderada: es simple y a prueba de fallas.",
@@ -126,13 +130,17 @@ _e("act_aire", "Aire de instrumentos disponible",
            "Red de 4 a 7 bar g y diafragma de 3,4 bar máx.: se dimensiona con 3,4 bar y el set de aire regula."))
 
 _e("act_flujo", "Flow (sentido del flujo)",
-   "<p>Sentido del flujo respecto del obturador en válvulas de vástago deslizante:</p><ul>"
-   "<li><b>Up</b>: el fluido entra por debajo del asiento y empuja el obturador hacia arriba: la presión tiende a "
-   "abrir. Es lo habitual.</li>"
-   "<li><b>Down</b>: el fluido entra por arriba: la presión tiende a cerrar. Se usa en flashing y algunos trims "
-   "anticavitación.</li></ul>"
-   "<p>Cambia el término A de la fuerza. Al elegir el trim en la solapa 2 el programa propone el sentido que "
-   "corresponde; si se cambia, se avisa la diferencia. En rotativas no se usa.</p>",
+   "<p>Sentido del flujo. Las opciones se habilitan según la válvula elegida en 1-Sistema; las demás se ven pero "
+   "quedan bloqueadas:</p><ul>"
+   "<li><b>Up</b> (globo y ángulo): el fluido entra por debajo del asiento y empuja el obturador hacia arriba: la "
+   "presión tiende a abrir. Es lo habitual.</li>"
+   "<li><b>Down</b> (globo y ángulo): el fluido entra por arriba: la presión tiende a cerrar. Se usa en flashing y "
+   "algunos trims anticavitación.</li>"
+   "<li><b>Unidireccional</b> (rotativas): la válvula cierra con presión en el sentido marcado en el cuerpo.</li>"
+   "<li><b>Bidireccional</b> (solo bola flotante o trunnion): cierra con presión desde cualquiera de los dos lados; "
+   "el par de arranque se toma con la ΔP de cierre máxima en el sentido más desfavorable.</li></ul>"
+   "<p>En vástago deslizante cambia el término A de la fuerza. Al elegir el trim en la solapa 2 el programa propone "
+   "Up o Down según corresponda; si se cambia, se avisa la diferencia.</p>",
    ACT, referencia=REF_F, relacionadas=["act_metodo", "act_obturador", "act_gradiente"],
    guia=_g("Es la dirección del flujo a través del asiento.", "Cambia el signo y el valor del desbalance estático A.",
            "Con flujo hacia abajo la presión ayuda a cerrar pero puede generar inestabilidad (gradiente negativo).",
@@ -225,7 +233,7 @@ _e("act_tamano", "Tamaño del actuador (serie genérica)",
    "<li>Pistón: cilindros de 3 a 24\" de diámetro con hasta unos 10 bar.</li>"
    "<li>Piñón y cremallera y yugo escocés: par de doble efecto a 5,5 bar.</li>"
    "<li>Eléctricos: empuje de 0,6 a 250 kN o par de 35 a 40 000 N·m.</li></ul>"
-   "<p>En rotativas con actuador lineal se usa una palanca cuyo brazo crece con el tamaño. Los nombres (D-069, "
+   "<p>Los nombres (D-069, "
    "P-08…) son del programa y no corresponden a ningún fabricante.</p>",
    ACT, referencia="Práctica de la industria de válvulas de control", relacionadas=["act_tipo", "act_banco"],
    guia=_g("Es el tamaño sugerido del actuador.", "Resume la selección para la hoja de datos.",
@@ -283,8 +291,7 @@ _e("act_P_req", "Presión de aire requerida",
 
 _e("act_empuje", "Empuje o par disponible",
    "<p>Fuerza o par que el actuador entrega en cada sentido con el aire mínimo, para comparar con lo requerido. "
-   "En pistones se aplica un rendimiento de 0,95 por los sellos; en actuadores lineales sobre rotativas, 0,85 por la "
-   "palanca.</p>",
+   "En pistones se aplica un rendimiento de 0,95 por los sellos.</p>",
    ACT, referencia=REF_F, relacionadas=["act_requerido", "act_tamano"],
    guia=_g("Es la capacidad real del actuador elegido.", "Permite ver el margen frente a la fuerza o par requerido.",
            "Un empuje apenas mayor que el requerido deja poco margen.", "Margen de diseño incluido: 1,10 / 1,25.",
@@ -466,11 +473,17 @@ _alerta("act_cierre_supuesto", "ΔP de cierre supuesta", "<p>Sin caso Tight Shut
         "Caso Tight Shutoff vacío.", ["Cargar el caso Tight Shutoff."], "P1 máx 10 bar g: ΔP de cierre 10 bar.",
         ["act_metodo"])
 _alerta("act_incompatible", "Actuador incompatible", "<p>Un actuador de cuarto de vuelta no mueve una válvula de "
-        "vástago deslizante.</p>", "Elección imposible.", "Piñón y cremallera o yugo en globo.",
-        ["Elegir un actuador lineal."], "Globo con diafragma y resorte.", ["act_tipo"])
+        "vástago deslizante, y un diafragma o un pistón lineal no mueven el eje de una rotativa.</p>",
+        "Elección imposible.", "Piñón y cremallera o yugo en globo; diafragma o pistón en mariposa o bola.",
+        ["Elegir un actuador habilitado para la válvula."], "Mariposa con diafragma y resorte.", ["act_tipo"])
 _alerta("act_flujo_trim", "Sentido del flujo distinto del trim", "<p>El sentido elegido no coincide con el del trim "
         "de la solapa 2.</p>", "FL, xT y la fuerza quedan incoherentes.", "Flow ≠ sentido del trim.",
         ["Elegir el mismo sentido."], "Trim que tiende a cerrar con Flow Up.", ["act_flujo"])
+_alerta("act_flujo_valvula", "Flow no corresponde a la válvula", "<p>Up y Down aplican solo a globo y ángulo; "
+        "Unidireccional a rotativas y Bidireccional solo a bola flotante o trunnion. Si un proyecto anterior trae "
+        "una opción que no corresponde, el cálculo usa la que sí aplica.</p>", "El sentido elegido no se usó.",
+        "Opción de Flow bloqueada para la válvula.", ["Elegir una opción habilitada en Flow."],
+        "Mariposa con Flow Up.", ["act_flujo"])
 _alerta("act_asiento_blando_dp", "ΔP sobre el límite del PTFE", "<p>El asiento blando de PTFE admite hasta unos "
         "99 bar de ΔP de cierre.</p>", "El inserto se extruye.", "ΔP > 1440 psi.", ["Usar asiento metálico clase V."],
         "ΔP 120 bar con clase VI blanda.", ["clase_cierre"])

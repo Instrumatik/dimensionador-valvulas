@@ -36,7 +36,7 @@ resorte y el ajuste de banco con sus propias tablas.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .modelos import Alerta, Severidad, _n
 
@@ -55,14 +55,38 @@ TIPOS = ["Diafragma y resorte", "Multiresorte y diafragma", "Pistón doble acci�
          "Pistón doble acción sin resorte", "Pistón retorno por resorte", "Eléctrico", "Electrohidráulico",
          "Piñón y cremallera (Rack and pinion)", "Yugo escocés", "Manual"]
 FALLAS = ["Cierra (FC)", "Abre (FO)", "Última posición (FL)"]
-FLUJOS = ["Up", "Down"]
+FLUJOS = ["Up", "Down", "Unidireccional", "Bidireccional"]
 FC, FO, FL = FALLAS
+
+# Concordancia actuador / válvula: los de cuarto de vuelta solo mueven ejes rotativos y los de vástago
+# deslizante (diafragma, pistones) solo vástagos; eléctrico, electrohidráulico y manual existen en las dos versiones.
+TIPOS_ROTATIVOS = ("Piñón y cremallera (Rack and pinion)", "Yugo escocés")
+TIPOS_LINEALES = ("Diafragma y resorte", "Multiresorte y diafragma", "Pistón doble acción con resorte",
+                  "Pistón doble acción sin resorte", "Pistón retorno por resorte")
+FLUJOS_LINEALES = ("Up", "Down")
+BOLAS_BIDIRECCIONALES = ("bola_paso_completo", "bola_paso_reducido", "bola_trunnion")
+
+
+def tipos_bloqueados(rotativa: bool) -> dict[str, str]:
+    """Tipos de actuador que no corresponden a la válvula, con el motivo."""
+    if rotativa:
+        return {t: "actuador de vástago deslizante; la válvula elegida es rotativa" for t in TIPOS_LINEALES}
+    return {t: "actuador de cuarto de vuelta; la válvula elegida es de vástago deslizante" for t in TIPOS_ROTATIVOS}
+
+
+def flujos_bloqueados(cuerpo: str, rotativa: bool) -> dict[str, str]:
+    """Opciones de Flow que no corresponden al cuerpo: Up/Down solo en globo y ángulo, bidireccional solo en bolas."""
+    if not rotativa:
+        return {f: "aplica solo a válvulas rotativas" for f in ("Unidireccional", "Bidireccional")}
+    b = {f: "aplica solo a válvulas de globo y ángulo" for f in FLUJOS_LINEALES}
+    if cuerpo not in BOLAS_BIDIRECCIONALES:
+        b["Bidireccional"] = "aplica solo a bola flotante o trunnion"
+    return b
 
 MARGEN_LINEAL = 1.10      # margen de diseño sobre la fuerza requerida (vástago deslizante)
 MARGEN_ROT = 1.25         # margen sobre el par requerido (rotativas)
 MARGEN_ELEC = 1.25        # margen de empuje / par de los actuadores eléctricos y electrohidráulicos
 ETA_PISTON = 0.95         # rendimiento por fricción de los sellos del pistón
-ETA_PALANCA = 0.85        # rendimiento del mecanismo de palanca de un actuador lineal en válvula rotativa
 F_ARO_MAX_N = 360.0
 RESORTE_RATIO = 1.45     # par del resorte al comienzo / al final de su carrera (cuarto de vuelta)
 P_BANCO_MIN = 3.0         # ajuste de banco inferior mínimo práctico [psig]       # fuerza máxima en el aro del volante (práctica habitual, EN 12570)
@@ -420,7 +444,7 @@ class Tamano:
     area_in2: float = 0.0        # área efectiva (diafragma o pistón)
     carrera_max_in: float = 99.0
     P_max_psig: float = 150.0    # presión máxima de la carcasa o del cilindro
-    brazo_in: float = 0.0        # palanca en montaje rotativo
+    brazo_in: float = 0.0        # en cuarto de vuelta: par de doble efecto a 80 psig [lbf·in]
     vastago_area_in2: float = 0.0   # área del vástago del pistón (lado del vástago)
 
 
@@ -978,60 +1002,7 @@ def _rotativo(r: ResultadoActuador, sv: Servicio, act: DatosActuador):
     if tipo == "Manual":
         _manual(r, act, r.requerido, True)
         return
-    if tipo in ("Piñón y cremallera (Rack and pinion)", "Yugo escocés"):
-        _cuarto_vuelta(r, act, TB, TD, pmin, pmax, tipo == "Yugo escocés", rot)
-        return
-    # actuadores lineales con palanca
-    serie = {"Diafragma y resorte": DIAFRAGMA, "Multiresorte y diafragma": MULTIRESORTE}.get(tipo, PISTONES)
-    L_fac = 2 * math.sin(math.radians(rot / 2))
-    elegido = None
-    for t in serie:
-        brazo = t.brazo_in
-        L = brazo * L_fac
-        F_c = req_b / (brazo * ETA_PALANCA)
-        F_a = max(req_b, req_d) / (brazo * ETA_PALANCA)
-        Pd = min(pmin, t.P_max_psig)
-        if tipo == "Pistón doble acción sin resorte":
-            if ETA_PISTON * Pd * (t.area_in2 - t.vastago_area_in2) >= max(F_c, F_a):
-                elegido = (t, Pd, None, None, F_c, F_a, L)
-                break
-            continue
-        span = 5.0 if t in PISTONES else max(3.0, Pd / 3)
-        b = _banco(F_c, F_a, req_d / (brazo * ETA_PALANCA), L, t.area_in2, Pd, act.falla, span)
-        if b is not None:
-            elegido = (t, Pd, *b, F_c, F_a, L)
-            break
-    if elegido is None:
-        r.ok = False
-        r.seleccion = f"{tipo}: ningún tamaño de la serie genérica alcanza"
-        r.alertas.append(Alerta("act_no_alcanza", Severidad.CRITICA, "El actuador no alcanza el par requerido",
-                                f"Ningún {tipo.lower()} de la serie genérica con palanca da {_Nm(r.requerido)} con "
-                                f"aire mínimo de {_psi(pmin)}.",
-                                remedios=["Usar un actuador de piñón y cremallera, yugo escocés o eléctrico.",
-                                          "Subir la presión mínima del aire."], referencia=REF_ACT))
-        return
-    t, Pd, Pbl, Pbu, F_c, F_a, L = elegido
-    r.area_in2 = t.area_in2
-    r.seleccion = f"{tipo} {t.nombre} con palanca de {_in(t.brazo_in)}: área {_area(t.area_in2)}"
-    r.filas += [("Tamaño (serie genérica)", r.seleccion, "act_tamano")]
-    if Pbl is None:
-        r.P_req_psig = max(F_c, F_a) / (ETA_PISTON * (t.area_in2 - t.vastago_area_in2))
-        r.doble_efecto = True
-    else:
-        Ks = (Pbu - Pbl) * t.area_in2 / L
-        r.P_banco = (Pbl, Pbu)
-        r.P_req_psig = _req_aire(Pbl, Pbu, F_c, F_a, t.area_in2, act.falla)
-        r.filas += [("Ajuste de banco (bench set)", f"{_n(Pbl, 1)} – {_n(Pbu, 1)} psig "
-                     f"({_n(Pbl / 14.5038, 2)} – {_n(Pbu / 14.5038, 2)} bar g)", "act_banco"),
-                    ("Constante del resorte", f"{_n(Ks * LBF_N / IN_MM, 1)} N/mm ({_n(Ks, 0)} lbf/in)",
-                     "act_resorte"),
-                    ("Par de falla del resorte en el asiento",
-                     _Nm((Pbl if act.falla != FO else Pbu) * t.area_in2 * t.brazo_in * ETA_PALANCA), "act_empuje")]
-    r.filas.append(("Presión de aire requerida", _psi(r.P_req_psig), "act_P_req"))
-    _verif_aire(r, pmin, pmax, r.P_req_psig, t.P_max_psig, act.regulado)
-    if act.volante:
-        r.filas.append(("Par requerido del volante (mando manual)", _Nm(r.requerido), "act_volante"))
-        _volante(r, r.requerido)
+    _cuarto_vuelta(r, act, TB, TD, pmin, pmax, tipo == "Yugo escocés", rot)  # los lineales se bloquean antes
 
 
 def _cuarto_vuelta(r, act, TB, TD, pmin, pmax, yugo: bool, rot: float):
@@ -1093,9 +1064,6 @@ def _cuarto_vuelta(r, act, TB, TD, pmin, pmax, yugo: bool, rot: float):
 
 # ---------------------------------------------------------------------------------------- general
 
-LINEALES_ONLY = ("Piñón y cremallera (Rack and pinion)", "Yugo escocés")
-
-
 def evaluar_actuador(sv: Servicio, act: DatosActuador) -> ResultadoActuador:
     r = ResultadoActuador(act.tipo, act.falla, sv.rotativa)
     r.neumatico = act.tipo not in ("Eléctrico", "Electrohidráulico", "Manual")
@@ -1122,17 +1090,36 @@ def evaluar_actuador(sv: Servicio, act: DatosActuador) -> ResultadoActuador:
             f"({_n(sv.P1, 1)} psig) con la salida a presión atmosférica (criterio conservador).",
             remedios=["Cargar el caso Tight Shutoff en 2-Cálculos Válvula con las presiones reales de cierre."],
             referencia=REF_FUERZAS))
-    if not sv.rotativa and act.tipo in LINEALES_ONLY:
+    if act.tipo in tipos_bloqueados(sv.rotativa):
         r.ok = False
-        r.seleccion = "Actuador rotativo en válvula de vástago deslizante"
-        r.alertas.append(Alerta("act_incompatible", Severidad.CRITICA, "Actuador incompatible con la válvula",
-                                f"Un actuador de {act.tipo.lower()} es de cuarto de vuelta: no mueve el vástago de una "
-                                "válvula de globo o ángulo.",
-                                remedios=["Elegir diafragma y resorte, pistón, eléctrico lineal o electrohidráulico."],
-                                referencia=REF_ACT))
+        if sv.rotativa:
+            r.seleccion = "Actuador de vástago deslizante en válvula rotativa"
+            txt = (f"Un actuador de {act.tipo.lower()} mueve un vástago lineal: no corresponde a una válvula "
+                   "rotativa (mariposa, bola, tapón excéntrico).")
+            rem = ["Elegir piñón y cremallera, yugo escocés, eléctrico, electrohidráulico o manual."]
+        else:
+            r.seleccion = "Actuador rotativo en válvula de vástago deslizante"
+            txt = (f"Un actuador de {act.tipo.lower()} es de cuarto de vuelta: no mueve el vástago de una "
+                   "válvula de globo o ángulo.")
+            rem = ["Elegir diafragma y resorte, pistón, eléctrico lineal o electrohidráulico."]
+        r.alertas.append(Alerta("act_incompatible", Severidad.CRITICA, "Actuador incompatible con la válvula", txt,
+                                remedios=rem, referencia=REF_ACT))
         return r
+    bloq = flujos_bloqueados(sv.cuerpo, sv.rotativa)
+    if act.flujo in bloq:
+        usado = ("Down" if ("cierra" in sv.trim or "dentro" in sv.trim) else "Up") if not sv.rotativa \
+            else "Unidireccional"
+        r.alertas.append(Alerta("act_flujo_valvula", Severidad.ADVERTENCIA, "Flow no corresponde a la válvula",
+                                f"Se eligió «{act.flujo}», que {bloq[act.flujo]}. Se calculó con «{usado}».",
+                                remedios=["Elegir en Flow una opción habilitada para esta válvula."],
+                                referencia=REF_ACT))
+        act = replace(act, flujo=usado)
     if sv.rotativa:
         r.filas.append(("Método", "Pares de arranque y dinámico de válvula rotativa", "act_metodo"))
+        r.filas.append(("Flow (sentido del flujo)", "Bidireccional: cierra con presión desde cualquier lado; el par de "
+                        "arranque se toma con la ΔP de cierre máxima en el sentido más desfavorable"
+                        if act.flujo == "Bidireccional" else "Unidireccional: cierra con presión en el sentido "
+                        "marcado en el cuerpo", "act_flujo"))
         _rotativo(r, sv, act)
     else:
         _lineal(r, sv, act)

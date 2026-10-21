@@ -103,9 +103,12 @@ def test_rotativas_y_cuarto_de_vuelta():
     f, TB, TD, _ = A.pares_rotativos(sv, _act())
     assert TB == pytest.approx(0.10 * 150 + 380)
     assert TD == pytest.approx(f.C_en(54) * 80)
-    for tipo in ("Piñón y cremallera (Rack and pinion)", "Yugo escocés", "Eléctrico", "Diafragma y resorte"):
-        r = A.evaluar_actuador(sv, _act(tipo=tipo, P_aire_min=60 * A.PSI_KPA, P_aire_max=100 * A.PSI_KPA))
+    for tipo in ("Piñón y cremallera (Rack and pinion)", "Yugo escocés", "Eléctrico"):
+        r = A.evaluar_actuador(sv, _act(tipo=tipo, P_aire_min=60 * A.PSI_KPA, P_aire_max=100 * A.PSI_KPA,
+                                        flujo="Unidireccional"))
         assert r.ok, tipo
+    r = A.evaluar_actuador(sv, _act(tipo="Diafragma y resorte", flujo="Unidireccional"))
+    assert not r.ok and any(a.codigo == "act_incompatible" for a in r.alertas)
     r = A.evaluar_actuador(_sv(), _act(tipo="Yugo escocés"))
     assert any(a.codigo == "act_incompatible" for a in r.alertas)
 
@@ -119,3 +122,16 @@ def test_falla_electrico_y_switching():
     assert any(a.codigo == "acc_switching" for a in rc.alertas)
     p = A.evaluar_posicionador(A.DatosPosicionador(accion="Directo"), act, r)
     assert any(a.codigo == "pos_accion" for a in p.alertas)
+
+
+def test_concordancia_actuador_y_flujo():
+    assert set(A.tipos_bloqueados(False)) == set(A.TIPOS_ROTATIVOS)
+    assert set(A.tipos_bloqueados(True)) == set(A.TIPOS_LINEALES)
+    assert set(A.flujos_bloqueados("globo", False)) == {"Unidireccional", "Bidireccional"}
+    assert set(A.flujos_bloqueados("bola_trunnion", True)) == {"Up", "Down"}
+    assert set(A.flujos_bloqueados("mariposa", True)) == {"Up", "Down", "Bidireccional"}
+    # una opción de Flow que no corresponde se avisa y se reemplaza por la que aplica
+    r = A.evaluar_actuador(_sv(), _act(flujo="Bidireccional"))
+    assert r.ok and any(a.codigo == "act_flujo_valvula" for a in r.alertas)
+    ref = A.evaluar_actuador(_sv(), _act(flujo="Down"))
+    assert r.seleccion == ref.seleccion

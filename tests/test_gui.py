@@ -335,3 +335,28 @@ def test_solapas_equipo(app, tmp_path):
     assert {k: (x.currentText() if hasattr(x, "currentText") else x.text()) for k, x in w2.eq_w.items()} == estado["equipo"]
     w2.calcular()
     assert w2.res.equipo.actuador.seleccion == eq.actuador.seleccion
+
+
+def test_concordancia_actuador_valvula(app):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    E = w.eq_w
+
+    def habilitadas(cb):
+        return [cb.itemText(i) for i in range(cb.count()) if cb.model().item(i).isEnabled()]
+
+    w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("globo"))
+    assert "Yugo escocés" not in habilitadas(E["act_tipo"]) and "Diafragma y resorte" in habilitadas(E["act_tipo"])
+    assert habilitadas(E["act_flujo"]) == ["Up", "Down"]
+    E["act_tipo"].setCurrentText("Pistón retorno por resorte")
+    w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("mariposa"))
+    assert E["act_tipo"].currentText() == "Piñón y cremallera (Rack and pinion)"
+    assert E["act_tipo"].count() == 10 and "Diafragma y resorte" not in habilitadas(E["act_tipo"])
+    assert habilitadas(E["act_flujo"]) == ["Unidireccional"] and E["act_flujo"].currentText() == "Unidireccional"
+    w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("bola_trunnion"))
+    assert habilitadas(E["act_flujo"]) == ["Unidireccional", "Bidireccional"]
+    E["act_flujo"].setCurrentText("Bidireccional")
+    w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("angulo"))
+    from dimensionador.actuadores import TIPOS_ROTATIVOS
+    assert E["act_flujo"].currentText() in ("Up", "Down")
+    assert E["act_tipo"].currentText() not in TIPOS_ROTATIVOS

@@ -8,12 +8,25 @@ from PySide6.QtWidgets import (QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLin
                                QVBoxLayout, QWidget)
 
 from .. import actuadores as A
+from ..estilos import ESTILOS
 from ..modelos import Severidad
 
 SI_NO = ["Sí", "No"]
 COLOR_SEV = {Severidad.INFO: "#2f6fb0", Severidad.ADVERTENCIA: "#d9771e", Severidad.CRITICA: "#c0392b",
              Severidad.ERROR: "#7d1f9e"}
 NOTA = "color:#55606d;font-style:italic;padding:4px"
+
+
+def _bloquear_items(cb, bloqueadas: dict, dejar_actual=False):
+    """Deja visibles todas las opciones pero deshabilita las bloqueadas, con el motivo como ayuda emergente."""
+    m = cb.model()
+    for i in range(cb.count()):
+        s = cb.itemText(i)
+        it = m.item(i)
+        if it is None:
+            continue
+        it.setEnabled(s not in bloqueadas or (dejar_actual and s == cb.currentText()))
+        cb.setItemData(i, f"Bloqueada: {bloqueadas[s]}." if s in bloqueadas else "", Qt.ToolTipRole)
 
 
 def _vista() -> QTextBrowser:
@@ -177,15 +190,23 @@ class SolapaEquipo:
             self.eq_w["pos_accion"].setCurrentText("Configurable")
 
     def _pos_bloquear(self, bloqueadas: dict):
-        cb = self.eq_w["pos_senal"]
-        m = cb.model()
-        for i in range(cb.count()):
-            s = cb.itemText(i)
-            it = m.item(i)
-            if it is None:
-                continue
-            it.setEnabled(s not in bloqueadas or s == cb.currentText())
-            cb.setItemData(i, f"Bloqueada: {bloqueadas[s]}." if s in bloqueadas else "", Qt.ToolTipRole)
+        _bloquear_items(self.eq_w["pos_senal"], bloqueadas, dejar_actual=True)
+
+    def _act_concordancia(self):
+        """Bloquea los actuadores y las opciones de Flow que no corresponden a la válvula de 1-Sistema."""
+        if not hasattr(self, "eq_w") or not hasattr(self, "cb_cuerpo") or self.cb_cuerpo.currentData() is None:
+            return
+        c = self.cuerpo()
+        tipo, flujo = self.eq_w["act_tipo"], self.eq_w["act_flujo"]
+        _bloquear_items(tipo, A.tipos_bloqueados(c.rotativa))
+        if tipo.currentText() in A.tipos_bloqueados(c.rotativa):
+            tipo.setCurrentText("Piñón y cremallera (Rack and pinion)" if c.rotativa else A.TIPOS[0])
+        _bloquear_items(flujo, A.flujos_bloqueados(c.clave, c.rotativa))
+        if flujo.currentText() in A.flujos_bloqueados(c.clave, c.rotativa):
+            if c.rotativa:
+                flujo.setCurrentText("Unidireccional")
+            else:
+                self._act_flujo_desde_trim(self.cb_trim.currentData() or "")
 
     # -------------------------------------------------------------- 6-Accesorios
     def _tab_accesorios(self) -> QWidget:
@@ -255,7 +276,7 @@ class SolapaEquipo:
         return A.Equipo(act, pos, acc)
 
     def _act_flujo_desde_trim(self, trim: str):
-        if hasattr(self, "eq_w") and "act_flujo" in self.eq_w:
+        if hasattr(self, "eq_w") and "act_flujo" in self.eq_w and trim and not ESTILOS[trim].familia == "rotativa":
             self.eq_w["act_flujo"].setCurrentText("Down" if ("cierra" in trim or "dentro" in trim) else "Up")
 
     def _eq_aire_inicial(self):
@@ -277,6 +298,7 @@ class SolapaEquipo:
         self.f_vastago.edits[0].clear()
         self._eq_aire_inicial()
         self._pos_bloquear({})
+        self._act_concordancia()
         for v in (self.vista_act, self.vista_pos, self.vista_acc):
             v.setHtml("<p style='color:#55606d'>Se calcula con «Calcular».</p>")
 
