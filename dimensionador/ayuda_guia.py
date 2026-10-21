@@ -4066,13 +4066,32 @@ GUIA["trim_size"] = {
                  'lo informa también en mm.'),
     'por_debajo': 'Un puerto mucho menor que el pleno (trim reducido) aumenta la velocidad en el asiento.',
     'por_encima': 'No puede superar el puerto pleno del cuerpo.',
-    'afecta': ['Carrera nominal estimada', 'Hoja de datos', 'Memoria de cálculo'],
+    'afecta': ['Carrera nominal estimada', 'Cv del trim reducido', 'Apertura estimada', 'Actuador', 'Hoja de datos',
+               'Memoria de cálculo'],
     'recomendaciones': [
         'Cargue el puerto certificado cuando tenga la hoja del fabricante.',
         'Si el Cv nominal es mucho menor que el típico, verifique que el fabricante ofrezca ese trim reducido.',
     ],
     'ejemplo': ('Válvula de globo de 8": puerto pleno estimado 0,875 × 8 = 7 in (177,8 mm). Un trim reducido con la '
                 'mitad del Cv tendría un puerto de unos 7 × √0,5 ≈ 4 15/16 in.'),
+}
+GUIA["Cv_reducido"] = {
+    'que_es': 'Es el Cv nominal del trim reducido: el de un asiento con puerto menor que el del trim completo del cuerpo.',
+    'que_hace': ('Reemplaza al Cv típico del cuerpo en la apertura estimada, la carrera de operación, la curva de Cv, '
+                 'las alertas de tamaño y los documentos.'),
+    'que_indica': ('Cuánta capacidad queda con el puerto reducido. Si es cercano al Cv máximo requerido, la válvula '
+                   'trabaja en la zona media de la carrera y controla mejor.'),
+    'umbrales': ('Sin Cv certificado se estima: Cv reducido = Cv típico × (d reducido / d típico)². Se considera trim '
+                 'reducido cuando el puerto certificado es menor que el 97 % del típico.'),
+    'por_debajo': 'Si el Cv reducido es menor que el requerido, la válvula queda subdimensionada (alerta crítica).',
+    'por_encima': 'Si sigue muy por encima del requerido, la apertura queda baja: conviene un puerto aún menor.',
+    'afecta': ['Apertura estimada', 'Carrera de operación', 'Curva de Cv', 'Alertas de tamaño', 'Hoja de datos'],
+    'recomendaciones': [
+        'Cargue el Cv certificado del fabricante: la relación de áreas suele subestimar el Cv de puertos chicos.',
+        'Busque que el caso máximo quede entre 70 % y 85 % de apertura y el mínimo por encima de 10 %.',
+    ],
+    'ejemplo': ('Globo de 1½" con trim completo típico de puerto 1 5/16" y Cv 31, con puerto reducido de ½": '
+                'Cv ≈ 31 × (0,5/1,3125)² ≈ 4,5.'),
 }
 GUIA["carrera_nominal"] = {
     'que_es': 'Es el recorrido total del vástago entre la válvula cerrada y abierta del todo (rated travel).',

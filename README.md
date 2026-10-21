@@ -21,6 +21,9 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    de tubería se copian desde 1-Sistema. El programa informa el tamaño del trim (diámetro del puerto) en
    pulgadas y milímetros, la carrera nominal del vástago y la carrera de operación de cada caso (en las
    rotativas, la rotación del eje); si se cargan el puerto y la carrera certificados, reemplazan a los estimados.
+   Un puerto certificado menor que el del trim completo se trata como **trim reducido**: el programa muestra el
+   puerto y el Cv típicos del trim completo, el puerto reducido y el Cv con el puerto reducido (el certificado o,
+   en blanco, el estimado por la relación de áreas), y usa ese Cv en la apertura, la carrera, la curva y el actuador.
 3. **3-Materiales**: el fluido llega definido desde la solapa 2 (tipo, fluido, calidad / variante y agua
    libre); aquí solo se agregan los datos complementarios: industria, agentes químicos con su
    concentración, sólidos, pH y norma de servicio agrio. El programa recomienda el material de cuerpo, bonete, asiento, jaula, guía,

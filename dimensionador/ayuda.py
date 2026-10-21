@@ -275,9 +275,31 @@ _e("trim_size", "Tamaño del trim (diámetro del puerto)",
    "el puerto se reduce con la raíz de la relación de Cv. Se informa en pulgadas, redondeado al 1/16 "
    "más cercano, y en milímetros.</p><p>En válvulas rotativas el dato es el orificio de la bola, el "
    "disco de la mariposa o el asiento del tapón excéntrico.</p><p>Si tiene la hoja del fabricante, cargue "
-   "el puerto certificado: reemplaza al estimado en la pantalla y en los documentos.</p>",
+   "el puerto certificado: reemplaza al estimado en la pantalla y en los documentos. Si es menor que el del "
+   "trim completo, el programa lo trata como <b>trim reducido</b> y calcula el Cv con el puerto reducido "
+   "(ver «Cv certificado del trim reducido»).</p>",
    tipicos="Trim pleno: 2\" ≈ 1 3/4 in (44 mm); 4\" ≈ 3 1/2 in (89 mm); 8\" ≈ 7 in (178 mm)",
-   relacionadas=["carrera_nominal", "tamano", "Kv_nominal"])
+   relacionadas=["carrera_nominal", "tamano", "Kv_nominal", "Cv_reducido"])
+
+_e("Cv_reducido", "Trim reducido: puerto reducido y Cv con el puerto reducido",
+   "<p>Un <b>trim reducido</b> monta en el cuerpo un asiento con puerto menor que el del trim completo. Se usa "
+   "cuando el caudal es chico para el diámetro de la línea o del cuerpo (por ejemplo, para que la válvula no "
+   "trabaje pegada al asiento) o en servicios con cavitación y flujo estrangulado.</p>"
+   "<p>El programa muestra por separado:</p><ul>"
+   "<li><b>Trim completo típico</b>: puerto y Cv típicos del estilo para el diámetro de la válvula.</li>"
+   "<li><b>Trim reducido</b>: el puerto certificado cargado arriba, cuando es menor que el típico.</li>"
+   "<li><b>Cv con el puerto reducido</b>: el certificado que se carga en esta celda o, si queda en blanco, el "
+   "estimado con la relación de áreas: Cv reducido = Cv típico × (d reducido / d típico)².</li></ul>"
+   "<p>Ese Cv reemplaza al típico en la apertura estimada de cada caso, la carrera de operación, la curva de Cv, "
+   "las alertas de válvula sobredimensionada o subdimensionada y los documentos. El actuador usa el puerto "
+   "reducido en el desbalance y la carga de asiento.</p>"
+   "<p>La relación de áreas suele dar un Cv algo menor que el real en puertos chicos: las aperturas estimadas "
+   "quedan del lado seguro (algo mayores que las reales). Cargue el Cv certificado de la hoja de datos del "
+   "fabricante en cuanto lo tenga. Si carga solo el Cv certificado, el puerto se estima con la raíz de la "
+   "relación de Cv.</p>",
+   formula="Cv reducido = Cv típico × (d reducido / d típico)²",
+   tipicos="Globo 1½\" (puerto ≈ 1 5/16\", Cv ≈ 31) con puerto de ½\": Cv ≈ 31 × (0,5/1,3125)² ≈ 4,5",
+   relacionadas=["trim_size", "carrera_nominal", "Kv_nominal"])
 
 _e("carrera_nominal", "Carrera nominal y carrera de operación del vástago",
    "<p>La <b>carrera nominal</b> (rated travel) es el recorrido total del vástago entre la válvula "

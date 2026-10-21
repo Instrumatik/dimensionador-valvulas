@@ -121,6 +121,7 @@ class Dimensionamiento:
     salinidad_pct: float = 0.0         # % p/p NaCl eq. con que se corrigieron SG, μ y Pv (0 = sin corrección)
     puerto_mm: float | None = None     # diámetro del puerto certificado (None = estimado)
     carrera_mm: float | None = None    # carrera nominal certificada (None = estimada)
+    Cv_reducido_cert: float | None = None   # Cv certificado del trim reducido (None = estimado por el puerto)
 
     @property
     def compresible(self) -> bool:
@@ -147,6 +148,7 @@ class Resultado:
     curva: list[tuple[float, float]] = field(default_factory=list)
     materiales: object | None = None        # seleccion_materiales.ResultadoMateriales
     equipo: object | None = None            # actuadores.ResultadoEquipo (solapas 4, 5 y 6)
+    trim_reducido: "TrimReducido | None" = None
 
     @property
     def cuerpo(self):
@@ -218,9 +220,86 @@ def _validar_factores(c, errores, gas: bool):
                               "entre 0,05 y 1,0."))
 
 
+@dataclass
+class TrimReducido:
+    """Trim reducido: puerto menor que el del trim completo del cuerpo, con su propio Cv nominal."""
+    puerto_tipico_mm: float
+    Cv_tipico: float
+    puerto_mm: float
+    puerto_certificado: bool
+    Cv: float
+    Cv_certificado: bool
+
+    @property
+    def relacion_areas(self) -> float:
+        return (self.puerto_mm / self.puerto_tipico_mm) ** 2
+
+    @property
+    def texto_Cv(self) -> str:
+        return f"{_n(self.Cv, 3)} " + ("(certificado)" if self.Cv_certificado else
+                                     f"(estimado por puerto: {_n(self.Cv_tipico, 1)} × "
+                                     f"({_n(self.puerto_mm / 25.4, 3)}/{_n(self.puerto_tipico_mm / 25.4, 3)})²)")
+
+
+def trim_reducido(inst: Instalacion, dim: Dimensionamiento, d_pulg: float) -> TrimReducido | None:
+    """Cv del trim reducido para el cuerpo de ``d_pulg``: el certificado o, si solo se conoce el puerto
+    certificado y es menor que el del trim completo, el típico escalado por la relación de áreas de paso."""
+    from . import geometria as G
+    from .estilos import kv_nominal
+    rot = CUERPOS[inst.cuerpo].rotativa
+    estilo = ESTILOS[dim.trim]
+    Cv_tip = kv_nominal(estilo, d_pulg) / 0.865
+    DI = next((di for p, _, di in TAMANOS if abs(p - d_pulg) < 1e-6), None)
+    p_tip = G.estimar(dim.trim, rot, d_pulg, Cv_tip, Cv_tip, DI).puerto_mm
+    if dim.Cv_reducido_cert:
+        Cv = dim.Cv_reducido_cert
+        p = G.estimar(dim.trim, rot, d_pulg, Cv, Cv_tip, DI, dim.puerto_mm).puerto_mm
+        return TrimReducido(p_tip, Cv_tip, p, dim.puerto_mm is not None, Cv, True)
+    if rot or not dim.puerto_mm or dim.puerto_mm >= 0.97 * p_tip:
+        return None
+    return TrimReducido(p_tip, Cv_tip, dim.puerto_mm, True, Cv_tip * (dim.puerto_mm / p_tip) ** 2, False)
+
+
+def _alerta_trim_reducido(tr: TrimReducido, h_max: float) -> Alerta:
+    pt, pr = tr.puerto_tipico_mm / 25.4, tr.puerto_mm / 25.4
+    txt = (f"Trim completo típico: puerto {_n(pt, 3)} in, Cv {_n(tr.Cv_tipico, 1)}. Trim reducido: puerto "
+           f"{_n(pr, 3)} in ({'certificado' if tr.puerto_certificado else 'estimado'}), Cv {tr.texto_Cv}. "
+           "La apertura, la carrera de operación, la curva de Cv y el actuador se calculan con el trim reducido.")
+    if tr.Cv_certificado:
+        return Alerta("trim_reducido", Severidad.INFO, "Trim reducido con Cv certificado", txt)
+    txt += (" La relación de áreas suele subestimar el Cv de puertos chicos (las aperturas reales serían algo "
+            "menores).")
+    if h_max > 0.9:
+        return Alerta("trim_reducido", Severidad.ADVERTENCIA, "Trim reducido al límite con el Cv estimado",
+                      txt + f" Con el Cv estimado el caso máximo necesita {_n(h_max * 100, 0)} % de apertura: antes "
+                      "de concluir que el puerto no alcanza, confirme el Cv real del trim.",
+                      remedios=["Cargar el Cv certificado del trim reducido de la hoja de datos del fabricante.",
+                                "Si el Cv certificado tampoco alcanza, elegir el puerto reducido siguiente."])
+    return Alerta("trim_reducido", Severidad.INFO, "Trim reducido: Cv estimado por el puerto", txt,
+                  remedios=["Cargar el Cv certificado del trim reducido de la hoja de datos del fabricante."])
+
+
 def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, mat=None, equipo=None) -> Resultado:
     """``mat`` (seleccion_materiales.ServicioMateriales) activa la selección de materiales; ``equipo``
-    (actuadores.Equipo) el dimensionamiento del actuador, del posicionador y de los accesorios."""
+    (actuadores.Equipo) el dimensionamiento del actuador, del posicionador y de los accesorios.
+
+    Con un trim reducido (Cv certificado del trim reducido, o puerto certificado menor que el del trim
+    completo) el cálculo se repite con el Cv nominal de ese trim en el cuerpo elegido."""
+    if dim.Cv_nominal or not (dim.puerto_mm or dim.Cv_reducido_cert):
+        return _calcular(ident, inst, dim, mat, equipo)
+    d = dim.nps_valvula or _calcular(ident, inst, dim).nps_valvula
+    tr = trim_reducido(inst, dim, d)
+    if tr is None:
+        return _calcular(ident, inst, dim, mat, equipo)
+    res = _calcular(ident, inst, replace(dim, nps_valvula=d, Cv_nominal=tr.Cv), mat, equipo)
+    res.dim = replace(res.dim, nps_valvula=dim.nps_valvula)
+    res.trim_reducido = tr
+    res.alertas.append(("General", _alerta_trim_reducido(tr, max(x["apertura"] for x in res.salidas))))
+    res.alertas.sort(key=lambda t: -t[1].severidad)
+    return res
+
+
+def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, mat=None, equipo=None) -> Resultado:
     if dim.compresible:
         return _equipo(_calcular_compresible(ident, inst, dim, mat), equipo)
     errores: list[Alerta] = []
@@ -621,7 +700,8 @@ def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
     rec.append(("Coeficiente de caudal",
                 f"Cv requerido máximo {_n(Cv_max, 1)}. Se recomienda una válvula con Cv nominal de al "
                 f"menos {_n(Cv_max / 0.85, 1)} (apertura ≤ 85 % en el caso máximo). Con la válvula "
-                f"de {_n(res.nps_valvula)}\" (Cv nominal {_n(res.Cv_nominal, 1)}) la apertura queda entre "
+                f"de {_n(res.nps_valvula)}\" (Cv nominal{' del trim reducido' if res.trim_reducido else ''} "
+                f"{_n(res.Cv_nominal, 1)}) la apertura queda entre "
                 f"{_n(min(h) * 100, 0)} % y {_n(max(h) * 100, 0)} %."))
     # Cuerpo
     if flash:
@@ -865,7 +945,8 @@ def recomendaciones_compresible(res: Resultado) -> list[tuple[str, str]]:
     rec.append(("Coeficiente de caudal",
                 f"Cv requerido máximo {_n(Cv_max, 1)}. Se recomienda una válvula con Cv nominal de al "
                 f"menos {_n(Cv_max / 0.85, 1)} (apertura ≤ 85 % en el caso máximo). Con la válvula "
-                f"de {_n(res.nps_valvula)}\" (Cv nominal típico {_n(res.Cv_nominal, 1)}) la apertura queda "
+                f"de {_n(res.nps_valvula)}\" (Cv nominal {'del trim reducido ' if res.trim_reducido else 'típico '}"
+                f"{_n(res.Cv_nominal, 1)}) la apertura queda "
                 f"entre {_n(min(h) * 100, 0)} % y {_n(max(h) * 100, 0)} %."))
     Ma = max(x["Ma_valvula"] for x in s)
     txt = f"Cuerpo {cuerpo.nombre.lower()}, rating CL{inst.rating}, conexión {inst.conexion}."

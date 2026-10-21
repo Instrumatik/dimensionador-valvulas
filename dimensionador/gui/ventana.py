@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
 
 from .. import __version__, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, propiedades, tuberias, unidades as U
 from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, NOMBRES_ANTERIORES, TAMANOS
+from ..geometria import fraccion_in
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
 from .solapa_actuador import SolapaEquipo
@@ -994,8 +995,22 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.f_carrera.edits[0].setToolTip("En blanco: carrera normalizada típica para el puerto. Solo globo y "
                                            "ángulo; en las rotativas la carrera es la rotación del eje.")
         r += 1
+        self.ed_cv_red = self._registrar("Cv_reducido", QLineEdit())
+        self.ed_cv_red.setPlaceholderText("estimado")
+        self.ed_cv_red.setToolTip("Cv nominal certificado del trim reducido (hoja de datos del fabricante). En blanco: "
+                                  "si el puerto certificado es menor que el del trim completo, el Cv se estima con "
+                                  "la relación de áreas.")
+        self.ed_cv_red.setFixedWidth(self.f_puerto.edits[0].sizeHint().width())
+        self.ed_cv_red.setAlignment(Qt.AlignRight)
+        lbl = QLabel("Cv certificado del trim reducido")
+        grid.addWidget(lbl, r, 0)
+        grid.addWidget(boton_ir(self.abrir_ayuda, "Cv_reducido"), r, 1)
+        grid.addWidget(self.ed_cv_red, r, 3)
+        self.ed_cv_red.setProperty("ayuda", "Cv_reducido")
+        r += 1
         self.lbl_geo = QLabel("Se calcula con «Calcular».")
         self.lbl_geo.setStyleSheet("color:#2f6fb0;font-size:8pt")
+        self.lbl_geo.setTextFormat(Qt.RichText)
         grid.addWidget(self.lbl_geo, r, 2, 1, 3)
         r += 1
         # Datos de ruido aerodinámico (compresibles)
@@ -1595,6 +1610,11 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             if v is not None and v <= 0:
                 raise ValueError(f"«{f.lbl.text()}» debe ser mayor que cero.")
             out[k] = v
+        t = self.ed_cv_red.text().strip()
+        cv = leer_numero(t) if t else None
+        if t and (cv is None or cv <= 0):
+            raise ValueError("«Cv certificado del trim reducido» debe ser un número mayor que cero.")
+        out["Cv_reducido_cert"] = cv
         return out
 
     def _datos_fluido(self) -> dict:
@@ -1642,8 +1662,16 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                   Severidad.CRITICA: ("#c0392b", "Hay condiciones críticas: vea las alertas y el informe técnico."),
                   Severidad.ERROR: ("#7d1f9e", "Hay datos inválidos.")}[peor]
         geo = res.geometria
-        self.lbl_geo.setText(f"Calculado: {geo.nombre_puerto.lower()} {geo.texto_puerto} · "
-                             + (geo.texto_carrera.lower() if geo.rotativa else f"carrera {geo.texto_carrera}"))
+        tr = res.trim_reducido
+        txt_geo = _html.escape(f"Calculado: {geo.nombre_puerto.lower()} {geo.texto_puerto} · "
+                               + (geo.texto_carrera.lower() if geo.rotativa else f"carrera {geo.texto_carrera}"))
+        if tr is not None:
+            txt_geo += (f"<br><b>Trim completo típico:</b> puerto {fraccion_in(tr.puerto_tipico_mm / 25.4)}, Cv "
+                        f"{fmt(tr.Cv_tipico)} · <b>trim reducido:</b> puerto {fraccion_in(tr.puerto_mm / 25.4)}, "
+                        f"<b>Cv {_html.escape(tr.texto_Cv)}</b>, usado en apertura, carrera y actuador")
+        else:
+            txt_geo += f" · Cv nominal típico {fmt(res.Cv_nominal)}"
+        self.lbl_geo.setText(txt_geo)
         self.lbl_resumen.setText(
             f"<b>Válvula: {_html.escape(E._valvula_resumen(res))}</b><br>"
             f"{_html.escape(geo.nombre_puerto)}: <b>{_html.escape(geo.texto_puerto)}</b> · "
@@ -1893,6 +1921,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         for ed in self.ed_ident.values():
             ed.clear()
         self.ed_ident["revision"].setText("0")
+        self.ed_cv_red.clear()
         self._mat_nuevo()
         self._eq_nuevo()
         self._cambio_trim()

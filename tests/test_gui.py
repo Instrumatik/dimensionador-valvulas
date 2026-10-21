@@ -360,3 +360,25 @@ def test_concordancia_actuador_valvula(app):
     from dimensionador.actuadores import TIPOS_ROTATIVOS
     assert E["act_flujo"].currentText() in ("Up", "Down")
     assert E["act_tipo"].currentText() not in TIPOS_ROTATIVOS
+
+
+def test_trim_reducido_en_pantalla_y_documentos(app, tmp_path):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    w.cb_tamano.setCurrentIndex(w.cb_tamano.findData(6))
+    w.calcular()
+    cv_full = w.res.Cv_nominal
+    w.f_puerto.elegir("in", convertir=False)
+    w.f_puerto.edits[0].setText("3")
+    w.ed_cv_red.setText("200")
+    w.calcular()
+    tr = w.res.trim_reducido
+    assert tr is not None and tr.Cv_certificado and w.res.Cv_nominal == pytest.approx(200)
+    assert tr.Cv_tipico == pytest.approx(cv_full)
+    assert "trim reducido" in w.lbl_geo.text()
+    assert "Trim reducido: tamaño del puerto" in w.vistas["hoja_datos"].toPlainText()
+    assert os.path.getsize(w.exportar_word("todos", str(tmp_path / "red.docx"))) > 20000
+    w2 = VentanaPrincipal()
+    w2._cargar(w._estado())
+    assert w2.ed_cv_red.text() == "200"

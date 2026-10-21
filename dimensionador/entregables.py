@@ -13,7 +13,7 @@ import io
 import math
 from dataclasses import dataclass, field
 
-from . import __version__, compresible as CG, tuberias, unidades as U
+from . import __version__, compresible as CG, geometria as G, tuberias, unidades as U
 from .modelos import Severidad
 from .proyecto import FUGA_CIERRE, REF_CIERRE, Resultado
 
@@ -210,7 +210,28 @@ BALANCE = {True: "Balanceado", False: "Desbalanceado", None: "No aplica (cuerpo 
 def _valvula_resumen(res: Resultado):
     i = res.inst
     return (f"{res.cuerpo.nombre}, {tuberias.texto_nps(res.nps_valvula)} (DN {res.informe.DN}), CL{i.rating}, "
-            f"{i.conexion}; internos: {res.trim.nombre.lower()}; Cv nominal típico {fmt(res.Cv_nominal)}.")
+            f"{i.conexion}; internos: {res.trim.nombre.lower()}; " + _texto_cv(res) + ".")
+
+
+def _texto_cv(res: Resultado) -> str:
+    tr = res.trim_reducido
+    if tr is None:
+        return f"Cv nominal típico {fmt(res.Cv_nominal)}"
+    return (f"trim reducido, Cv {fmt(tr.Cv)} {'certificado' if tr.Cv_certificado else 'estimado por puerto'} "
+            f"(trim completo típico: Cv {fmt(tr.Cv_tipico)})")
+
+
+def _filas_cv(res: Resultado) -> list[list[str]]:
+    """Cv nominal del trim completo típico y, si corresponde, del trim reducido."""
+    tr = res.trim_reducido
+    if tr is None:
+        return [["Cv nominal (típico del tamaño y trim)", fmt(res.Cv_nominal)]]
+    return [["Trim completo típico: puerto y Cv",
+             f"{G.fraccion_in(tr.puerto_tipico_mm / 25.4)} ({G._mm(tr.puerto_tipico_mm)}) · Cv {fmt(tr.Cv_tipico)}"],
+            ["Trim reducido: tamaño del puerto",
+             f"{G.fraccion_in(tr.puerto_mm / 25.4)} ({G._mm(tr.puerto_mm)}) "
+             + ("certificado" if tr.puerto_certificado else "estimado con el Cv certificado")],
+            ["Cv nominal con el puerto reducido (usado en el cálculo)", tr.texto_Cv]]
 
 
 # ---------------------------------------------------------------------------
@@ -332,7 +353,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         ["Tipo de trim", res.trim.nombre],
         ["Obturador", BALANCE[d.balanceado]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
-        ["Cv nominal (típico del tamaño y trim)", fmt(res.Cv_nominal)],
+        *_filas_cv(res),
         *_filas_geometria(res),
         ["Guía y obturador", rec.get("Tipo de guía y obturador", "")],
         ["Clase de cierre", f"{i.cierre} ({REF_CIERRE})"],
@@ -409,7 +430,7 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
                "repetir la verificación con esos datos."]
     if peor >= Severidad.CRITICA:
         finales.insert(0, "No emitir la compra hasta resolver las condiciones críticas indicadas en la sección 5.")
-    if not res.dim.Cv_nominal:
+    if not res.dim.Cv_nominal or (res.trim_reducido and not res.trim_reducido.Cv_certificado):
         finales.append("La capacidad nominal usada es típica del estilo: confirmar la apertura con la curva real.")
     if res.materiales is not None and res.materiales.grupo_cuerpo:
         finales.append(f"Rating verificado con el material del cuerpo {res.materiales.cuerpo.nombre} (ASME B16.34, "
@@ -699,7 +720,7 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
         ["Obturador", BALANCE[d.balanceado]],
         ["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[d.ruido.trim][0]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
-        ["Cv nominal (típico del tamaño y trim)", fmt(res.Cv_nominal)],
+        *_filas_cv(res),
         *_filas_geometria(res),
         ["Guía y obturador", rec.get("Tipo de guía y obturador", "")],
         ["Clase de cierre", f"{i.cierre} ({REF_CIERRE})"],

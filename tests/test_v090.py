@@ -135,3 +135,23 @@ def test_concordancia_actuador_y_flujo():
     assert r.ok and any(a.codigo == "act_flujo_valvula" for a in r.alertas)
     ref = A.evaluar_actuador(_sv(), _act(flujo="Down"))
     assert r.seleccion == ref.seleccion
+
+
+def test_trim_reducido_por_puerto_y_cv_certificado():
+    from dataclasses import replace
+    from dimensionador.proyecto import CasoLiquido, Dimensionamiento, Identificacion, Instalacion, calcular
+    c = CasoLiquido("Máximo", 60, None, 680, 220, 363, 0.965, 3.26e-7 * 0.965 * 999.1, 70.1, FL=0.9, Fd=0.46)
+    ident, inst = Identificacion(), Instalacion(nps_entrada=6, nps_salida=6)
+    dim = Dimensionamiento([c], 22120, "globo_contorneado_lineal_abre", nps_valvula=6, caracteristica="lineal")
+    base = calcular(ident, inst, dim)
+    d = base.nps_valvula
+    red = calcular(ident, inst, replace(dim, nps_valvula=d, puerto_mm=base.geometria.puerto_mm * 0.5))
+    assert red.trim_reducido is not None and not red.trim_reducido.Cv_certificado
+    assert red.Cv_nominal == pytest.approx(base.Cv_nominal * 0.25, rel=0.02)
+    assert max(s["apertura"] for s in red.salidas) > max(s["apertura"] for s in base.salidas)
+    cert = calcular(ident, inst, replace(dim, nps_valvula=d, puerto_mm=base.geometria.puerto_mm * 0.5,
+                                         Cv_reducido_cert=base.Cv_nominal * 0.4))
+    assert cert.Cv_nominal == pytest.approx(base.Cv_nominal * 0.4) and cert.trim_reducido.Cv_certificado
+    assert any(a.codigo == "trim_reducido" for _, a in cert.alertas)
+    igual = calcular(ident, inst, replace(dim, nps_valvula=d, puerto_mm=base.geometria.puerto_mm * 1.1))
+    assert igual.trim_reducido is None and igual.Cv_nominal == pytest.approx(base.Cv_nominal)
