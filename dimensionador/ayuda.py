@@ -270,8 +270,10 @@ _e("tamano", "Diámetro de la válvula",
 _e("trim_size", "Tamaño del trim (diámetro del puerto)",
    "<p>Diámetro del orificio del asiento por el que pasa el fluido. Junto con la carrera define la "
    "capacidad del trim y es el dato con que el fabricante identifica el juego de internos.</p>"
-   "<p>En blanco el programa lo <b>estima</b>: un trim pleno de globo o ángulo tiene un puerto de "
-   "alrededor de 0,875 × el diámetro nominal; si el Cv nominal es menor que el típico (trim reducido) "
+   "<p>En blanco el programa lo <b>estima</b>: el puerto pleno típico de globo o ángulo de jaula "
+   "sale de una tabla por diámetro nominal: 1\" → 1 5/16\", 1½\" → 1 7/8\", 2\" → 2 5/16\", 3\" → 3 7/16\", "
+   "4\" → 4 3/8\", 6\" → 7\" y 8\" → 8\", interpolada entre tamaños (en tamaños chicos el puerto es igual o "
+   "mayor que la conexión). Hay cuerpos del mismo diámetro con puertos menores: cárguelo si lo conoce. Si el Cv nominal es menor que el típico (trim reducido) "
    "el puerto se reduce con la raíz de la relación de Cv. Se informa en pulgadas, redondeado al 1/16 "
    "más cercano, y en milímetros.</p><p>En válvulas rotativas el dato es el orificio de la bola, el "
    "disco de la mariposa o el asiento del tapón excéntrico.</p><p>Si tiene la hoja del fabricante, cargue "

@@ -84,3 +84,11 @@ def test_reparto_de_etapas():
     assert AC.oferta(5) == 6 and AC.oferta(7) is None
     t = AC.TRIMS["etapas_2"]
     assert t.Kc == pytest.approx(1 - 0.3 ** 2) and t.Kc < t.FL ** 2
+
+
+def test_puerto_tipico_por_tabla():
+    from dimensionador import geometria as G
+    for nps, txt in ((1, "1 5/16 in"), (1.5, "1 7/8 in"), (2, "2 5/16 in"), (2.5, "2 7/8 in"), (3, "3 7/16 in"),
+                     (4, "4 3/8 in"), (6, "7 in"), (8, "8 in"), (10, "10 in")):
+        assert G.fraccion_in(G.estimar("globo_jaula_4v_fuera", False, nps, 1, 0).puerto_in) == txt
+    assert G.nps_de_puerto(G.puerto_tipico_in(2.5)) == pytest.approx(2.5)

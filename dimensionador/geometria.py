@@ -2,8 +2,9 @@
 
 Válvulas de vástago ascendente (globo y ángulo):
 
-* El diámetro del puerto del trim completo se estima en ``K_PUERTO`` × diámetro nominal, el
-  valor habitual de los cuerpos de globo de paso pleno. Si el Cv nominal ingresado es menor que
+* El diámetro del puerto del trim completo se toma de ``PUERTO_NPS``, el puerto pleno típico de los
+  cuerpos de globo y ángulo de jaula según el diámetro nominal (en tamaños chicos el puerto es igual o
+  mayor que la conexión), interpolado entre tamaños y redondeado al 1/16 in. Si el Cv nominal ingresado es menor que
   el típico del estilo (trim reducido), el puerto se reduce con la raíz de la relación de Cv,
   porque la capacidad crece con el área del puerto.
 * La carrera nominal (rated travel) es la habitual de un trim pleno del tamaño equivalente al
@@ -26,7 +27,33 @@ from dataclasses import dataclass
 MM_IN = 25.4
 # Serie de carreras normalizadas habituales de válvulas de globo [in]
 CARRERAS_IN = (0.5, 0.75, 1.125, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0)
-K_PUERTO = 0.875             # puerto pleno / diámetro nominal (globo y ángulo)
+# Puerto pleno típico de globo y ángulo según el diámetro nominal: (NPS, puerto [in]). Entre tamaños se
+# interpola; por debajo de 1" se escala con la relación de 1" y por encima de 8" con la de 8".
+PUERTO_NPS = ((1.0, 1.3125), (1.5, 1.875), (2.0, 2.3125), (3.0, 3.4375), (4.0, 4.375), (6.0, 7.0), (8.0, 8.0))
+
+
+def puerto_tipico_in(nps: float) -> float:
+    """Puerto pleno típico [in] de un globo o ángulo de diámetro nominal ``nps`` (sin redondear)."""
+    (n0, p0), (n1, p1) = PUERTO_NPS[0], PUERTO_NPS[-1]
+    if nps <= n0:
+        return p0 * nps / n0
+    if nps >= n1:
+        return p1 * nps / n1
+    for (a, pa), (b, pb) in zip(PUERTO_NPS, PUERTO_NPS[1:]):
+        if a <= nps <= b:
+            return pa + (pb - pa) * (nps - a) / (b - a)
+
+
+def nps_de_puerto(puerto_in: float) -> float:
+    """Diámetro nominal cuyo puerto pleno típico es ``puerto_in`` (inversa de puerto_tipico_in)."""
+    (n0, p0), (n1, p1) = PUERTO_NPS[0], PUERTO_NPS[-1]
+    if puerto_in <= p0:
+        return puerto_in * n0 / p0
+    if puerto_in >= p1:
+        return puerto_in * n1 / p1
+    for (a, pa), (b, pb) in zip(PUERTO_NPS, PUERTO_NPS[1:]):
+        if pa <= puerto_in <= pb:
+            return a + (b - a) * (puerto_in - pa) / (pb - pa)
 # Carrera nominal habitual de un trim pleno de globo según el diámetro nominal: (NPS, carrera [in])
 CARRERA_NPS = ((0.5, 0.75), (1.5, 0.75), (2, 1.125), (3, 1.5), (4, 2.0), (6, 2.0), (8, 3.0), (10, 3.0),
                (12, 4.0), (16, 4.0), (20, 6.0), (24, 8.0))
@@ -100,7 +127,7 @@ def carrera_normalizada(minima_in: float) -> float:
 
 def carrera_tipica(puerto_in: float, tipo: str) -> float:
     """Carrera nominal [in] del trim pleno equivalente al puerto; una medida más para trims de orificios."""
-    nps = puerto_in / K_PUERTO
+    nps = nps_de_puerto(puerto_in)
     c = CARRERA_NPS[0][1]
     for n, h in CARRERA_NPS:
         if nps >= n - 0.05:
@@ -147,7 +174,7 @@ def estimar(trim: str, rotativa: bool, d_pulg: float, Cv_nominal: float, Cv_tipi
     if puerto_mm:
         p = puerto_mm
     else:
-        p = K_PUERTO * d_pulg * MM_IN
+        p = puerto_tipico_in(d_pulg) * MM_IN
         if Cv_tipico and Cv_nominal < 0.95 * Cv_tipico:
             p *= math.sqrt(Cv_nominal / Cv_tipico)
             reducido = True

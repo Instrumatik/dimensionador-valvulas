@@ -4127,7 +4127,8 @@ GUIA["trim_size"] = {
                  'el juego de internos y el que se pide en la hoja de datos.'),
     'que_indica': ('Un puerto menor que el pleno indica un trim reducido: la válvula tiene más capacidad de la que '
                    'el servicio necesita y se achica el paso para controlar mejor.'),
-    'umbrales': ('Trim pleno de globo: alrededor de 0,875 × el diámetro nominal. El programa redondea al 1/16 in y '
+    'umbrales': ('Puerto pleno típico de globo: 1" → 1 5/16", 1½" → 1 7/8", 2" → 2 5/16", 3" → 3 7/16", '
+                 '4" → 4 3/8", 6" → 7", 8" → 8", interpolado entre tamaños. El programa redondea al 1/16 in y '
                  'lo informa también en mm.'),
     'por_debajo': 'Un puerto mucho menor que el pleno (trim reducido) aumenta la velocidad en el asiento.',
     'por_encima': 'No puede superar el puerto pleno del cuerpo.',
@@ -4137,8 +4138,8 @@ GUIA["trim_size"] = {
         'Cargue el puerto certificado cuando tenga la hoja del fabricante.',
         'Si el Cv nominal es mucho menor que el típico, verifique que el fabricante ofrezca ese trim reducido.',
     ],
-    'ejemplo': ('Válvula de globo de 8": puerto pleno estimado 0,875 × 8 = 7 in (177,8 mm). Un trim reducido con la '
-                'mitad del Cv tendría un puerto de unos 7 × √0,5 ≈ 4 15/16 in.'),
+    'ejemplo': ('Válvula de globo de 8": puerto pleno típico 8 in (203,2 mm). Un trim reducido con la '
+                'mitad del Cv tendría un puerto de unos 8 × √0,5 ≈ 5 5/8 in.'),
 }
 GUIA["Cv_reducido"] = {
     'que_es': 'Es el Cv nominal del trim reducido: el de un asiento con puerto menor que el del trim completo del cuerpo.',

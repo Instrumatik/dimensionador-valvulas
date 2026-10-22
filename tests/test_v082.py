@@ -19,12 +19,12 @@ def _calc(trim="globo_jaula_4v_fuera", nps=4, P1=1500, P2=1300, sv=None, cierre=
 def test_fraccion_y_carrera_normalizada():
     assert G.fraccion_in(5.375) == "5 3/8 in" and G.fraccion_in(0.75) == "3/4 in" and G.fraccion_in(3) == "3 in"
     g = G.estimar("globo_jaula_4v_fuera", False, 8, 100, 100)
-    assert g.texto_puerto.startswith("7 in (177,8 mm)") and g.carrera_in == pytest.approx(3)
+    assert g.texto_puerto.startswith("8 in (203,2 mm)") and g.carrera_in == pytest.approx(3)
     # los trims de orificios llevan la carrera normalizada siguiente
     assert G.estimar("globo_multietapa", False, 8, 100, 100).carrera_in == pytest.approx(4)
     # trim reducido: el puerto baja con la raíz de la relación de Cv
     r = G.estimar("globo_jaula_4v_fuera", False, 4, 59, 236)
-    assert r.reducido and r.puerto_in == pytest.approx(1.75)
+    assert r.reducido and r.puerto_in == pytest.approx(2.1875)
 
 
 def test_geometria_en_resultado_y_certificada():
