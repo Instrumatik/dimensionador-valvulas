@@ -55,6 +55,7 @@ TIPOS = ["Diafragma y resorte", "Multiresorte y diafragma", "Pistón doble acci�
          "Pistón doble acción sin resorte", "Pistón retorno por resorte", "Eléctrico", "Electrohidráulico",
          "Piñón y cremallera (Rack and pinion)", "Yugo escocés", "Manual"]
 FALLAS = ["Cierra (FC)", "Abre (FO)", "Última posición (FL)"]
+MODOS_ACT = ["AUTOMÁTICO", "MANUAL"]
 FLUJOS = ["Up", "Down", "Unidireccional", "Bidireccional"]
 FC, FO, FL = FALLAS
 
@@ -104,6 +105,22 @@ class DatosActuador:
     flujo: str = "Up"
     d_vastago_mm: float | None = None   # None = estimado por el diámetro de la válvula
     regulado: bool = True               # el set de aire (solapa 5) limita la alimentación del actuador
+    # Modo MANUAL: se verifica el actuador certificado (fabricante o cliente) en lugar de elegir uno de la
+    # serie genérica. Unidades inglesas, como el resto del cálculo; None = dato no cargado.
+    modo: str = "AUTOMÁTICO"
+    cert_area_in2: float | None = None          # área efectiva (diafragma o pistón)
+    cert_banco_psig: tuple | None = None        # ajuste de banco (inferior, superior)
+    cert_carrera_in: float | None = None        # carrera nominal del actuador
+    cert_pmax_psig: float | None = None         # presión máxima de la carcasa o del cilindro
+    cert_par_aire_lbfin: float | None = None    # par de aire (cuarto de vuelta) a cert_p_par_psig
+    cert_p_par_psig: float | None = None
+    cert_par_resorte_lbfin: tuple | None = None  # par del resorte (al comienzo, al final)
+    cert_nominal: float | None = None           # eléctrico: empuje [lbf] o par [lbf·in] nominal
+    friccion_cert_lbf: float | None = None      # fricción certificada de la empaquetadura (reemplaza C)
+
+    @property
+    def manual(self) -> bool:
+        return self.modo == "MANUAL"
 
 
 SENALES = ["Foundation FieldBus", "4-20mA dc", "4-12mA dc", "12-20mA dc", "3-15 psi", "3-9 psi", "9-15 psi",
@@ -651,7 +668,10 @@ def fuerzas_lineales(sv: Servicio, act: DatosActuador) -> Fuerzas:
             t["A_ab"] = f"ΔP·A_puerto − P1·A_vástago = {_n(dP, 1)}·{_n(A_p, 3)} − {_n(P1, 1)}·{_n(A_v, 3)}"
             cierra = True
     B, t["B"] = carga_asiento(sv.cierre, dP, d, sv.blando, sv.balanceado)
-    C, t["C"] = friccion_empaquetadura(sv.empaque, d_v, sv.rating)
+    if act.friccion_cert_lbf is not None:
+        C, t["C"] = act.friccion_cert_lbf, "fricción certificada de la empaquetadura (dato del fabricante o del cliente)"
+    else:
+        C, t["C"] = friccion_empaquetadura(sv.empaque, d_v, sv.rating)
     D = 0.0
     t["D"] = "0 (sin fuerzas adicionales declaradas)" + ("; el fuelle reemplaza al área del vástago" if fuelle else "")
     F_c = max(A + B + C + D, C)
@@ -996,6 +1016,9 @@ def _rotativo(r: ResultadoActuador, sv: Servicio, act: DatosActuador):
     tipo = act.tipo
     pmin, pmax = _aire(act)
     rot = sv.rotacion or 90.0
+    if act.manual and tipo != "Manual":
+        _certificado_rotativo(r, act, TB, TD, pmin, pmax, tipo == "Yugo escocés", rot)
+        return
     if tipo in ("Eléctrico", "Electrohidráulico"):
         _electrico(r, act, r.requerido, True)
         return
@@ -1060,6 +1083,187 @@ def _cuarto_vuelta(r, act, TB, TD, pmin, pmax, yugo: bool, rot: float):
     if act.volante:
         r.filas.append(("Mando manual", f"Reductor de volante para {_Nm(max(req_b, req_d))}", "act_volante"))
         _volante(r, max(req_b, req_d))
+
+
+# ------------------------------------------------------------------- actuador certificado (MANUAL)
+
+RESORTE_LINEAL = ("Diafragma y resorte", "Multiresorte y diafragma", "Pistón retorno por resorte")
+
+
+def datos_certificados(tipo: str, falla: str, rotativa: bool) -> list[str]:
+    """Datos certificados que pide el modo MANUAL para el tipo de actuador (claves de DatosActuador)."""
+    if tipo == "Manual":
+        return []
+    if tipo in ("Eléctrico", "Electrohidráulico"):
+        return ["cert_nominal"]
+    if rotativa:
+        return ["cert_par_aire_lbfin", "cert_p_par_psig", "cert_pmax_psig"] + (
+            ["cert_par_resorte_lbfin"] if falla != FL else [])
+    base = ["cert_area_in2", "cert_carrera_in", "cert_pmax_psig"]
+    if tipo in RESORTE_LINEAL or tipo == "Pistón doble acción con resorte":
+        base.insert(1, "cert_banco_psig")
+    return base
+
+
+NOMBRE_CERT = {"cert_area_in2": "área efectiva", "cert_banco_psig": "ajuste de banco inferior y superior",
+               "cert_carrera_in": "carrera nominal del actuador", "cert_pmax_psig": "presión máxima del actuador",
+               "cert_par_aire_lbfin": "par de aire", "cert_p_par_psig": "presión a la que se da el par de aire",
+               "cert_par_resorte_lbfin": "par del resorte al comienzo y al final",
+               "cert_nominal": "empuje o par nominal"}
+
+
+def _faltan(r: ResultadoActuador, act: DatosActuador, rotativa: bool) -> bool:
+    faltan = [NOMBRE_CERT[k] for k in datos_certificados(act.tipo, act.falla, rotativa) if getattr(act, k) is None]
+    if not faltan:
+        return False
+    r.ok = False
+    r.seleccion = f"{act.tipo} certificado: faltan datos"
+    r.alertas.append(Alerta("act_cert_faltan", Severidad.ADVERTENCIA, "Faltan datos del actuador certificado",
+                            "En modo MANUAL el programa verifica el actuador con los datos del fabricante o del "
+                            f"cliente. Falta: {', '.join(faltan)}.",
+                            remedios=["Cargue los datos de la hoja del actuador en 4-Actuador.",
+                                      "O vuelva al modo AUTOMÁTICO para que el programa elija un tamaño."],
+                            referencia=REF_ACT))
+    return True
+
+
+def _chequeo(r: ResultadoActuador, fallas: list, nombre: str, disponible: float, requerido: float, fmt) -> None:
+    """Fila «CUMPLE / NO CUMPLE» con el margen del dato certificado sobre lo requerido."""
+    if requerido <= 0:
+        r.filas.append((nombre, f"CUMPLE · disponible {fmt(disponible)}, requerido 0", "act_certificado"))
+        return
+    m = (disponible / requerido - 1) * 100
+    ok = disponible >= requerido * (1 - 1e-9)
+    r.filas.append((nombre, f"{'CUMPLE' if ok else 'NO CUMPLE'} · disponible {fmt(disponible)}, requerido "
+                    f"{fmt(requerido)} (margen {'+' if m >= 0 else ''}{_n(m, 0)} %)", "act_certificado"))
+    if not ok:
+        fallas.append(f"{nombre.lower()}: {fmt(disponible)} frente a {fmt(requerido)}")
+
+
+def _cierre_cert(r: ResultadoActuador, act: DatosActuador, fallas: list):
+    r.seleccion = f"{act.tipo} certificado (datos del fabricante o del cliente)"
+    r.filas.insert(0, ("Modo", "MANUAL: verificación del actuador certificado", "act_modo"))
+    if fallas:
+        r.ok = False
+        r.alertas.append(Alerta("act_cert_no_cumple", Severidad.CRITICA, "El actuador certificado no cumple",
+                                "Con los datos cargados no se cumple: " + "; ".join(fallas) + ".",
+                                remedios=["Pida al fabricante un tamaño mayor, otro resorte u otro ajuste de banco.",
+                                          "Revise el aire mínimo disponible y la clase de cierre.",
+                                          "Use el modo AUTOMÁTICO para ver un tamaño orientativo."],
+                                referencia=REF_ACT))
+
+
+def _certificado_lineal(r: ResultadoActuador, sv: Servicio, act: DatosActuador, fz: Fuerzas):
+    F_c, F_a = fz.cierre * MARGEN_LINEAL, fz.apertura * MARGEN_LINEAL
+    r.requerido = max(F_c, F_a)
+    if _faltan(r, act, False):
+        return
+    fallas: list[str] = []
+    tipo = act.tipo
+    if tipo in ("Eléctrico", "Electrohidráulico"):
+        _chequeo(r, fallas, "Empuje nominal frente al requerido con margen 1,25", act.cert_nominal,
+                 r.requerido * MARGEN_ELEC / MARGEN_LINEAL, _N)
+        _verif_vastago(r, sv, fz, act.cert_nominal)
+        _cierre_cert(r, act, fallas)
+        return
+    pmin, pmax = _aire(act)
+    L = sv.carrera_in or 0.0
+    _chequeo(r, fallas, "Carrera del actuador frente a la de la válvula", act.cert_carrera_in, L, _in)
+    Plim = act.cert_pmax_psig
+    Pd = min(pmin, Plim)
+    piston = tipo.startswith("Pistón")
+    A_ef = act.cert_area_in2 * (ETA_PISTON if piston else 1.0)
+    b = 0.25 * math.sqrt(4 * act.cert_area_in2 / math.pi)        # vástago del pistón ≈ ¼ del diámetro
+    A_ab = (act.cert_area_in2 - math.pi * b * b / 4) * ETA_PISTON
+    r.area_in2 = act.cert_area_in2
+    r.filas += [("Área efectiva", _area(act.cert_area_in2) + (" (η 0,95 por los sellos)" if piston else ""),
+                 "act_certificado"),
+                ("Presión de aire disponible en el actuador", _psi(Pd) + f" (mín. del aire y del límite {_psi(Plim)})",
+                 "act_P_req")]
+    if tipo in RESORTE_LINEAL:
+        Pbl, Pbu = act.cert_banco_psig
+        r.P_banco = (Pbl, Pbu)
+        r.filas.append(("Ajuste de banco certificado", f"{_n(Pbl, 1)} – {_n(Pbu, 1)} psig", "act_banco"))
+        if act.falla == FO:
+            _chequeo(r, fallas, "Empuje de cierre con aire mínimo (Pd − Pbu)·A", (Pd - Pbu) * A_ef, F_c, _N)
+            _chequeo(r, fallas, "Empuje del resorte para abrir Pbu·A", Pbu * A_ef, F_a, _N)
+            _chequeo(r, fallas, "Resorte para vencer la fricción Pbl·A", Pbl * A_ef, fz.C + fz.D, _N)
+        else:
+            _chequeo(r, fallas, "Empuje del resorte en el asiento Pbl·A", Pbl * A_ef, F_c, _N)
+            _chequeo(r, fallas, "Empuje de apertura con aire mínimo (Pd − Pbu)·A", (Pd - Pbu) * A_ef, F_a, _N)
+        P_req = _req_aire(Pbl, Pbu, F_c, F_a, A_ef, act.falla)
+        if L > 0:
+            Ks, Ks_min = (Pbu - Pbl) * A_ef / L, fz.Kn * sv.dP_flujo
+            if Ks_min > 0:
+                _chequeo(r, fallas, "Constante del resorte frente al gradiente negativo", Ks, Ks_min,
+                         lambda v: f"{_n(v, 0)} lbf/in")
+        F_max = (_P_alimentacion(pmin, pmax, Plim, P_req, act.regulado) - Pbu) * A_ef if act.falla == FO \
+            else Pbl * A_ef
+    elif tipo == "Pistón doble acción con resorte":
+        Pbl, Pbu = act.cert_banco_psig
+        Fs_min, Fs_max = Pbl * A_ab / ETA_PISTON, Pbu * A_ab / ETA_PISTON
+        r.P_banco = (Pbl, Pbu)
+        r.filas.append(("Resorte certificado (ajuste de banco)", f"{_n(Pbl, 1)} – {_n(Pbu, 1)} psig: "
+                        f"{_N(Fs_min)} a {_N(Fs_max)}", "act_banco"))
+        if act.falla == FO:
+            _chequeo(r, fallas, "Resorte en la posición de falla (abre)", Fs_min, F_a, _N)
+            _chequeo(r, fallas, "Empuje de cierre con aire mínimo", Pd * A_ef - Fs_max, F_c, _N)
+            P_req = (F_c + Fs_max) / A_ef
+        else:
+            _chequeo(r, fallas, "Resorte en la posición de falla (cierra)", Fs_min, F_c, _N)
+            _chequeo(r, fallas, "Empuje de apertura con aire mínimo", Pd * A_ab - Fs_max, F_a, _N)
+            P_req = (F_a + Fs_max) / A_ab
+        F_max = _P_alimentacion(pmin, pmax, Plim, P_req, act.regulado) * A_ef + (Fs_min if act.falla != FO else -Fs_max)
+    else:   # pistón de doble acción sin resorte
+        _chequeo(r, fallas, "Empuje de cierre con aire mínimo", Pd * A_ef, F_c, _N)
+        _chequeo(r, fallas, "Empuje de apertura con aire mínimo", Pd * A_ab, F_a, _N)
+        P_req = max(F_c / A_ef, F_a / A_ab)
+        F_max = _P_alimentacion(pmin, pmax, Plim, P_req, act.regulado) * A_ef
+    r.P_req_psig = P_req
+    r.filas.append(("Presión de aire requerida en el actuador", _psi(P_req), "act_P_req"))
+    r.pasos.append(("Verificación del actuador certificado", "Empuje disponible ≥ fuerza requerida × margen",
+                    "CUMPLE" if not fallas else "NO CUMPLE"))
+    _verif_aire(r, pmin, pmax, P_req, Plim, act.regulado)
+    _verif_vastago(r, sv, fz, F_max)
+    _cierre_cert(r, act, fallas)
+
+
+def _certificado_rotativo(r: ResultadoActuador, act: DatosActuador, TB: float, TD: float, pmin, pmax,
+                          yugo: bool, rot: float):
+    req_b, req_d = TB * MARGEN_ROT, TD * MARGEN_ROT
+    if _faltan(r, act, True):
+        return
+    fallas: list[str] = []
+    if act.tipo in ("Eléctrico", "Electrohidráulico"):
+        _chequeo(r, fallas, "Par nominal frente al requerido con margen 1,25", act.cert_nominal,
+                 max(req_b, req_d) * MARGEN_ELEC / MARGEN_ROT, _Nm)
+        _cierre_cert(r, act, fallas)
+        return
+    Plim = act.cert_pmax_psig
+    Pd = min(pmin, Plim)
+    T_aire = act.cert_par_aire_lbfin * Pd / act.cert_p_par_psig
+    f_run = par_yugo(min(70.0, rot)) if yugo else 1.0
+    r.filas.append(("Par de aire certificado con aire mínimo", f"{_Nm(T_aire)} (dato {_Nm(act.cert_par_aire_lbfin)} a "
+                    f"{_psi(act.cert_p_par_psig)})", "act_certificado"))
+    brazo = act.cert_par_aire_lbfin * 80.0 / act.cert_p_par_psig
+    if act.falla != FL:
+        Tss, Tse = act.cert_par_resorte_lbfin
+        r.resorte = True
+        r.filas.append(("Par del resorte certificado (comienzo / final)", f"{_Nm(Tss)} / {_Nm(Tse)}", "act_resorte"))
+        _chequeo(r, fallas, "Par del resorte al final (asienta)", Tse, req_b, _Nm)
+        _chequeo(r, fallas, "Par del resorte al comienzo (par dinámico)", Tss * f_run, req_d, _Nm)
+        _chequeo(r, fallas, "Par de aire menos resorte al final (arranque)", T_aire - Tse, req_b, _Nm)
+        _chequeo(r, fallas, "Par de aire menos resorte al comienzo (par dinámico)", (T_aire - Tss) * f_run, req_d, _Nm)
+        P_req = 80.0 * max(Tse + req_b, Tss + req_d / f_run) / brazo
+    else:
+        r.doble_efecto = True
+        _chequeo(r, fallas, "Par de aire frente al de arranque", T_aire, req_b, _Nm)
+        _chequeo(r, fallas, "Par de aire frente al dinámico", T_aire * f_run, req_d, _Nm)
+        P_req = 80.0 * max(req_b, req_d / f_run) / brazo
+    r.P_req_psig = P_req
+    r.filas.append(("Presión de aire requerida", _psi(P_req), "act_P_req"))
+    _verif_aire(r, pmin, pmax, P_req, Plim, act.regulado)
+    _cierre_cert(r, act, fallas)
 
 
 # ---------------------------------------------------------------------------------------- general
@@ -1145,7 +1349,9 @@ def _lineal(r: ResultadoActuador, sv: Servicio, act: DatosActuador):
                  "act_flujo"),
                 ("Diámetro del vástago", _in(fz.d_vast) + (" (dato)" if act.d_vastago_mm else " (estimado)"),
                  "act_vastago"),
-                ("Empaquetadura considerada", sv.empaque_nombre, "act_friccion"),
+                ("Empaquetadura considerada", sv.empaque_nombre + (" · fricción certificada " + _N(act.friccion_cert_lbf)
+                                                                  if act.friccion_cert_lbf is not None else ""),
+                 "act_friccion"),
                 ("Carrera nominal", _in(sv.carrera_in), "carrera_nominal")]
     r.pasos += [("Área del puerto", "A_puerto = π·d²/4", f"{_n(fz.A_puerto, 3)} in²"),
                 ("Área del vástago" + (" (fuelle)" if sv.empaque == "fuelle" else ""), "A_vástago = π·d_v²/4",
@@ -1159,6 +1365,9 @@ def _lineal(r: ResultadoActuador, sv: Servicio, act: DatosActuador):
                                                                                    * MARGEN_LINEAL))]
     _alertas_fuerza(r, sv, act, fz)
     tipo = act.tipo
+    if act.manual and tipo != "Manual":
+        _certificado_lineal(r, sv, act, fz)
+        return
     if tipo == "Diafragma y resorte":
         _resorte_lineal(r, sv, act, fz, DIAFRAGMA, "Diafragma y resorte")
     elif tipo == "Multiresorte y diafragma":

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QDialog, QFrame, QGridLayout, QGroupBox, QHBoxLay
                                QListWidget, QListWidgetItem, QPushButton, QTextBrowser, QVBoxLayout, QWidget)
 
 from .. import empaquetaduras as EM, juegos_trim as JT, materiales as MT, quimica as Q, seleccion_materiales as SM
+from . import botones
 from ..modelos import Severidad
 
 N_AGENTES = 6
@@ -240,7 +241,7 @@ class SolapaMateriales:
 
         h = QHBoxLayout()
         b = QPushButton("Calcular")
-        b.setStyleSheet("QPushButton{background:#f5b700;color:#0d3b66;font-weight:800;padding:5px 16px}")
+        botones.calcular(b, "amarillo", "5px 16px")
         b.clicked.connect(self.calcular)
         bl = QPushButton("Biblioteca de materiales…")
         bl.setProperty("ayuda", "mat_biblioteca")

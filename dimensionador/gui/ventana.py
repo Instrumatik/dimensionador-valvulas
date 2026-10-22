@@ -13,12 +13,14 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QSplitter, QTabWidget, QTextBrowser, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
-from .. import __version__, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, propiedades, tuberias, unidades as U
-from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, NOMBRES_ANTERIORES, TAMANOS
+from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, propiedades, tuberias, unidades as U
+from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES, TAMANOS
 from ..geometria import fraccion_in
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
-from .solapa_actuador import SolapaEquipo
+from . import botones
+from .buscador import Buscador
+from .solapa_actuador import SolapaEquipo, _bloquear_items
 from .solapa_materiales import SolapaMateriales
 from ..proyecto import (CIERRES, CONEXIONES, RATINGS, CasoCierre, CasoGas, CasoLiquido, Dimensionamiento,
                         Identificacion, Instalacion, Resultado, RuidoAerodinamico, calcular)
@@ -443,7 +445,7 @@ SALIDAS = [
     ("#", "Resultados de dimensionamiento", None, None, 0, "GVS"),
     ("Cv", "Coeficiente de flujo (Cv)", "kv_cv", None, 4, "LGVS"),
     ("apertura", "Apertura estimada", "apertura", "%", 3, "LGVS"),
-    ("carrera", "Carrera de operación", "carrera_nominal", "texto", 0, "LGVS"),
+    ("carrera", "Carrera de operación", "carrera_nominal", "carrera", 3, "LGVS"),
     ("caudal_otro", "Flujo másico", "flujo_masico", "caudal_otro", 4, "LGVS"),
     ("Kapp", "Coef. cavitación de la aplicación (Kapp)", "Kapp", None, 3, "L"),
     ("dP", "Presión diferencial ΔP", "dP", "presion_dif", 4, "LGVS"),
@@ -469,6 +471,8 @@ SALIDAS = [
     ("v1", "Velocidad del fluido aguas arriba", "velocidad_tuberia", "velocidad", 3, "L"),
     ("v2", "Velocidad del fluido aguas abajo", "velocidad_tuberia", "velocidad", 3, "L"),
     ("condicion", "Condición hidrodinámica", "cavitacion", "texto", 0, "L"),
+    ("k_etapa", "Kapp por etapa (trim anticavitación)", "anticav", None, 3, "L"),
+    ("etapas_txt", "Etapas recomendadas: sin cavitación / incipiente", "anticav", "texto", 0, "L"),
     ("#", "Resultados de ruido (IEC 60534-8-3)", None, None, 0, "GVS"),
     ("nivel_trim", "Nivel de trim de bajo ruido requerido", "nivel_trim", "texto", 0, "GVS"),
     ("Lp_trim", "Ruido del trim LpA a 1 m", "ruido_componentes", "dB(A)", 3, "GVS"),
@@ -565,6 +569,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         E.MARCA_AGUA = licencia.marca_agua if licencia else None
         self.setWindowTitle(f"{E.PRODUCTO} — {E.EMPRESA}  ·  versión {__version__}" + self._texto_licencia())
         self.resize(1400, 900)
+        self.setStyleSheet(botones.ESTILO_GENERAL)
         self.ayuda = VentanaAyuda(self)
         self.res: Resultado | None = None
         self.sistema = "SI"
@@ -648,9 +653,11 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_sistema.setProperty("ayuda", "sistema_unidades")
         self.cb_sistema.currentTextChanged.connect(self.aplicar_sistema)
         self.btn_calc_cab = QPushButton("Calcular")
-        self.btn_calc_cab.setStyleSheet("QPushButton{background:#f5b700;color:#0d3b66;font-weight:800;"
-                                        "padding:6px 18px;border-radius:4px}")
+        botones.calcular(self.btn_calc_cab, "amarillo")
         self.btn_calc_cab.clicked.connect(self.calcular)
+        self.buscador = Buscador(self)
+        der.addWidget(self.buscador)
+        der.addSpacing(16)
         der.addWidget(l)
         der.addWidget(self.cb_sistema)
         der.addSpacing(12)
@@ -973,7 +980,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self._fila(grid, r, "Diámetro de válvula", self.cb_tamano, "tamano"); r += 1
         self.cb_trim = self._registrar("trim", Combo())
         self.cb_trim.currentIndexChanged.connect(self._cambio_trim)
-        self.lbl_trim = self._fila(grid, r, "Tipo de trim hidrodinámico", self.cb_trim, "trim", ancho=480)[0]; r += 1
+        self.lbl_trim = self._fila(grid, r, "Tipo de trim hidrodinámico", self.cb_trim, "trim")[0]; r += 1
         self.cb_balance = self._registrar("balance", Combo())
         self.cb_balance.addItem("Desbalanceado", False)
         self.cb_balance.addItem("Balanceado", True)
@@ -1013,6 +1020,15 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.lbl_geo.setTextFormat(Qt.RichText)
         grid.addWidget(self.lbl_geo, r, 2, 1, 3)
         r += 1
+        # Datos para cavitación hidrodinámica (líquidos)
+        sub = QLabel("<b>Datos para cavitación hidrodinámica (IEC 60534-8-4)</b>")
+        grid.addWidget(sub, r, 0, 1, 4)
+        self.vis_g1.append(([sub], "L")); r += 1
+        self.cb_anticav = self._registrar("anticav", Combo())
+        for k, t in AC.TRIMS.items():
+            self.cb_anticav.addItem(t.nombre, k)
+        self.cb_anticav.currentIndexChanged.connect(self._cambio_anticav)
+        self.vis_g1.append((self._fila(grid, r, "Trim anticavitación", self.cb_anticav, "anticav"), "L")); r += 1
         # Datos de ruido aerodinámico (compresibles)
         sub = QLabel("<b>Datos para ruido aerodinámico (IEC 60534-8-3)</b>")
         grid.addWidget(sub, r, 0, 1, 4)
@@ -1083,7 +1099,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         fb.setBold(True)
         fb.setPointSize(fb.pointSize() + 2)
         self.btn_calc.setFont(fb)
-        self.btn_calc.setStyleSheet(f"QPushButton{{background:{AZUL};color:white;border-radius:4px}}")
+        botones.calcular(self.btn_calc, "azul", "8px 18px")
         self.btn_calc.clicked.connect(self.calcular)
         lay.addWidget(self.btn_calc)
 
@@ -1142,6 +1158,15 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                 self.salidas[k] = fs
                 self.vis_salidas.append((fs.widgets(), tipos))
             r += 1
+        fs = self.salidas["carrera"]
+        self.cb_carrera = self._registrar("carrera_salida", Combo())
+        self.cb_carrera.addItems(["mm", "in"])
+        self.cb_carrera.setFixedWidth(ANCHO_UNIDAD)
+        self.cb_carrera.setToolTip("Unidad de la carrera de operación (pantalla y documentos)")
+        self.cb_carrera.currentIndexChanged.connect(self._cambio_unidad_carrera)
+        grid.addWidget(self.cb_carrera, fs.fila, 2)
+        fs.lbl_unidad.hide()
+        fs.extra.append(self.cb_carrera)
         self.cb_visc = self._registrar("visc_salida", Combo())
         self.cb_visc.addItems(["Dinámica", "Cinemática"])
         self.cb_visc.currentIndexChanged.connect(lambda: self.res and self._mostrar_salidas())
@@ -1224,7 +1249,8 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_trim.blockSignals(True)
         self.cb_trim.clear()
         for k in c.trims:
-            self.cb_trim.addItem(ESTILOS[k].nombre, k)
+            self.cb_trim.addItem(NOMBRE_CORTO.get(k, ESTILOS[k].nombre), k)
+            self.cb_trim.setItemData(self.cb_trim.count() - 1, ESTILOS[k].nombre, Qt.ToolTipRole)
         self.cb_trim.blockSignals(False)
         for w in self.fila_balance:
             w.setVisible(not c.rotativa)
@@ -1238,6 +1264,8 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_tamano.setCurrentIndex(max(0, i))
         self._cambio_trim()
         self._act_concordancia()
+        if hasattr(self, "cb_anticav"):
+            self._anticav_concordancia()
 
     def _cambio_trim(self):
         k = self.cb_trim.currentData()
@@ -1249,10 +1277,34 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                 self.filas[clave].edits[j].setText(f"{val:g}".replace(".", ","))
             kc = KC_TIPICO.get(k)
             self.filas["Kc"].edits[j].setText(f"{kc:g}".replace(".", ",") if kc else "")
+        if getattr(self, "cb_anticav", None) is not None and self.cb_anticav.currentData() not in (None, "estandar"):
+            self._cambio_anticav()
         self.cb_caract.setCurrentIndex(self.cb_caract.findData(e.caracteristica))
         self.cb_trim.setToolTip(e.nombre + (f"\n\n{e.nota}" if e.nota else ""))
         self._act_flujo_desde_trim(k)
         self._mat_nombres_componentes()
+
+    def _cambio_anticav(self):
+        """El trim anticavitación reemplaza FL, Fd y Kc de las condiciones de operación (o los restituye)."""
+        k = self.cb_anticav.currentData()
+        if not k:
+            return
+        if k == "estandar":
+            self._cambio_trim()
+            return
+        t = AC.TRIMS[k]
+        for j in FLUYEN:
+            for clave, val in (("FL", t.FL), ("Fd", t.Fd), ("Kc", t.Kc)):
+                self.filas[clave].edits[j].setText(f"{val:g}".replace(".", ","))
+
+    def _anticav_concordancia(self):
+        """Los trims anticavitación son de globo o angular: en cuerpos rotativos queda solo el estándar."""
+        c = self.cuerpo()
+        bloq = {t.nombre: "solo para cuerpos globo y angular" for k, t in AC.TRIMS.items()
+                if k != "estandar"} if c.rotativa else {}
+        _bloquear_items(self.cb_anticav, bloq)
+        if c.rotativa and self.cb_anticav.currentData() != "estandar":
+            self.cb_anticav.setCurrentIndex(0)
 
     def _cambio_tipo_fluido(self):
         """Muestra solo las entradas y resultados del tipo de fluido elegido."""
@@ -1449,8 +1501,16 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.f_area.elegir(pref["area"])
         self.f_puerto.elegir(pref["longitud"])
         self.f_carrera.elegir(pref["longitud"])
+        self.cb_carrera.blockSignals(True)
+        self.cb_carrera.setCurrentText(pref["carrera"])
+        self.cb_carrera.blockSignals(False)
         self.f_aire.elegir(man)
         self.f_vastago.elegir(pref["longitud"])
+        self.f_friccion.elegir(pref["fuerza"])
+        for k, f in self.f_cert.items():
+            f.elegir(man if f.magnitud() == "presion" else pref["par"] if k.startswith("cert_par") else
+                     pref[f.magnitud()] if f.magnitud() != "longitud" else pref["longitud"])
+        self.f_cert["cert_nominal"].elegir(pref["fuerza"])
         self._copiar_tuberias()
         if self.res is not None:
             self.calcular(silencioso=True)
@@ -1468,6 +1528,8 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             u["temperatura_dif"] = {"K": "K", "°C": "°C", "°F": "°F", "°R": "°F"}[u["temperatura"]]
             u[F["caudal"].magnitud()] = F["caudal"].unidad.currentText()
             u["viscosidad_din"] = F["mu"].unidad.currentText()
+        if getattr(self, "cb_carrera", None) is not None:
+            u["carrera"] = self.cb_carrera.currentText()
             u["masa_molar"] = F["M"].unidad.currentText()
             u["densidad"] = F["rho1"].unidad.currentText()
             u["distancia"] = self.f_Rn.unidad.currentText()
@@ -1593,6 +1655,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             return ident, inst, Dimensionamiento(casos, Pc, self.cb_trim.currentData(), self.cb_tamano.currentData(),
                                                  self.cb_caract.currentData(), fluido, cierre,
                                                  balanceado=self._balanceado(), **self._geo_cert(),
+                                                 anticav=self.cb_anticav.currentData() or "estandar",
                                                  **self._datos_fluido())
         ruido_g = RuidoAerodinamico(self.cb_trim_ruido.currentData(), self.f_Rn.valor_base(0) or 1.0,
                                     self.f_area.valor_base(0))
@@ -1717,8 +1780,15 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             otro, clave_otro = ("caudal_masico", "W") if vol else ("caudal_gas_std", "QN")
             et_otro = "Flujo másico" if vol else "Caudal volumétrico estándar"
         self.salidas["caudal_otro"].lbl.setText(et_otro)
+        rot = res.geometria.rotativa
+        fs = self.salidas["carrera"]
+        fs.lbl.setText("Rotación de operación" if rot else "Carrera de operación")
+        self.cb_carrera.setVisible(not rot)
+        fs.lbl_unidad.setVisible(rot)
         for k, fs in self.salidas.items():
             mag = fs.magnitud
+            if k == "carrera" and rot:
+                mag = "°"
             if k == "visc":
                 mag = "viscosidad_cin" if cin else "viscosidad_din"
             elif k == "caudal_otro":
@@ -1742,6 +1812,8 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                         v = s["apertura"] * 100
                     elif k == "caudal_otro":
                         v = s[clave_otro]
+                    elif k == "carrera":
+                        v = s.get("rotacion") if res.geometria.rotativa else s.get("carrera_mm")
                     else:
                         v = s.get(ALIAS_SALIDA.get(k, k))
                     if mag == "texto":
@@ -1757,6 +1829,11 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                     c.setAlignment(Qt.AlignLeft)
                     c.setCursorPosition(0)
                     c.setToolTip(txt)
+
+    def _cambio_unidad_carrera(self, *_):
+        if self.res is not None:
+            self._mostrar_salidas()
+            self._actualizar_vistas()
 
     def _detalle_alerta(self, it, _=None):
         if it is None:
@@ -1863,7 +1940,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
     # ------------------------------------------------------------ archivo
     def _todas_las_filas(self):
         return [*self.filas.values(), self.f_Pc, self.f_Pd, self.f_Td, self.f_Rn, self.f_area, self.f_puerto,
-                self.f_carrera, self.f_aire, self.f_vastago]
+                self.f_carrera, self.f_aire, self.f_vastago, self.f_friccion, *self.f_cert.values()]
 
     def _estado(self) -> dict:
         s = {"version": __version__, "sistema": self.sistema, "campos": {}, "filas": {}}
@@ -1884,6 +1961,8 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                 i = w.findText(v)
                 if i < 0 and v in NOMBRES_ANTERIORES:
                     i = w.findData(NOMBRES_ANTERIORES[v])
+                if i < 0 and w is self.cb_trim:   # proyectos anteriores guardaban el nombre completo del trim
+                    i = next((w.findData(k) for k, e in ESTILOS.items() if e.nombre == v and w.findData(k) >= 0), -1)
                 if i >= 0:
                     w.setCurrentIndex(i)
             elif w is not None:
@@ -1924,6 +2003,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.ed_cv_red.clear()
         self._mat_nuevo()
         self._eq_nuevo()
+        self.cb_anticav.setCurrentIndex(0)
         self._cambio_trim()
         self.res = None
         self.ruta = None

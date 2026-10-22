@@ -245,3 +245,35 @@ KC_TIPICO = {
     "mariposa_alto_rendimiento_90": 0.35, "mariposa_triple_90": 0.35,
     "rotativa_obturador_excentrico_abre": 0.50, "rotativa_obturador_excentrico_cierra": 0.35,
 }
+
+# Nombre corto para el desplegable de la solapa 2 (el cuerpo ya se elige en 1-Sistema); el nombre completo
+# queda en la ayuda emergente, la ayuda «Ver» y los documentos.
+NOMBRE_CORTO = {
+    "globo_contorneado_lineal_abre": "Contorneado lineal · flujo abre",
+    "globo_contorneado_lineal_cierra": "Contorneado lineal · flujo cierra",
+    "globo_contorneado_iso_abre": "Contorneado isoporcentual · flujo abre",
+    "globo_contorneado_iso_cierra": "Contorneado isoporcentual · flujo cierra",
+    "globo_jaula_4v_fuera": "Jaula 4 ventanas · flujo abre",
+    "globo_jaula_4v_dentro": "Jaula 4 ventanas · flujo cierra",
+    "globo_jaula_60_orificios": "Jaula 60 orificios (baja cavitación)",
+    "globo_jaula_120_orificios": "Jaula 120 orificios (baja cavitación)",
+    "globo_multietapa": "Multietapa (anticavitación severa)",
+    "angular_contorneado_abre": "Contorneado · flujo abre",
+    "angular_contorneado_cierra": "Contorneado · flujo cierra",
+    "angular_venturi": "Venturi",
+    "angular_jaula_abre": "Jaula · flujo abre",
+    "rotativa_obturador_excentrico_abre": "Obturador excéntrico · flujo abre",
+    "rotativa_obturador_excentrico_cierra": "Obturador excéntrico · flujo cierra",
+    "mariposa_concentrica_60": "Concéntrica · 60°",
+    "mariposa_concentrica_70": "Concéntrica · 70°",
+    "mariposa_alto_rendimiento_90": "Doble excéntrica · 90°",
+    "mariposa_triple_90": "Triple excéntrica · 90°",
+    "bola_segmentada": "Corte en V de 90°",
+    "bola_segmentada_v60": "Corte en V de 60°",
+    "bola_segmentada_v30": "Corte en V de 30°",
+    "bola_paso_total_70": "Paso total · 70°",
+    "bola_paso_completo_90": "Paso completo · 90°",
+    "bola_paso_reducido_70": "Paso reducido · 70°",
+    "bola_paso_reducido_90": "Paso reducido · 90°",
+    "globo_liner_contorneado": "Liner, contorneado · flujo abre",
+}

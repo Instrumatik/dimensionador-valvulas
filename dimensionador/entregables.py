@@ -13,6 +13,7 @@ import io
 import math
 from dataclasses import dataclass, field
 
+from . import anticavitacion as AC
 from . import __version__, compresible as CG, geometria as G, tuberias, unidades as U
 from .modelos import Severidad
 from .proyecto import FUGA_CIERRE, REF_CIERRE, Resultado
@@ -112,6 +113,14 @@ def _identificacion(doc: Documento):
                ["Preparado por", i.preparado or "—", "Fecha", fecha]], anchos=[18, 32, 18, 32])
 
 
+def _fila_carrera(res, pr: Presentacion):
+    """Carrera de operación en la unidad elegida (mm o in), o rotación del eje en grados."""
+    s = res.salidas
+    if res.geometria.rotativa:
+        return _fila("Rotación de operación", "°", [x["rotacion"] for x in s], cifras=3)
+    return _fila("Carrera de operación", "", [x["carrera_mm"] for x in s], pr, "carrera", 3)
+
+
 def _fila(et, unidad, valores, pr: Presentacion | None = None, magnitud=None, cifras=4):
     if magnitud:
         vals = [pr.v(v, magnitud, cifras) for v in valores]
@@ -163,12 +172,35 @@ def _tabla_cierre(doc: "Documento", res: Resultado, pr: Presentacion):
                ["Clase de cierre", res.inst.cierre]], anchos=[35, 65])
 
 
+def _etapas(res: Resultado) -> int:
+    return max((x.get("etapas") or 1 for x in res.salidas), default=1)
+
+
+def _nombre_anticav(res: Resultado) -> str:
+    t = AC.TRIMS.get(res.dim.anticav, AC.TRIMS["estandar"])
+    if res.cuerpo.rotativa:
+        t = AC.TRIMS["estandar"]
+    return t.nombre
+
+
+def _filas_etapas(res: Resultado) -> list:
+    """Kapp por etapa del trim anticavitación y etapas recomendadas (sin cavitación / incipiente)."""
+    s = res.salidas
+    if not any(x.get("N_sin") for x in s):
+        return []
+    f = []
+    if _etapas(res) > 1:
+        f.append(_fila(f"Kapp por etapa ({_etapas(res)} etapas)", "-", [x.get("k_etapa") for x in s], cifras=3))
+    f.append(_fila("Etapas recomendadas: sin cavitación / incipiente", "", [x.get("etapas_txt") or "—" for x in s]))
+    return f
+
+
 def _tabla_salidas(res: Resultado, pr: Presentacion, completa=True):
     s = res.salidas
     f = [
         _fila("Coeficiente de caudal Cv", "-", [x["Cv"] for x in s]),
         _fila("Apertura estimada", "%", [x["apertura"] * 100 for x in s], cifras=3),
-        _fila("Carrera de operación", "", [x["carrera"] for x in s]),
+        _fila_carrera(res, pr),
         _fila("Coef. de cavitación de la aplicación Kapp", "-", [x["Kapp"] for x in s], cifras=3),
         _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
         _fila("Relación ΔP/P1", "-", [x["dP_P1"] for x in s], cifras=3),
@@ -176,6 +208,7 @@ def _tabla_salidas(res: Resultado, pr: Presentacion, completa=True):
         _fila("ΔP de inicio de cavitación (ΔP cav)", "", [x["dPcav"] for x in s], pr, "presion_dif"),
         _fila("ΔP de cavitación incipiente (xFzp1)", "", [x["dPinc"] for x in s], pr, "presion_dif"),
         _fila("Condición", "", [x["condicion"] for x in s]),
+        *_filas_etapas(res),
     ]
     if completa:
         f += [
@@ -282,9 +315,12 @@ def memoria(res: Resultado, pr: Presentacion) -> Documento:
         ["Kc (cavitación constante del trim)", "-", *[fmt(x["Kc"], 3) for x in s]],
         ["ΔPcav = Kc·(P1 − Pv)", pd, *[pr.v(x["dPcav"], "presion_dif") for x in s]],
         ["xFzp1 = xFz·(6·10⁵/P1)^0,125 (cavitación incipiente)", "-", *[fmt(x["xFzp1"], 3) for x in s]],
+        *([["k = 1 − ((P2 − Pv)/(P1 − Pv))^(1/N), Kapp por etapa", "-",
+            *[fmt(x.get("k_etapa"), 3) for x in s]]] if _etapas(res) > 1 else []),
         ["Apertura para Cv requerido", "%", *[fmt(x["apertura"] * 100, 3) for x in s]],
-        [_ecuacion_carrera(res), "", *[x["carrera"] for x in s]],
-        ["LpAe,1m (IEC 60534-8-4)", "dB(A)", *[fmt(x["Lp"], 3) for x in s]],
+        [_ecuacion_carrera(res), *_fila_carrera(res, pr)[1:]],
+        ["LpAe,1m (IEC 60534-8-4" + (", última etapa)" if _etapas(res) > 1 else ")"), "dB(A)",
+         *[fmt(x["Lp"], 3) for x in s]],
     ]
     doc.tabla(filas, ["Ecuación", "Unidad", *casos], resaltar_col=2)
     doc.nota("Constantes de IEC 60534-2-1, Tabla 1 (Kv en m³/h, ΔP en kPa, d en mm): N1 = 0,1; N2 = 1,6·10⁻³; "
@@ -325,7 +361,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
         _fila("Cv requerido", "-", [x["Cv"] for x in s]),
         _fila("Apertura", "%", [x["apertura"] * 100 for x in s], cifras=3),
-        _fila("Carrera de operación", "", [x["carrera"] for x in s]),
+        _fila_carrera(res, pr),
         _fila("Kapp / Kc", "-", [f"{fmt(x['Kapp'], 3)} / {fmt(x['Kc'], 3)}" for x in s]),
         _fila("Condición", "", [x["condicion"] for x in s]),
         _fila("Ruido LpAe,1m", "dB(A)", [x["Lp"] for x in s], cifras=3),
@@ -351,10 +387,11 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
     rec = dict(res.recomendaciones)
     doc.tabla([
         ["Tipo de trim", res.trim.nombre],
+        ["Trim anticavitación", _nombre_anticav(res)],
         ["Obturador", BALANCE[d.balanceado]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
         *_filas_cv(res),
-        *_filas_geometria(res),
+        *_filas_geometria(res, pr),
         ["Guía y obturador", rec.get("Tipo de guía y obturador", "")],
         ["Clase de cierre", f"{i.cierre} ({REF_CIERRE})"],
         ["Fuga admisible", FUGA_CIERRE[i.cierre]],
@@ -439,7 +476,10 @@ def informe_tecnico(res: Resultado, pr: Presentacion) -> Documento:
     else:
         finales.append("Verificar el rating con el material definitivo del cuerpo (la verificación actual es "
                        "referencial con acero al carbono, grupo 1.1).")
-    if getattr(res, "equipo", None) is not None:
+    if getattr(res, "equipo", None) is not None and res.equipo.datos.actuador.manual:
+        finales.append("Actuador certificado verificado con los datos cargados: mantener la hoja del fabricante como "
+                       "respaldo de la verificación.")
+    elif getattr(res, "equipo", None) is not None:
         finales.append("Confirmar con el fabricante del actuador el modelo, el resorte y el ajuste de banco: el "
                        "programa dimensiona con series genéricas y factores típicos de la industria.")
     doc.lista(finales)
@@ -551,7 +591,7 @@ def _salidas_compresible(doc: Documento, res: Resultado, pr: Presentacion, compl
         otro = _fila("Caudal volumétrico estándar", "", [x["QN"] for x in s], pr, "caudal_gas_std")
     dim = [_fila("Coeficiente de caudal Cv", "-", [x["Cv"] for x in s]),
            _fila("Apertura estimada", "%", [x["apertura"] * 100 for x in s], cifras=3),
-        _fila("Carrera de operación", "", [x["carrera"] for x in s]),
+        _fila_carrera(res, pr),
            otro,
            _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
            _fila("Relación de caída de presión x = ΔP/P1", "-", [x["x"] for x in s], cifras=3),
@@ -647,7 +687,7 @@ def memoria_compresible(res: Resultado, pr: Presentacion) -> Documento:
         ["FR (factor de Reynolds)", "-", *[fmt(x["FR"], 3) for x in s]],
         ["Cv = Kv/0,865 (÷FR si Rev < 10⁴)", "-", *[fmt(x["Cv"]) for x in s]],
         ["Apertura para Cv requerido", "%", *[fmt(x["apertura"] * 100, 3) for x in s]],
-        [_ecuacion_carrera(res), "", *[x["carrera"] for x in s]],
+        [_ecuacion_carrera(res), *_fila_carrera(res, pr)[1:]],
         ["c = √(γ·P/ρ) aguas arriba / aguas abajo", pr.un("velocidad"),
          *[f"{pr.v(x['c1'], 'velocidad')} / {pr.v(x['c2'], 'velocidad')}" for x in s]],
         ["Ma = v/c en la salida de la válvula", "-", *[fmt(x["Ma_valvula"], 3) for x in s]],
@@ -690,7 +730,7 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
         _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
         _fila("Cv requerido", "-", [x["Cv"] for x in s]),
         _fila("Apertura", "%", [x["apertura"] * 100 for x in s], cifras=3),
-        _fila("Carrera de operación", "", [x["carrera"] for x in s]),
+        _fila_carrera(res, pr),
         _fila("Tipo de cálculo", "", [x["tipo_calculo"] for x in s]),
         _fila("Ruido de la válvula LpA a 1 m", "dB(A)", [x["Lp"] for x in s], cifras=3),
         _fila("Nivel de trim de bajo ruido", "", [x["nivel_trim"] for x in s]),
@@ -721,7 +761,7 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
         ["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[d.ruido.trim][0]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
         *_filas_cv(res),
-        *_filas_geometria(res),
+        *_filas_geometria(res, pr),
         ["Guía y obturador", rec.get("Tipo de guía y obturador", "")],
         ["Clase de cierre", f"{i.cierre} ({REF_CIERRE})"],
         ["Fuga admisible", FUGA_CIERRE[i.cierre]],
@@ -758,8 +798,6 @@ def _comp_mat(res: Resultado, *claves) -> list[list[str]]:
             t += f" · {rc.elegido.dureza_txt}"
             if rc.elegido.astm and rc.elegido.astm not in t:
                 t += f" · {rc.elegido.astm}"
-        if rc.modo == "MANUAL":
-            t += " · selección MANUAL"
         filas.append([f"Material {rc.nombre.lower()}", t])
     return filas
 
@@ -781,10 +819,14 @@ def _ecuacion_carrera(res: Resultado) -> str:
     return f"Carrera = apertura × carrera nominal ({g.texto_carrera}; puerto {g.texto_puerto})"
 
 
-def _filas_geometria(res: Resultado) -> list[list[str]]:
+def _filas_geometria(res: Resultado, pr: Presentacion | None = None) -> list[list[str]]:
     g = res.geometria
     nombres = [rc.caso.nombre for rc in res.informe.casos]
-    op = " · ".join(f"{n}: {s['carrera']}" for n, s in zip(nombres, res.salidas))
+    if pr is None:
+        op = " · ".join(f"{n}: {s['carrera']}" for n, s in zip(nombres, res.salidas))
+    else:
+        f = _fila_carrera(res, pr)
+        op = " · ".join(f"{n}: {v} {f[1]}" for n, v in zip(nombres, f[2:]))
     return [[g.nombre_puerto, g.texto_puerto],
             ["Rotación nominal del eje" if g.rotativa else "Carrera nominal del vástago", g.texto_carrera],
             ["Rotación de operación" if g.rotativa else "Carrera de operación", op]]
@@ -801,7 +843,7 @@ def _filas_material_internos(res: Resultado) -> list[list[str]]:
         filas.append(["Servicio agrio", f"Sí: materiales según {m.norma}"])
     e = m.empaquetadura
     if e is not None:
-        filas += [["Empaquetadura", e.texto + (" · selección MANUAL" if e.modo == "MANUAL" else "")]]
+        filas += [["Empaquetadura", e.texto]]
         if e.elegida is not None:
             filas.append(["Tipo de empaquetadura", f"{e.elegida.tipo} · carga viva: "
                           f"{'sí' if e.elegida.carga_viva else 'no'} · {e.elegida.guia_temperatura}"])
@@ -823,12 +865,8 @@ def _seccion_materiales_informe(doc: Documento, res: Resultado, n: int):
     filas = []
     for rc in m.componentes.values():
         just = "; ".join(x.strip(" ·") for x in rc.justificacion[:3]) if rc.aplica else ""
-        filas.append([rc.nombre, rc.modo if rc.aplica else "—", rc.texto,
-                      rc.elegido.dureza_txt if (rc.aplica and rc.elegido) else "—", just])
-    doc.tabla(filas, ["Componente", "Modo", "Material", "Dureza", "Justificación"], anchos=[13, 11, 26, 11, 39])
-    if any(rc.modo == "MANUAL" for rc in m.componentes.values() if rc.aplica):
-        doc.nota("Hay componentes en selección MANUAL: no recomendada. La responsabilidad por la aptitud del "
-                 "material queda fuera del alcance del programa.")
+        filas.append([rc.nombre, rc.texto, rc.elegido.dureza_txt if (rc.aplica and rc.elegido) else "—", just])
+    doc.tabla(filas, ["Componente", "Material", "Dureza", "Justificación"], anchos=[15, 30, 12, 43])
     if m.galling:
         doc.h3("Riesgo de galling en piezas en contacto")
         doc.tabla([[g.par, f"{g.a} / {g.b}", g.nivel, g.motivo + (f" {g.remedio}" if g.nivel != "BAJO" else "")]
@@ -850,7 +888,7 @@ def _seccion_materiales_informe(doc: Documento, res: Resultado, n: int):
         doc.h3("Empaquetadura y bonete")
         tipo = (f"{e.elegida.tipo}; carga viva: {'sí' if e.elegida.carga_viva else 'no'}; "
                 f"{e.elegida.guia_temperatura}") if e.elegida else "—"
-        doc.tabla([["Empaquetadura", f"{e.texto} ({e.modo})"], ["Tipo de empaquetadura", tipo],
+        doc.tabla([["Empaquetadura", e.texto], ["Tipo de empaquetadura", tipo],
                    ["Tipo de bonete", e.bonete],
                    ["Emisión requerida", f"{e.emision_req}: {e.emision_motivo}"],
                    ["Motivo del bonete", e.bonete_motivo]], anchos=[25, 75])
@@ -919,7 +957,7 @@ def _seccion_materiales_memoria(doc: Documento, res: Resultado, n: int):
         if not rc.aplica:
             doc.p(f"{rc.nombre}: no aplica con el trim elegido.")
             continue
-        doc.p(f"{rc.nombre} ({rc.modo}): {rc.texto}"
+        doc.p(f"{rc.nombre}: {rc.texto}"
               + (f". Recomendado: {rc.recomendado.nombre}" if rc.recomendado and rc.recomendado is not rc.elegido
                  else "") + ".")
         items = [x.strip(" ·") for x in rc.justificacion]
@@ -954,7 +992,7 @@ def _seccion_materiales_memoria(doc: Documento, res: Resultado, n: int):
               "química A–D, vacío, vapor, sólidos y exigencia de emisión fugitiva (ISO 15848-1; API 622 / 624 "
               "para vástago ascendente, API 641 para cuarto de vuelta). Entre las aptas se elige el menor índice "
               "de costo × factor químico × factores de servicio.")
-        doc.p(f"Elegida ({e.modo}): {e.texto}. Bonete: {e.bonete}. {e.bonete_motivo}")
+        doc.p(f"Elegida: {e.texto}. Bonete: {e.bonete}. {e.bonete_motivo}")
         items = list(e.justificacion) + list(e.notas)
         if e.alternativas:
             items.append("Alternativas aptas: " + "; ".join(f"{a.nombre} ({b})" for a, b in e.alternativas[:4]))
@@ -1280,8 +1318,11 @@ def _seccion_equipo_memoria(doc: Documento, res: Resultado, pr: Presentacion, n:
     if eq.accesorios.filas:
         doc.h3("Accesorios")
         doc.tabla([[f, v] for f, v, _ in eq.accesorios.filas], anchos=[35, 65])
-    doc.nota("Tamaños de actuador de series genéricas (no corresponden a ningún fabricante). El fabricante confirma el "
-             "modelo, el resorte y el ajuste de banco.")
+    if eq.datos.actuador.manual:
+        doc.nota("Actuador certificado: se verificó con los datos del fabricante o del cliente cargados en 4-Actuador.")
+    else:
+        doc.nota("Tamaños de actuador de series genéricas (no corresponden a ningún fabricante). El fabricante "
+                 "confirma el modelo, el resorte y el ajuste de banco.")
 
 
 def _seccion_equipo_informe(doc: Documento, res: Resultado, pr: Presentacion, n: int):

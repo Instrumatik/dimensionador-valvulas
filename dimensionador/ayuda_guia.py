@@ -3646,6 +3646,71 @@ GUIA = {
              'aproximación.'),
         ],
     },
+    'anticav': {
+        'que_es': ('Es el trim que se usa en líquidos para controlar la cavitación: el estándar elegido, una '
+                   'jaula de orificios chicos de una etapa, o un multietapa de 2, 3, 4 o 6 etapas.'),
+        'que_hace': ('Reemplaza FL, Fd y Kc de las condiciones de operación, reparte la caída en etapas con '
+                     'igual Kapp por etapa, calcula el ruido con la última etapa y cambia el Cv por tamaño.'),
+        'que_indica': ('Con el Kapp por etapa y las etapas recomendadas se ve si el trim elegido alcanza, '
+                       'cuántas etapas hacen falta sin cavitación y cuántas aceptando cavitación incipiente.'),
+        'umbrales': ('Por etapa: sin cavitación Kapp ≤ 0,50; cavitación incipiente aceptada Kapp ≤ 0,63 '
+                     '(0,9·Kc de etapa 0,70); cavitación constante a partir de 0,70.'),
+        'por_debajo': 'Menos etapas que las recomendadas: cada etapa cavita o queda sin margen.',
+        'por_encima': ('Más etapas que las necesarias: más costo y menos capacidad por pulgada (válvula '
+                       'más grande).'),
+        'ejemplo': ('P1 = 40 bar a, P2 = 4 bar a, Pv ≈ 0,07 bar a: Kapp = 0,90. Con 3 etapas cada una toma '
+                    'k = 1 − (3,93/39,93)^(1/3) = 0,54 (incipiente); con 4 etapas k = 0,44 (sin '
+                    'cavitación). El programa recomienda 4, mínimo 3.'),
+        'afecta': [
+            'Kc, FL y Fd de cada caso',
+            'ΔP de cavitación y ΔP de flujo estrangulado',
+            'Ruido hidrodinámico IEC 60534-8-4',
+            'Cv nominal por tamaño y diámetro automático',
+            'Selección de trim y recomendaciones',
+        ],
+        'recomendaciones': [
+            'Empiece con el estándar y siga la alerta de etapas recomendadas.',
+            'Elija la cantidad sin cavitación en servicio continuo con agua y ΔP alta.',
+            'Reemplace FL, Fd y Kc por los certificados del trim ofertado.',
+            ('Si ninguna cantidad de la lista alcanza, reparta la caída con una placa de restricción o dos '
+             'válvulas en serie.'),
+        ],
+    },
+    'anticav_insuficiente': {
+        'que_es': 'Es la alerta de que el trim multietapa elegido tiene menos etapas que las necesarias.',
+        'que_hace': 'Compara el Kapp por etapa con 0,9·Kc de etapa (0,63) en cada caso.',
+        'que_indica': 'Cada etapa trabaja sin margen: puede cavitar con pequeños cambios de operación.',
+        'umbrales': 'Advertencia con Kapp por etapa entre 0,63 y 0,70; crítica desde 0,70.',
+        'por_debajo': 'Por debajo de 0,63 por etapa la alerta no aparece.',
+        'por_encima': 'Desde 0,70 por etapa hay cavitación constante en cada etapa.',
+        'ejemplo': 'Kapp 0,90 con 2 etapas: k = 0,69 por etapa; hacen falta al menos 3.',
+        'afecta': ['Selección del trim anticavitación', 'Vida útil de los internos'],
+        'recomendaciones': ['Suba a la cantidad de etapas que indica la alerta.',
+                            'Confirme con el fabricante el Kc certificado.'],
+    },
+    'anticav_etapas': {
+        'que_es': 'Es el aviso con las etapas anticavitación necesarias para el servicio.',
+        'que_hace': ('Calcula la menor cantidad de etapas con Kapp por etapa ≤ 0,50 (sin cavitación) y ≤ 0,63 '
+                     '(incipiente aceptada).'),
+        'que_indica': 'Cuántas etapas pedir al fabricante.',
+        'umbrales': 'Una etapa alcanza si Kapp ≤ 0,50 (sin cavitación) o ≤ 0,63 (incipiente).',
+        'por_debajo': 'Con Kapp bajo no hace falta multietapa.',
+        'por_encima': 'Si la cantidad supera 6, conviene repartir la caída fuera de la válvula.',
+        'ejemplo': 'Kapp 0,90: sin cavitación 4 etapas, mínimo 3.',
+        'afecta': ['Selección del trim anticavitación', 'Recomendaciones'],
+        'recomendaciones': ['Elija el trim en «Datos para cavitación hidrodinámica».'],
+    },
+    'anticav_rotativa': {
+        'que_es': 'Es el aviso de que el trim anticavitación elegido no corresponde a un cuerpo rotativo.',
+        'que_hace': 'El cálculo vuelve al trim estándar.',
+        'que_indica': 'Para usar un trim anticavitación hay que cambiar el cuerpo a globo o angular.',
+        'umbrales': 'No aplica.',
+        'por_debajo': 'No aplica.',
+        'por_encima': 'No aplica.',
+        'ejemplo': 'Mariposa con «Multietapa, 3 etapas»: se calcula con el trim estándar.',
+        'afecta': ['Cálculo de cavitación y ruido'],
+        'recomendaciones': ['Cambie el cuerpo a globo o angular en 1-Sistema.'],
+    },
     'trim_ruido': {
         'que_es': ('Es el tipo de internos (trim) que el programa considera para estimar el ruido '
                    'aerodinámico: estándar de un solo pasaje, o jaula multiorificio de nivel 1, 2 '

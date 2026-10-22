@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field, replace
 
+from . import anticavitacion as AC
 from . import asme_b16_34, compresible as CG, tuberias
 from .estilos import ANTICAVITACION, CUERPOS, ESTILOS, TAMANOS, apertura_requerida
 from .iec60534_2_1 import RHO_AGUA_15C, Liquido, factor_FLP
@@ -122,6 +123,7 @@ class Dimensionamiento:
     puerto_mm: float | None = None     # diámetro del puerto certificado (None = estimado)
     carrera_mm: float | None = None    # carrera nominal certificada (None = estimada)
     Cv_reducido_cert: float | None = None   # Cv certificado del trim reducido (None = estimado por el puerto)
+    anticav: str = "estandar"          # clave de anticavitacion.TRIMS (solo líquidos)
 
     @property
     def compresible(self) -> bool:
@@ -340,6 +342,12 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
 
     cuerpo = CUERPOS[inst.cuerpo]
     estilo = replace(ESTILOS[dim.trim], caracteristica=dim.caracteristica)
+    tac = AC.TRIMS.get(dim.anticav, AC.TRIMS["estandar"])
+    aviso_rotativa = tac.clave != "estandar" and cuerpo.rotativa
+    if aviso_rotativa:
+        tac = AC.TRIMS["estandar"]
+    if tac.clave != "estandar":
+        estilo = replace(estilo, FL=tac.FL, Fd=tac.Fd, Cd=tac.Cd or estilo.Cd, rangeabilidad=30)
     tamanos = tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= cuerpo.nps_max)
     sel = Seleccion(estilo, d_pulg=dim.nps_valvula,
                     Kv_nominal=dim.Cv_nominal * 0.865 if dim.Cv_nominal else None,
@@ -352,7 +360,9 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
         rho = c.SG * RHO_AGUA_15C
         casos.append(Caso(c.nombre, Liquido(P1=c.P1, P2=c.P2, T1=c.T1, rho1=rho, Pv=c.Pv, Pc=dim.Pc,
                                             nu=c.mu / rho, Q=c.Q, W=c.W), dim.fluido,
-                          FL=c.FL, Fd=c.Fd, Kc=c.Kc, criterio=c.criterio))
+                          FL=c.FL, Fd=c.Fd, Kc=c.Kc if c.Kc is not None or tac.clave == "estandar" else tac.Kc,
+                          xFz=(tac.xFz / (6e5 / (c.P1 * 1000)) ** 0.125 if tac.xFz else None),
+                          criterio=c.criterio, etapas=tac.etapas))
     inf = dimensionar(casos, sel)
 
     salidas = []
@@ -374,9 +384,12 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
             "condicion": d.get("regimen", ""), "bloqueado": r.bloqueado, "regimen_flujo": r.regimen,
             "calidad": d.get("calidad_salida"), "sigma": d.get("sigma"),
         })
+        salidas[-1].update(_etapas_caso(e.P1, e.P2, e.Pv, tac.etapas))
+
+    alertas_ac = _alertas_anticav(dim, tac, salidas, aviso_rotativa)
 
     alertas = [(rc.caso.nombre, a) for rc in inf.casos for a in rc.alertas]
-    alertas = [("General", a) for a in inf.alertas_generales] + alertas
+    alertas = [("General", a) for a in inf.alertas_generales + alertas_ac] + alertas
 
     P_ops = [c.P1 for c in dim.casos] + ([dim.cierre.P1] if dim.cierre else [])
     T_ops = [c.T1 for c in dim.casos] + ([dim.cierre.T1] if dim.cierre and dim.cierre.T1 else [])
@@ -399,6 +412,68 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
     return _equipo(res, equipo)
 
 
+def _etapas_caso(P1, P2, Pv, n) -> dict:
+    """Reparto de la caída por etapa y etapas recomendadas (líquidos sin flashing)."""
+    if P2 <= Pv:
+        return {"etapas": n, "k_etapa": None, "N_sin": None, "N_inc": None, "reparto": [], "etapas_txt": "flashing"}
+    n_sin, n_inc = AC.etapas_recomendadas(P1, P2, Pv)
+    k = AC.k_etapa(P1, P2, Pv, n) if n > 1 else None
+    return {"etapas": n, "k_etapa": k, "regimen_etapa": AC.regimen_etapa(k) if k is not None else "",
+            "N_sin": n_sin, "N_inc": n_inc, "etapas_txt": f"{n_sin} / {n_inc}", "reparto": AC.reparto(P1, P2, Pv, n) if n > 1 else []}
+
+
+def _alertas_anticav(dim, tac, salidas, aviso_rotativa) -> list[Alerta]:
+    out = []
+    if aviso_rotativa:
+        out.append(Alerta("anticav_rotativa", Severidad.ADVERTENCIA, "Trim anticavitación no aplicable",
+                          f"«{AC.TRIMS[dim.anticav].nombre}» es un trim de globo o angular: con un cuerpo "
+                          "rotativo se calculó con el trim estándar. Cambie el cuerpo a globo o angular."))
+    utiles = [(c, s) for c, s in zip(dim.casos, salidas) if c.criterio and s.get("N_inc")]
+    if not utiles:
+        return out
+    c_sin, s_sin = max(utiles, key=lambda t: t[1]["N_sin"])
+    n_sin = max(s["N_sin"] for _, s in utiles)
+    n_inc = max(s["N_inc"] for _, s in utiles)
+    of_sin, of_inc = AC.oferta(n_sin), AC.oferta(n_inc)
+    txt_of = (lambda n, o: f"{n} etapa{'s' if n > 1 else ''}" + (f" (en la lista: {o})" if o and o != n else "")
+              if n > 1 else "1 etapa")
+    if tac.etapas > 1:
+        peor = max(utiles, key=lambda t: t[1]["k_etapa"] or 0)
+        k = peor[1]["k_etapa"]
+        if tac.etapas < n_inc:
+            out.append(Alerta(
+                "anticav_insuficiente", Severidad.CRITICA if k >= AC.KC_ETAPA else Severidad.ADVERTENCIA,
+                "Trim anticavitación insuficiente",
+                f"Con {tac.etapas} etapas cada etapa toma Kapp = {_n(k, 3)} en el caso {peor[0].nombre} "
+                f"({AC.regimen_etapa(k)} por etapa; límite con cavitación incipiente "
+                f"0,9·Kc_etapa = {_n(AC.MARGEN * AC.KC_ETAPA, 2)}). Se necesitan al menos {txt_of(n_inc, of_inc)}; "
+                f"sin cavitación, {txt_of(n_sin, of_sin)}.",
+                remedios=[f"Elija el trim de {of_inc} etapas o más." if of_inc else
+                          "Ningún trim de la lista alcanza: reparta la caída con una placa de restricción aguas "
+                          "abajo o con dos válvulas en serie.",
+                          "Confirme con el fabricante el Kc certificado del trim ofertado."],
+                referencia="ISA-RP75.23; IEC 60534-8-4"))
+        else:
+            out.append(Alerta(
+                "anticav_etapas", Severidad.INFO, "Trim anticavitación por etapas",
+                f"Con {tac.etapas} etapas el Kapp por etapa máximo es {_n(k, 3)} ({AC.regimen_etapa(k)} por "
+                f"etapa). Etapas necesarias: sin cavitación {txt_of(n_sin, of_sin)}; con cavitación "
+                f"incipiente aceptada {txt_of(n_inc, of_inc)}. El ruido se calcula con la última etapa.",
+                referencia="ISA-RP75.23; IEC 60534-8-4"))
+    elif n_inc > 1 or (tac.clave == "estandar" and n_sin > 1 and
+                       any(s["Kapp"] >= s["Kc"] for _, s in utiles)):
+        out.append(Alerta(
+            "anticav_etapas", Severidad.ADVERTENCIA if n_inc > 1 else Severidad.INFO,
+            "Etapas anticavitación recomendadas",
+            f"Para el caso {c_sin.nombre}, repartiendo la caída en etapas iguales en Kapp: sin cavitación "
+            f"{txt_of(n_sin, of_sin)}; con cavitación incipiente aceptada {txt_of(n_inc, of_inc)}. Elija el "
+            "trim en «Datos para cavitación hidrodinámica».",
+            remedios=["Si ninguna cantidad de etapas de la lista alcanza, reparta la caída con una placa de "
+                      "restricción aguas abajo o con dos válvulas en serie."] if not of_inc else [],
+            referencia="ISA-RP75.23; IEC 60534-8-4"))
+    return out
+
+
 def _equipo(res: Resultado, equipo) -> Resultado:
     """Actuador, posicionador y accesorios con los resultados de las solapas 1 a 3."""
     if equipo is None:
@@ -414,6 +489,9 @@ def _carreras(res: Resultado):
     geo = res.geometria
     for s in res.salidas:
         s["carrera"] = geo.operacion(s["apertura"])
+        h = max(0.0, min(s["apertura"], 1.0))
+        s["carrera_mm"] = None if geo.rotativa else h * geo.carrera_mm
+        s["rotacion"] = h * geo.rotacion_grados if geo.rotativa else None
 
 
 def _materiales(mat, inst, dim, salidas, P_d, T_d):
@@ -714,23 +792,35 @@ def recomendaciones(res: Resultado) -> list[tuple[str, str]]:
         txt = f"Cuerpo {cuerpo.nombre.lower()} adecuado para el servicio, rating CL{inst.rating}, conexión {inst.conexion}."
     rec.append(("Estilo de cuerpo", txt))
     # Trim y jaula
-    grado = ANTICAVITACION.get(dim.trim, 0)
+    grado = ANTICAVITACION.get(dim.trim, 0) or (0 if dim.anticav == "estandar" or cuerpo.rotativa else 1)
+    nombre_trim = (trim.nombre if grado == 0 or dim.anticav == "estandar" or cuerpo.rotativa
+                   else f"{trim.nombre} con {AC.TRIMS[dim.anticav].nombre.lower()}")
+    n_sin = max((x.get("N_sin") or 0 for x in s), default=0)
+    n_inc = max((x.get("N_inc") or 0 for x in s), default=0)
+    txt_etapas = (f" Repartiendo la caída en etapas: {n_sin} etapas para operar sin cavitación, o al menos "
+                  f"{n_inc} si se acepta cavitación incipiente." if n_sin > 1 else "")
     if flash:
         trim_txt = ("Los internos anticavitación no eliminan el flashing. Usar obturador y asiento "
                     "endurecidos (recubrimiento de estelita o carburo de tungsteno).")
     elif not cav:
-        trim_txt = (f"Sin cavitación (Kapp {_n(Kapp, 3)} < Kc {_n(Kc, 3)}): internos estándar "
-                    f"({trim.nombre.lower()}).")
+        trim_txt = (f"Sin cavitación (Kapp {_n(Kapp, 3)} < Kc {_n(Kc, 3)}): "
+                    + (f"internos estándar ({trim.nombre.lower()})." if grado == 0 else
+                       f"los internos elegidos ({nombre_trim.lower()}) son adecuados."))
     elif Kapp >= FL2:
         trim_txt = ("Cavitación con flujo bloqueado: se requieren internos multietapa, o repartir la caída "
-                    "de presión entre la válvula y una restricción aguas abajo.")
+                    "de presión entre la válvula y una restricción aguas abajo." + txt_etapas)
     elif grado == 0:
         trim_txt = (f"Kapp {_n(Kapp, 3)} supera Kc {_n(Kc, 3)}: se recomienda jaula anticavitación de "
                     "orificios pequeños (etapa simple) o multietapa si la intensidad es severa, con obturador "
-                    "y asiento endurecidos.")
+                    "y asiento endurecidos." + txt_etapas)
     else:
-        trim_txt = (f"Internos anticavitación seleccionados. Verifique con el fabricante que el Kc certificado "
+        trim_txt = (f"Internos anticavitación seleccionados ({nombre_trim.lower()}). Verifique con el fabricante que el Kc certificado "
                     f"del trim sea mayor que Kapp = {_n(Kapp, 3)}.")
+    etapas_dim = AC.TRIMS[dim.anticav].etapas if grado and dim.anticav in AC.TRIMS else 1
+    if not flash and etapas_dim > 1 and etapas_dim < n_inc:
+        trim_txt = trim_txt.replace("son adecuados.", "cumplen en conjunto.")
+        trim_txt += (f" Con {etapas_dim} etapas el Kapp por etapa queda sin margen: se recomiendan al menos "
+                     f"{n_inc} etapas ({n_sin} para operar sin cavitación).")
     rec.append(("Internos (trim) y jaula", trim_txt))
     # Guía y obturador
     if cuerpo.rotativa:
@@ -806,6 +896,12 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
 
     cuerpo = CUERPOS[inst.cuerpo]
     estilo = replace(ESTILOS[dim.trim], caracteristica=dim.caracteristica)
+    tac = AC.TRIMS.get(dim.anticav, AC.TRIMS["estandar"])
+    aviso_rotativa = tac.clave != "estandar" and cuerpo.rotativa
+    if aviso_rotativa:
+        tac = AC.TRIMS["estandar"]
+    if tac.clave != "estandar":
+        estilo = replace(estilo, FL=tac.FL, Fd=tac.Fd, Cd=tac.Cd or estilo.Cd, rangeabilidad=30)
     tamanos = tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= cuerpo.nps_max)
     c0 = dim.casos[0]
     sel = Seleccion(estilo, d_pulg=dim.nps_valvula,

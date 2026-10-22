@@ -284,7 +284,13 @@ def test_trim_carrera_y_juego_v082(app, tmp_path):
     w = VentanaPrincipal()
     _cargar(w)
     w.calcular()
-    assert "mm" in w.salidas["carrera"].celdas[0].text()
+    c0 = w.salidas["carrera"].celdas[0].text()
+    assert w.cb_carrera.currentText() == "mm" and c0 and "mm" not in c0      # un solo valor, unidad aparte
+    w.cb_carrera.setCurrentText("in")
+    assert float(w.salidas["carrera"].celdas[0].text().replace(",", ".")) == pytest.approx(
+        float(c0.replace(".", "").replace(",", ".")) / 25.4, rel=0.01)
+    assert " in" in w.vistas["hoja_datos"].toPlainText()
+    w.cb_carrera.setCurrentText("mm")
     assert "Carrera nominal" in w.lbl_resumen.text() and "estimad" in w.lbl_geo.text()
     # puerto y carrera certificados, en pulgadas
     w.f_puerto.elegir("in", convertir=False)
@@ -382,3 +388,88 @@ def test_trim_reducido_en_pantalla_y_documentos(app, tmp_path):
     w2 = VentanaPrincipal()
     w2._cargar(w._estado())
     assert w2.ed_cv_red.text() == "200"
+
+
+def test_buscador_encabezado(app):
+    from dimensionador.gui.buscador import normalizar
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    b = w.buscador
+    assert normalizar("Cavitación") == "cavitacion"
+    assert b.buscar("c") == []
+    res = b.buscar("cavitacion")
+    textos = [r.texto for r in res]
+    assert any(t.startswith("Dato · 2-Cálculos Válvula") for t in textos)
+    assert any(t.startswith("Ayuda · ") for t in textos)
+    assert any(r.texto.startswith("Opción · 3-Materiales") for r in b.buscar("ptfe"))
+    assert b.buscar("zzzqqq") == []
+    # Ir a un dato cambia de solapa y muestra su explicación en el panel
+    dato = next(r for r in b.buscar("diametro del vastago") if r.texto.startswith("Dato"))
+    b.ir(dato)
+    app.processEvents()
+    assert w.tabs.currentIndex() == 3
+    assert w.paneles[3].texto.toPlainText()
+
+
+def test_trim_anticavitacion_por_etapas(app):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    for j, p2 in enumerate(("1,5", "1,5", "1,2")):
+        w.filas["P2"].edits[j].setText(p2)
+    w.calcular()
+    assert w.salidas["etapas_txt"].celdas[0].text()
+    assert w.salidas["k_etapa"].celdas[0].text() in ("", "—")
+    w.cb_anticav.setCurrentIndex(w.cb_anticav.findData("etapas_3"))
+    assert w.filas["Kc"].edits[0].text() == "0,973"
+    w.calcular()
+    assert w.res.dim.anticav == "etapas_3"
+    assert w.salidas["k_etapa"].celdas[0].text() not in ("", "—")
+    assert "Multietapa, 3 etapas" in w.vistas["hoja_datos"].toPlainText()
+    assert "Kapp por etapa" in w.vistas["memoria"].toPlainText()
+    w.cb_anticav.setCurrentIndex(0)
+    assert w.filas["Kc"].edits[0].text() != "0,973"
+    # En un cuerpo rotativo solo queda el estándar
+    w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("mariposa"))
+    it = w.cb_anticav.model().item(w.cb_anticav.findData("etapas_2"))
+    assert not it.isEnabled()
+
+
+def test_actuador_certificado_en_pantalla(app):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    E = w.eq_w
+    assert w.g_cert.isHidden()
+    w.calcular()
+    auto = w.res.equipo.actuador
+    assert auto.ok
+    E["act_modo"].setCurrentText("MANUAL")
+    assert not w.g_cert.isHidden()
+    assert not w.f_cert["cert_area_in2"].edits[0].isHidden()
+    assert w.f_cert["cert_par_aire_lbfin"].edits[0].isHidden()
+    w.calcular()
+    assert "act_cert_faltan" in {a.codigo for a in w.res.equipo.actuador.alertas}
+    F = w.f_cert
+    F["cert_area_in2"].elegir("in²", False)
+    F["cert_area_in2"].edits[0].setText(str(auto.area_in2).replace(".", ","))
+    F["cert_banco_psig"].elegir("psig", False)
+    for j, v in enumerate(auto.P_banco):
+        F["cert_banco_psig"].edits[j].setText(f"{v:g}".replace(".", ","))
+    F["cert_carrera_in"].elegir("in", False)
+    F["cert_carrera_in"].edits[0].setText("4")
+    F["cert_pmax_psig"].elegir("psig", False)
+    F["cert_pmax_psig"].edits[0].setText("50")
+    w.f_friccion.elegir("lbf", False)
+    w.f_friccion.edits[0].setText("40")
+    w.calcular()
+    ra = w.res.equipo.actuador
+    assert ra.ok, [a.mensaje for a in ra.alertas]
+    assert "certificado" in ra.seleccion
+    assert "certificada" in ra.fuerzas[2][2]
+    assert "certificado" in w.vistas["hoja_datos"].toPlainText()
+    estado = w._estado()
+    w2 = VentanaPrincipal()
+    w2._cargar(estado)
+    w2.calcular()
+    assert w2.res.equipo.actuador.seleccion == ra.seleccion

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLin
                                QVBoxLayout, QWidget)
 
 from .. import actuadores as A
+from . import botones
 from ..estilos import ESTILOS
 from ..modelos import Severidad
 
@@ -85,7 +86,7 @@ class SolapaEquipo:
     def _boton_calcular(self, lay):
         h = QHBoxLayout()
         b = QPushButton("Calcular")
-        b.setStyleSheet("QPushButton{font-weight:700;padding:5px 18px}")
+        botones.calcular(b, "amarillo", "5px 18px")
         b.clicked.connect(lambda: self.calcular())
         h.addWidget(b)
         h.addStretch()
@@ -106,6 +107,7 @@ class SolapaEquipo:
         nota.setStyleSheet(NOTA)
         lay.addWidget(nota)
         g = self._grupo("Actuador", [
+            ("act_modo", "Modo", A.MODOS_ACT, "act_modo", "AUTOMÁTICO"),
             ("act_tipo", "Tipo", A.TIPOS, "act_tipo", A.TIPOS[0]),
             ("act_falla", "Modo de falla", A.FALLAS, "act_falla", A.FC),
             ("act_volante", "Volante", SI_NO, "act_volante", "No"),
@@ -120,17 +122,94 @@ class SolapaEquipo:
         self.f_vastago = FilaUnidad("d_vastago", "Diámetro del vástago", ("longitud",), grid, r + 2, self.abrir_ayuda,
                                     n=1, ayuda_clave="act_vastago")
         self.f_vastago.edits[0].setPlaceholderText("estimado")
+        self.f_friccion = FilaUnidad("friccion_cert", "Fricción certificada de la empaquetadura", ("fuerza",), grid,
+                                     r + 3, self.abrir_ayuda, n=1, ayuda_clave="act_friccion_cert")
+        self.f_friccion.edits[0].setPlaceholderText("estimada")
+        self.f_friccion.edits[0].setToolTip("En blanco: fricción típica de la empaquetadura de 3-Materiales. Con dato, "
+                                            "reemplaza el término C de la fuerza (válvulas de vástago deslizante).")
         self.lbl_act_tipo = QLabel("")
         self.lbl_act_tipo.setWordWrap(True)
         self.lbl_act_tipo.setStyleSheet("color:#2f6fb0;font-size:8pt")
-        grid.addWidget(self.lbl_act_tipo, 0, 3, 1, 3)
+        grid.addWidget(self.lbl_act_tipo, 1, 3, 1, 3)
         lay.addWidget(g)
+        # Datos certificados (modo MANUAL): solo se muestran los que pide el tipo de actuador
+        self.g_cert = QGroupBox("Datos certificados del actuador (modo MANUAL: fabricante o cliente)")
+        gc = QGridLayout(self.g_cert)
+        gc.addWidget(QLabel("<b>Dato</b>"), 0, 0)
+        gc.addWidget(QLabel("<b>Unidad</b>"), 0, 2)
+        self.f_cert = {}
+        for i, (k, et, mags, n, cab) in enumerate((
+                ("cert_area_in2", "Área efectiva", ("area",), 1, ""),
+                ("cert_banco_psig", "Ajuste de banco (bench set)", ("presion",), 2, "Inferior / superior"),
+                ("cert_carrera_in", "Carrera nominal del actuador", ("longitud",), 1, ""),
+                ("cert_pmax_psig", "Presión máxima del actuador", ("presion",), 1, ""),
+                ("cert_par_aire_lbfin", "Par de aire (doble efecto)", ("par",), 1, ""),
+                ("cert_p_par_psig", "Presión a la que se da el par de aire", ("presion",), 1, ""),
+                ("cert_par_resorte_lbfin", "Par del resorte", ("par",), 2, "Comienzo / final"),
+                ("cert_nominal", "Empuje o par nominal", ("fuerza", "par"), 1, ""))):
+            f = FilaUnidad(k, et, mags, gc, i + 1, self.abrir_ayuda, n=n, ayuda_clave="act_certificado")
+            nota_c = QLabel(cab)
+            nota_c.setStyleSheet("color:#555")
+            gc.addWidget(nota_c, i + 1, 5)
+            f.extra = [nota_c]
+            self.f_cert[k] = f
+        self.f_cert["cert_banco_psig"].elegir("psig", False)
+        self.f_cert["cert_pmax_psig"].elegir("psig", False)
+        self.f_cert["cert_p_par_psig"].elegir("psig", False)
+        gc.setColumnStretch(6, 1)
+        lay.addWidget(self.g_cert)
+        for k in ("act_modo", "act_tipo", "act_falla"):
+            self.eq_w[k].currentTextChanged.connect(self._act_cert_visibles)
         self.eq_w["act_tipo"].currentTextChanged.connect(self._act_cambio_tipo)
         self._boton_calcular(lay)
         self.vista_act = _vista()
         lay.addWidget(self.vista_act, 1)
         self._act_cambio_tipo()
+        self._act_cert_visibles()
         return self._scroll(cont)
+
+    def _act_cert_visibles(self, *_):
+        """En MANUAL muestra los datos certificados que necesita el tipo de actuador elegido."""
+        if not hasattr(self, "g_cert"):
+            return
+        manual = self.eq_w["act_modo"].currentText() == "MANUAL"
+        self.g_cert.setVisible(manual)
+        rot = self.cuerpo().rotativa if hasattr(self, "cb_cuerpo") and self.cb_cuerpo.currentData() else False
+        pide = A.datos_certificados(self.eq_w["act_tipo"].currentText(), self.eq_w["act_falla"].currentText(), rot)
+        for k, f in self.f_cert.items():
+            for w in f.widgets() + f.extra:
+                w.setVisible(manual and k in pide)
+        for w in self.f_friccion.widgets():
+            w.setEnabled(not rot)
+        f = self.f_cert["cert_nominal"]
+        if f.magnitud() != ("par" if rot else "fuerza"):
+            from .. import unidades as U
+            f.elegir(U.SISTEMAS[getattr(self, "sistema", "SI")]["par" if rot else "fuerza"], False)
+
+    def _act_cert_datos(self) -> dict:
+        """Datos certificados en unidades inglesas para A.DatosActuador (solo los del tipo elegido)."""
+        if self.eq_w["act_modo"].currentText() != "MANUAL":
+            return {}
+        rot = self.cuerpo().rotativa
+        pide = A.datos_certificados(self.eq_w["act_tipo"].currentText(), self.eq_w["act_falla"].currentText(), rot)
+        conv = {"area": lambda v: v / 25.4 ** 2, "presion": lambda v: (v - 101.325) / A.PSI_KPA,
+                "longitud": lambda v: v / 25.4, "fuerza": lambda v: v / A.LBF_N, "par": lambda v: v / A.LBFIN_NM}
+        out = {"modo": "MANUAL"}
+        for k in pide:
+            f = self.f_cert[k]
+            vals = [f.valor_base(j) for j in range(len(f.edits))]
+            if any(v is None for v in vals):
+                out[k] = None
+                continue
+            vals = [conv[f.magnitud()](v) for v in vals]
+            if any(v <= 0 for v in vals) and k != "cert_banco_psig":
+                raise ValueError(f"«{f.lbl.text()}» debe ser mayor que cero.")
+            out[k] = tuple(vals) if len(vals) > 1 else vals[0]
+        f = self.f_cert["cert_nominal"]
+        if "cert_nominal" in pide and out.get("cert_nominal") is not None and (f.magnitud() == "par") != rot:
+            raise ValueError("Empuje o par nominal: use una unidad de fuerza en válvulas lineales y de par en "
+                             "rotativas.")
+        return out
 
     def _act_cambio_tipo(self, *_):
         t = self.eq_w["act_tipo"].currentText()
@@ -207,6 +286,7 @@ class SolapaEquipo:
                 flujo.setCurrentText("Unidireccional")
             else:
                 self._act_flujo_desde_trim(self.cb_trim.currentData() or "")
+        self._act_cert_visibles()
 
     # -------------------------------------------------------------- 6-Accesorios
     def _tab_accesorios(self) -> QWidget:
@@ -264,8 +344,12 @@ class SolapaEquipo:
         dv = self.f_vastago.valor_base(0)
         if dv is not None and dv <= 0:
             raise ValueError("El diámetro del vástago debe ser mayor que cero.")
+        fr = self.f_friccion.valor_base(0)
+        if fr is not None and fr <= 0:
+            raise ValueError("La fricción certificada de la empaquetadura debe ser mayor que cero.")
         act = A.DatosActuador(t("act_tipo"), t("act_falla"), t("act_volante") == "Sí", pa[0], pa[1],
-                              t("act_flujo"), dv)
+                              t("act_flujo"), dv, friccion_cert_lbf=None if fr is None else fr / A.LBF_N,
+                              **self._act_cert_datos())
         pos = A.DatosPosicionador(t("pos_tag"), t("pos_tipo"), t("pos_senal"), t("pos_accion"),
                                   t("pos_manometros") == "Sí", t("pos_set") == "Sí", t("pos_salida_set"))
         acc = A.DatosAccesorios(t("acc_boosters"), t("acc_quick_exhaust"), t("acc_bloqueo"), t("acc_cambio"),
@@ -285,7 +369,7 @@ class SolapaEquipo:
             self.f_aire.poner_base(j, v * 100 + 101.325)
 
     def _eq_nuevo(self):
-        defaults = {"act_tipo": A.TIPOS[0], "act_falla": A.FC, "act_volante": "No", "pos_tipo": "Digital-HART",
+        defaults = {"act_modo": "AUTOMÁTICO", "act_tipo": A.TIPOS[0], "act_falla": A.FC, "act_volante": "No", "pos_tipo": "Digital-HART",
                     "pos_senal": "4-20mA dc", "pos_accion": "Configurable", "pos_manometros": "Sí", "pos_set": "Sí",
                     "pos_salida_set": "Ajustable 0-80 psi", "acc_sol_accion": A.NO_APLICA, "acc_sol_vias": "3 vías",
                     "acc_sol_material": "Acero Inoxidable", "acc_sol_puerto": '1/4"', "acc_sol_voltaje": "24 Vdc",
@@ -296,6 +380,10 @@ class SolapaEquipo:
             elif isinstance(w, QLineEdit):
                 w.clear()
         self.f_vastago.edits[0].clear()
+        self.f_friccion.edits[0].clear()
+        for f in self.f_cert.values():
+            for e in f.edits:
+                e.clear()
         self._eq_aire_inicial()
         self._pos_bloquear({})
         self._act_concordancia()

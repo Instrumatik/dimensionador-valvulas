@@ -212,6 +212,53 @@ _e("act_obturador", "Obturador balanceado o desbalanceado",
            ["Balancee las válvulas grandes de alta ΔP.", "Verifique la clase de cierre del sello de balanceo."],
            "Puerto de 4 3/8\": área de puerto 15 in², corona balanceada 0,51 in²: A baja unas 30 veces."))
 
+_e("act_modo", "Modo del actuador: AUTOMÁTICO o MANUAL",
+   "<p><b>AUTOMÁTICO</b> (por defecto): el programa elige el menor tamaño de una serie genérica que cumple, con su "
+   "resorte y ajuste de banco.</p><p><b>MANUAL</b>: se cargan los datos certificados del actuador ofertado (hoja "
+   "del fabricante o dato del cliente) y el programa lo <b>verifica</b> en lugar de elegir uno. Cada chequeo dice "
+   "CUMPLE o NO CUMPLE con su margen. Datos que pide según el tipo:</p><ul>"
+   "<li>Diafragma, multiresorte y pistón con resorte: área efectiva, ajuste de banco inferior y superior, carrera "
+   "nominal y presión máxima.</li><li>Pistón sin resorte: área, carrera y presión máxima.</li>"
+   "<li>Piñón y cremallera y yugo escocés: par de aire a una presión dada y presión máxima; con resorte, también el "
+   "par del resorte al comienzo y al final de su carrera.</li><li>Eléctrico y electrohidráulico: empuje (lineal) o "
+   "par (rotativa) nominal.</li></ul><p>La presión de aire requerida que resulta bloquea las señales del "
+   "posicionador igual que en AUTOMÁTICO, y los documentos indican «actuador certificado».</p>",
+   ACT, referencia=REF_F, relacionadas=["act_certificado", "act_tipo", "act_friccion_cert"],
+   guia=_g("Es la forma de definir el actuador: elegido por el programa o verificado con datos certificados.",
+           "En MANUAL reemplaza la selección por una verificación de los datos cargados.",
+           "Con datos certificados el resultado deja de ser orientativo.",
+           "Los mismos márgenes que AUTOMÁTICO: 1,10 en lineales, 1,25 en rotativas y eléctricos.",
+           "No aplica.", "No aplica.", ["Selección del actuador", "Posicionador", "Hoja de datos"],
+           ["Use AUTOMÁTICO para la ingeniería básica y MANUAL para verificar la oferta del fabricante."],
+           "Diafragma ofertado de 105 in² con banco 6 a 18 psig: el programa verifica empujes y aire."))
+_e("act_certificado", "Datos certificados del actuador",
+   "<p>Datos de la hoja del actuador ofertado. Área efectiva del diafragma o del pistón; ajuste de banco (bench "
+   "set) inferior y superior en presión manométrica; carrera nominal del actuador (debe ser mayor o igual que la "
+   "de la válvula); presión máxima de la carcasa o del cilindro; par de aire de doble efecto a la presión indicada "
+   "(el par se escala con la presión); par del resorte al comienzo y al final de su carrera; empuje o par nominal "
+   "de los eléctricos.</p><p>Chequeos: empuje del resorte en el asiento y empuje del aire mínimo contra el resorte "
+   "(o al revés con falla abre), carrera, constante del resorte frente al gradiente negativo, aire requerido "
+   "frente al disponible y carga del vástago.</p>",
+   ACT, referencia=REF_F, relacionadas=["act_modo", "act_banco", "act_P_req"],
+   guia=_g("Son los datos del fabricante o del cliente que describen el actuador ofertado.",
+           "Se comparan con las fuerzas o pares de la válvula con margen.",
+           "CUMPLE con margen positivo; NO CUMPLE con el faltante.", "Margen ≥ 0 % sobre lo requerido con margen.",
+           "Margen negativo: el actuador no cierra, no abre o no asienta.", "Margen muy alto: actuador sobredimensionado.",
+           ["Verificación del actuador", "Presión de aire requerida", "Hoja de datos"],
+           ["Cargue el ajuste de banco en psig o bar g, tal como figura en la hoja."],
+           "Banco 6 a 18 psig, 105 in², falla cierra: empuje en el asiento 630 lbf."))
+_e("act_friccion_cert", "Fricción certificada de la empaquetadura",
+   "<p>Fricción de la empaquetadura medida o declarada por el fabricante. Si se carga, reemplaza el término C "
+   "de la fuerza (cierre y apertura) en AUTOMÁTICO y en MANUAL. En blanco se usa la fricción típica de la "
+   "empaquetadura elegida en 3-Materiales. Solo válvulas de vástago deslizante: en las rotativas la fricción "
+   "está incluida en el par de arranque.</p>",
+   ACT, referencia=REF_F, relacionadas=["act_friccion", "empaquetadura"],
+   guia=_g("Es la fricción real del juego de empaquetadura ofertado.",
+           "Reemplaza la fricción típica C.", "Fricción alta pide más actuador y empeora la resolución.",
+           "PTFE ≈ 100 lbf por pulgada de vástago; grafito 3 a 10 veces más.", "No aplica.", "No aplica.",
+           ["Fuerza de cierre y apertura", "Resorte"],
+           ["Pida el valor al fabricante con el ajuste de la carga viva incluido."],
+           "Grafito con carga viva, vástago de 1 in: 840 lbf típico; el fabricante declara 600 lbf."))
 _e("act_friccion", "Empaquetadura considerada (fricción C)",
    "<p>Tipo de empaquetadura elegido en la solapa 3; sin selección de materiales se supone PTFE simple. La "
    "fricción típica es: PTFE simple ≈ 100 lbf por pulgada de vástago; PTFE doble ≈ 150; PTFE con carga viva "
@@ -430,6 +477,14 @@ _e("acc_limites", "Límites de carrera",
 # =====================================================================================
 # ALERTAS
 # =====================================================================================
+_alerta("act_cert_faltan", "Faltan datos del actuador certificado", "<p>En modo MANUAL faltan datos de la hoja "
+        "del actuador; no se puede verificar.</p>", "La verificación no se hizo.", "Cualquier dato pedido en blanco.",
+        ["Cargar los datos que indica la alerta.", "Volver a AUTOMÁTICO."], "Diafragma sin ajuste de banco.",
+        ["act_modo", "act_certificado"])
+_alerta("act_cert_no_cumple", "El actuador certificado no cumple", "<p>Con los datos certificados algún chequeo da "
+        "NO CUMPLE: empuje o par, carrera, resorte o aire.</p>", "El actuador ofertado no sirve para el servicio.",
+        "Margen negativo en algún chequeo.", ["Pedir otro tamaño, resorte o ajuste de banco al fabricante."],
+        "Banco 3 a 15 psig con 46 in² para 600 lbf de cierre: no cumple.", ["act_modo", "act_certificado"])
 _alerta("act_no_alcanza", "El actuador no alcanza", "<p>Ningún tamaño de la serie genérica del tipo elegido da la "
         "fuerza o el par con el aire mínimo.</p>", "La tecnología o el aire no alcanzan para la válvula.",
         "Fuerza requerida mayor que la del mayor tamaño.",

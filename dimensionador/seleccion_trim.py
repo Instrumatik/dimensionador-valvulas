@@ -18,10 +18,11 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from . import anticavitacion as AC
 from .estilos import ESTILOS, KC_TIPICO
 
 MARGEN_KC = 0.9                 # Kapp ≤ 0,9·Kc
-KC_ETAPA = 0.5                  # Kapp admitido por etapa de un multietapa (conservador)
+KC_ETAPA = AC.XFZ_ETAPA         # Kapp admitido por etapa de un multietapa: sin cavitación (conservador)
 KE_SEVERO = 275.0               # kPa, cavitante, flashing, erosivo o con sólidos
 DP_ENDURECIDO = 1000.0          # kPa: con cavitación o ΔP mayor, internos endurecidos
 DP_ENDURECIDO_SIEMPRE = 2000.0  # kPa: internos endurecidos aunque no haya cavitación
@@ -66,7 +67,7 @@ def _ke(dP: float, etapas: int) -> float:
     return dP / etapas
 
 
-def _caso_liquido(nombre, c, s, trim_usuario: str, rotativo: bool) -> EvaluacionCaso:
+def _caso_liquido(nombre, c, s, trim_usuario: str, rotativo: bool, nombre_usuario: str = "") -> EvaluacionCaso:
     P1, P2, Pv, dP = c.P1, c.P2, c.Pv, c.P1 - c.P2
     Kapp, Kc_u, FL_u = s["Kapp"], s["Kc"], c.FL
     datos = [("ΔP", dP, "presion_dif"), ("Kapp", Kapp, None), ("Kc del trim elegido", Kc_u, None),
@@ -80,7 +81,7 @@ def _caso_liquido(nombre, c, s, trim_usuario: str, rotativo: bool) -> Evaluacion
                          "erosión (Cr-Mo).")
         return ev
     if Kapp <= MARGEN_KC * Kc_u and Kapp < FL_u ** 2:
-        ev = EvaluacionCaso(nombre, datos, ESTILOS[trim_usuario].nombre, 1, 0,
+        ev = EvaluacionCaso(nombre, datos, nombre_usuario or ESTILOS[trim_usuario].nombre, 1, 0,
                             f"Kapp = {_n(Kapp)} ≤ 0,9·Kc = {_n(MARGEN_KC * Kc_u)}: el trim elegido no cavita.")
         if Kapp >= s["xFzp1"]:
             ev.avisos.append(f"Kapp = {_n(Kapp)} supera la cavitación incipiente xFzp1 = {_n(s['xFzp1'])}: hay "
@@ -158,7 +159,10 @@ def seleccionar(res) -> SeleccionTrim:
     if dim.compresible:
         casos = [_caso_gas(c.nombre, c, s, dim.trim) for c, s in zip(dim.casos, res.salidas)]
     else:
-        casos = [_caso_liquido(c.nombre, c, s, dim.trim, rotativo) for c, s in zip(dim.casos, res.salidas)]
+        tac = AC.TRIMS.get(dim.anticav)
+        nombre = (f"{ESTILOS[dim.trim].nombre}, {tac.nombre.lower()}"
+                  if tac is not None and tac.clave != "estandar" and not rotativo else "")
+        casos = [_caso_liquido(c.nombre, c, s, dim.trim, rotativo, nombre) for c, s in zip(dim.casos, res.salidas)]
     peor = max(casos, key=lambda c: (c.grado, c.etapas))
     etapas = max(c.etapas for c in casos)
     pasos = []

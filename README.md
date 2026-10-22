@@ -42,14 +42,18 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    actuador genérico, el banco de resorte, la constante del resorte y la presión de aire necesaria, y
    verifica el vástago, el aire y el volante. En el posicionador bloquea las señales de entrada que no
    alcanzan la presión necesaria; en accesorios revisa la coherencia de la solenoide con el modo de falla.
-   Las celdas de texto que quedan vacías no aparecen en los entregables.
+   Las celdas de texto que quedan vacías no aparecen en los entregables. En modo **MANUAL** (v0.10.0) se
+   cargan los datos certificados del actuador ofertado (área, banco, carrera, presión máxima, pares o empuje
+   nominal) y el programa lo verifica con CUMPLE / NO CUMPLE y su margen; la fricción certificada de la
+   empaquetadura reemplaza la típica en los dos modos.
 5. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
    alertas, su intensidad y las soluciones posibles.
 6. **Memoria de cálculo**, **Hoja de datos** e **Informe técnico**: vistas previas que se
    exportan a Word editable o se imprimen desde *Inicio → Entregables*, por separado o todos
    juntos.
 
-«Ver» o F1 sobre cualquier dato abre su explicación. El selector de unidades (SI / Imperial)
+«Ver» o F1 sobre cualquier dato abre su explicación. El buscador del encabezado encuentra datos, opciones de
+las listas y temas de ayuda y lleva a cada uno. El selector de unidades (SI / Imperial)
 cambia todo el programa, incluidos los documentos; cada dato además tiene su propia unidad.
 
 ## Uso (versión de desarrollo)
@@ -69,6 +73,12 @@ python -m dimensionador         # abre el programa
 * `N25-Valves-Sizing --prueba` verifica el ejecutable con el ejemplo 1 de IEC 60534-2-1.
 
 ## Selección de trim
+
+En líquidos, «Datos para cavitación hidrodinámica» (2-Cálculos Válvula) elige el trim anticavitación:
+estándar, jaula de orificios chicos de una etapa o multietapa de 2, 3, 4 o 6 etapas. La caída se reparte
+con igual Kapp por etapa; cambian FL, Fd, Kc, la ΔP de cavitación y de bloqueo, el Cv por tamaño y el ruido
+(IEC 60534-8-4 con la última etapa), y el programa informa las etapas necesarias sin cavitación y aceptando
+cavitación incipiente.
 
 Con cada cálculo el tablero de resultados muestra el trim recomendado (estándar, jaula caracterizada,
 jaula de 60 o 120 orificios, multietapa con número orientativo de etapas, o angular para flashing).

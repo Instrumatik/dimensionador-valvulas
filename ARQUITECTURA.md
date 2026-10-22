@@ -35,6 +35,8 @@ dimensionador/
                     servicio agrio (ISO 15156 / ISO 17945), modo manual y alertas
   juegos_trim.py    Juegos de internos estándar (N25-T01…T17): asiento, jaula y obturador compatibles
   geometria.py      Tamaño del trim (puerto) y carrera del vástago, estimados o certificados
+  anticavitacion.py Trims anticavitación por etapas (líquidos): reparto de igual Kapp por etapa,
+                    factores equivalentes FL, Kc y xFz, y etapas recomendadas
   empaquetaduras.py Empaquetadura del vástago y tipo de bonete: temperatura, presión, química,
                     vacío y emisión fugitiva (ISO 15848-1, API 622 / 624 / 641)
   tuberias.py       Diámetro exterior y espesor por NPS y cédula (ASME B36.10M / B36.19M)
@@ -46,10 +48,13 @@ dimensionador/
   ayuda_mat_*.py    Ayuda de la solapa 3-Materiales (parámetros, componentes, alertas y agentes)
   gui/ventana.py    Interfaz PySide6: 1-Sistema, 2-Cálculos Válvula, 3-Materiales y entregables
   gui/solapa_materiales.py  Solapa 3-Materiales, análisis por componente y biblioteca
-  actuadores.py     Fuerzas (A+B+C+D) y pares de cierre, resorte y banco, tamaños genéricos de actuador,
+  actuadores.py     Fuerzas (A+B+C+D) y pares de cierre, resorte y banco, tamaños genéricos de actuador
+                    (AUTOMÁTICO) o verificación del actuador certificado (MANUAL), fricción certificada,
                     vástago, aire, volante, bloqueo de señales del posicionador y coherencia de accesorios
   ayuda_actuador.py Ayuda de las solapas 4-Actuador, 5-Posicionador y 6-Accesorios
   gui/solapa_actuador.py  Solapas 4-Actuador, 5-Posicionador y 6-Accesorios
+  gui/botones.py    Estilo y animación de los botones (hover, presionado y brillo de «Calcular»)
+  gui/buscador.py   Buscador del encabezado: datos, opciones de las listas y temas de ayuda
 tests/              Validación contra ejemplos de las normas
 ```
 

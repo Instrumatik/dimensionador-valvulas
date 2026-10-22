@@ -804,6 +804,11 @@ _e("trim", "Tipo de trim hidrodinámico",
    "por las ventanas y baja por el asiento. Equivale a tiende a cerrar. FL ≈ 0,85.</li></ul>",
    referencia="IEC 60534-2-1, Anexo A (tabla de factores típicos)",
    relacionadas=["Kc", "FL", "Fd", "balance"])
+from .estilos import ESTILOS as _ESTILOS, NOMBRE_CORTO as _NOMBRE_CORTO  # noqa: E402
+
+A["trim"].texto += ("<p><b>Opciones de la lista</b> (nombre corto y descripción completa):</p><ul>"
+                    + "".join(f"<li><b>{_NOMBRE_CORTO[k]}</b>: {e.nombre}.</li>" for k, e in _ESTILOS.items()
+                              if k in _NOMBRE_CORTO) + "</ul>")
 _e("balance", "Obturador balanceado o desbalanceado",
    "<p><b>Desbalanceado</b>: la ΔP actúa sobre toda el área del puerto; el actuador debe vencer una "
    "fuerza F ≈ ΔP·π·d²/4. Es simple y cierra mejor (clase V o VI con asiento adecuado).</p>"
@@ -924,6 +929,37 @@ _e("rho2", "Densidad de salida ρ2",
    "<p>Densidad del fluido aguas abajo, a P2 y T2. Gas: ρ2 = P2·M/(Z2·R·T2). Vapor: dato del usuario o, en "
    "blanco, ρ1·(P2/P1)·(T1/T2). Vapor de agua: IAPWS-95.</p>",
    referencia="IEC 60534-8-3:2010", relacionadas=["T2", "Z", "velocidad_sonido"])
+_e("anticav", "Trim anticavitación (por etapas)",
+   "<p>Solo líquidos, cuerpos globo y angular. Elige el trim con que se calcula la cavitación, el ruido "
+   "y el Cv por tamaño:</p><ul><li><b>Estándar</b>: el trim elegido arriba, una etapa, con sus FL, Fd y Kc."
+   "</li><li><b>Jaula de orificios chicos, 1 etapa</b>: FL 0,93, Fd 0,10, Kc 0,85.</li><li><b>Multietapa de "
+   "2, 3, 4 o 6 etapas</b>: la caída se reparte en etapas en serie con igual Kapp por etapa, "
+   "k = 1 − ((P2 − Pv)/(P1 − Pv))^(1/N): las primeras etapas toman la mayor parte de la caída y la última "
+   "la menor. Cada etapa es un elemento de orificios con inicio de cavitación incipiente 0,50, Kc 0,70 y "
+   "FL 0,90; los factores de la válvula completa son Kc = 1 − (1 − 0,70)^N, xFz = 1 − (1 − 0,50)^N y "
+   "FL² = 1 − (1 − 0,81)^N.</li></ul><p>Al elegirlo, FL, Fd y Kc de las condiciones de operación toman "
+   "esos valores (puede reemplazarlos por los certificados). El ruido IEC 60534-8-4 se calcula con la "
+   "última etapa, que descarga a la tubería. Más etapas dan menos capacidad por pulgada: el diámetro "
+   "automático puede subir.</p><p>Resultados: <b>Kapp por etapa</b> y <b>etapas recomendadas</b>, la "
+   "menor cantidad sin cavitación (Kapp por etapa ≤ 0,50) y la mínima aceptando cavitación incipiente "
+   "(Kapp por etapa ≤ 0,9·0,70 = 0,63).</p><p>Valores genéricos de referencia, no de un fabricante.</p>",
+   formula="k = 1 − ((P2 − Pv)/(P1 − Pv))^(1/N);  Kc = 1 − (1 − Kc_etapa)^N",
+   referencia="ISA-RP75.23; IEC 60534-8-4; manual de selección de trim, 5.4",
+   relacionadas=["Kc", "Kapp", "cavitacion", "trim", "anticav_insuficiente"], categoria="Datos")
+_e("anticav_insuficiente", "Trim anticavitación insuficiente",
+   "<p>Con las etapas elegidas, el Kapp de cada etapa supera 0,9·Kc de la etapa (0,63): la válvula puede "
+   "cumplir en conjunto pero cada etapa trabaja sin margen y puede cavitar con pequeños cambios de "
+   "operación. El mensaje indica cuántas etapas hacen falta.</p>",
+   relacionadas=["anticav", "anticav_etapas"], categoria="Fenómenos")
+_e("anticav_etapas", "Etapas anticavitación recomendadas",
+   "<p>Informa cuántas etapas hacen falta para operar sin cavitación y cuántas como mínimo aceptando "
+   "cavitación incipiente, con el reparto de igual Kapp por etapa. Si la cantidad no está en la lista, se "
+   "indica la siguiente disponible; si ninguna alcanza, conviene repartir la caída con una placa de "
+   "restricción o dos válvulas en serie.</p>",
+   relacionadas=["anticav", "anticav_insuficiente"], categoria="Fenómenos")
+_e("anticav_rotativa", "Trim anticavitación no aplicable",
+   "<p>Los trims anticavitación de la lista son de globo o angular. Con un cuerpo rotativo el cálculo usa "
+   "el trim estándar.</p>", relacionadas=["anticav"], categoria="Fenómenos")
 _e("trim_ruido", "Trim para ruido aerodinámico",
    "<p>Tipo de internos que se usa para estimar el ruido. <b>Estándar</b> es un pasaje único (obturador "
    "contorneado, jaula de ventanas, bola o mariposa), con el Fd de cada caso.</p><p>Las <b>jaulas "
