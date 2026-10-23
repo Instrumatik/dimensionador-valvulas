@@ -117,6 +117,10 @@ class DatosActuador:
     cert_par_resorte_lbfin: tuple | None = None  # par del resorte (al comienzo, al final)
     cert_nominal: float | None = None           # eléctrico: empuje [lbf] o par [lbf·in] nominal
     friccion_cert_lbf: float | None = None      # fricción certificada de la empaquetadura (reemplaza C)
+    # Rango de operación (Pa, Pb) [psig]: presión que recibe el actuador con la señal mínima y máxima.
+    # None = AUTOMÁTICO (Pa = 0 y Pb = aire mínimo; N25 sugiere el rango estándar en la verificación externa).
+    rango: tuple | None = None
+    rango_nombre: str = ""
 
     @property
     def manual(self) -> bool:
@@ -465,7 +469,7 @@ class Tamano:
     vastago_area_in2: float = 0.0   # área del vástago del pistón (lado del vástago)
 
 
-DIAFRAGMA = [Tamano("D-030", 30, 0.75, 60, 1.0), Tamano("D-046", 46, 0.75, 50, 1.5), Tamano("D-069", 69, 1.125, 50, 2.0),
+DIAFRAGMA = [Tamano("D-030", 30, 0.75, 50, 1.0), Tamano("D-046", 46, 0.75, 50, 1.5), Tamano("D-069", 69, 1.125, 50, 2.0),
              Tamano("D-105", 105, 1.5, 50, 2.5), Tamano("D-156", 156, 2.0, 50, 3.0),
              Tamano("D-220", 220, 3.0, 40, 4.0), Tamano("D-300", 300, 4.0, 40, 5.0),
              Tamano("D-450", 450, 4.0, 40, 6.0)]
@@ -687,16 +691,17 @@ def fuerzas_lineales(sv: Servicio, act: DatosActuador) -> Fuerzas:
 
 
 def _banco(F_c: float, F_a: float, F_fric: float, L: float, area: float, Pd: float, falla: str,
-           span_min: float) -> tuple | None:
+           span_min: float, Pa: float = 0.0) -> tuple | None:
     """Ajuste de banco (Pbl, Pbu) [psig] de un actuador de resorte; None si no alcanza.
 
     F_c: fuerza (con margen) que debe dar el actuador en el asiento; F_a: fuerza para abrir; F_fric: la parte
-    de fricción (lo que el resorte debe vencer para llegar a la carrera total); Pd: presión disponible.
+    de fricción (lo que el resorte debe vencer para llegar a la carrera total); Pd: presión disponible;
+    Pa: presión que queda aplicada con la señal mínima (resta fuerza al resorte en la posición de falla).
     """
     if falla == FO:   # el aire cierra; el resorte abre
-        Pbl_min = max(F_fric / area, P_BANCO_MIN)
+        Pbl_min = max(F_fric / area + Pa, P_BANCO_MIN)
         Pbu_max = Pd - F_c / area
-        Pbu_min = F_a / area
+        Pbu_min = F_a / area + Pa
         Pbl = math.ceil(Pbl_min * 2) / 2
         Pbu = max(Pbl + span_min, Pbu_min)
         if Pbu > Pbu_max + 1e-9:
@@ -704,7 +709,7 @@ def _banco(F_c: float, F_a: float, F_fric: float, L: float, area: float, Pd: flo
         r = math.ceil(Pbu * 2) / 2
         return Pbl, r if r <= Pbu_max else Pbu
     # FC y FL: el resorte cierra; el aire abre
-    Pbl_min = max(F_c / area, P_BANCO_MIN)
+    Pbl_min = max(F_c / area + Pa, P_BANCO_MIN)
     Pbu_max = Pd - F_a / area
     Pbl = math.ceil(Pbl_min * 2) / 2
     Pbu = Pbl + span_min
@@ -719,9 +724,17 @@ def _req_aire(Pbl, Pbu, F_c, F_a, area, falla) -> float:
 
 
 def _aire(act: DatosActuador):
+    """Aire mínimo y máximo [psig]. Con rango de operación, el actuador recibe como mucho Pb."""
     pmin = None if act.P_aire_min is None else act.P_aire_min / PSI_KPA
     pmax = None if act.P_aire_max is None else act.P_aire_max / PSI_KPA
+    if act.rango is not None and pmin is not None:
+        pmin = min(pmin, act.rango[1])
     return pmin, pmax
+
+
+def _pa(act: DatosActuador) -> float:
+    """Presión que sigue aplicada al actuador con la señal mínima (Pa del rango de operación)."""
+    return act.rango[0] if act.rango is not None else 0.0
 
 
 # ------------------------------------------------------------------------------ evaluación lineal
@@ -759,7 +772,8 @@ def _resorte_lineal(r: ResultadoActuador, sv, act, fz: Fuerzas, serie, nombre_ti
             continue
         span = span_fijo if span_fijo is not None else max(3.0, Pd / 3)
         span = max(span, fz.Kn * sv.dP_flujo * L / area)
-        b = _banco(F_c, F_a, fz.C + fz.D, L, area * (ETA_PISTON if t in PISTONES else 1.0), Pd, act.falla, span)
+        b = _banco(F_c, F_a, fz.C + fz.D, L, area * (ETA_PISTON if t in PISTONES else 1.0), Pd, act.falla, span,
+                   _pa(act))
         if b is not None:
             elegido = (t, Pd, *b)
             break
@@ -815,12 +829,13 @@ def _resorte_lineal(r: ResultadoActuador, sv, act, fz: Fuerzas, serie, nombre_ti
     P_req = _req_aire(Pbl, Pbu, F_c, F_a, area, act.falla)
     r.P_banco, r.P_req_psig, r.area_in2 = (Pbl, Pbu), P_req, t.area_in2
     r.seleccion = f"{nombre_tipo} {t.nombre}: área efectiva {_area(t.area_in2)}, carrera máxima {_in(t.carrera_max_in)}"
+    Pa = _pa(act)
     if act.falla == FO:
         emp_c = Pd * area - Pbu * area
-        emp_a = Pbl * area
+        emp_a = (Pbl - Pa) * area
         accion = "Aire para cerrar (resorte abre): actuador de acción directa"
     else:
-        emp_c = Pbl * area
+        emp_c = (Pbl - Pa) * area
         emp_a = Pd * area - Pbu * area
         accion = "Aire para abrir (resorte cierra): actuador de acción inversa"
     r.filas += [("Tamaño (serie genérica)", r.seleccion, "act_tamano"),
@@ -1189,12 +1204,14 @@ def _certificado_lineal(r: ResultadoActuador, sv: Servicio, act: DatosActuador, 
         Pbl, Pbu = act.cert_banco_psig
         r.P_banco = (Pbl, Pbu)
         r.filas.append(("Ajuste de banco certificado", f"{_n(Pbl, 1)} – {_n(Pbu, 1)} psig", "act_banco"))
+        Pa = _pa(act)
+        ra = " − Pa" if Pa else ""
         if act.falla == FO:
             _chequeo(r, fallas, "Empuje de cierre con aire mínimo (Pd − Pbu)·A", (Pd - Pbu) * A_ef, F_c, _N)
-            _chequeo(r, fallas, "Empuje del resorte para abrir Pbu·A", Pbu * A_ef, F_a, _N)
-            _chequeo(r, fallas, "Resorte para vencer la fricción Pbl·A", Pbl * A_ef, fz.C + fz.D, _N)
+            _chequeo(r, fallas, f"Empuje del resorte para abrir (Pbu{ra})·A", (Pbu - Pa) * A_ef, F_a, _N)
+            _chequeo(r, fallas, f"Resorte para vencer la fricción (Pbl{ra})·A", (Pbl - Pa) * A_ef, fz.C + fz.D, _N)
         else:
-            _chequeo(r, fallas, "Empuje del resorte en el asiento Pbl·A", Pbl * A_ef, F_c, _N)
+            _chequeo(r, fallas, f"Empuje del resorte en el asiento (Pbl{ra})·A", (Pbl - Pa) * A_ef, F_c, _N)
             _chequeo(r, fallas, "Empuje de apertura con aire mínimo (Pd − Pbu)·A", (Pd - Pbu) * A_ef, F_a, _N)
         P_req = _req_aire(Pbl, Pbu, F_c, F_a, A_ef, act.falla)
         if L > 0:
@@ -1323,6 +1340,7 @@ def evaluar_actuador(sv: Servicio, act: DatosActuador) -> ResultadoActuador:
                                 remedios=["Elegir en Flow una opción habilitada para esta válvula."],
                                 referencia=REF_ACT))
         act = replace(act, flujo=usado)
+    _rango_filas(r, act)
     if sv.rotativa:
         r.filas.append(("Método", "Pares de arranque y dinámico de válvula rotativa", "act_metodo"))
         r.filas.append(("Flow (sentido del flujo)", "Bidireccional: cierra con presión desde cualquier lado; el par de "
@@ -1333,6 +1351,22 @@ def evaluar_actuador(sv: Servicio, act: DatosActuador) -> ResultadoActuador:
     else:
         _lineal(r, sv, act)
     return r
+
+
+def _rango_filas(r: ResultadoActuador, act: DatosActuador):
+    """Fila del rango de operación elegido y alerta si su Pb supera el aire mínimo."""
+    if act.rango is None or not r.neumatico:
+        return
+    Pa, Pb = act.rango
+    r.filas.append(("Rango de operación (Pa – Pb)", f"{act.rango_nombre or 'Optimized'}: {_n(Pa, 1)} – {_n(Pb, 1)} "
+                    "psig", "ext_rango"))
+    pmin = None if act.P_aire_min is None else act.P_aire_min / PSI_KPA
+    if pmin is not None and Pb > pmin + 1e-9:
+        r.alertas.append(Alerta("act_rango_aire", Severidad.ADVERTENCIA, "Rango de operación sobre el aire mínimo",
+                                f"Pb = {_psi(Pb)} supera el aire mínimo disponible ({_psi(pmin)}): con aire mínimo el "
+                                f"actuador recibe {_psi(pmin)} y los chequeos se hicieron con ese valor.",
+                                remedios=["Elegir un rango de operación con Pb menor o igual al aire mínimo.",
+                                          "Subir el aire mínimo garantizado."], referencia=REF_ACT))
 
 
 def _lineal(r: ResultadoActuador, sv: Servicio, act: DatosActuador):
@@ -1407,23 +1441,100 @@ CAMPOS_EXTERNOS = ("Operating Range", "Pa", "Pb", "Valve Body Size", "Port Diame
                    "Bellows Spr Rate", "Bellows Eff Area", "Bellows Travel")
 
 
+# Rangos de operación estándar (Pa, Pb) [psig] que ofrecen las herramientas de actuadores de los fabricantes.
+RANGOS_OPERACION = ((0.5, 18), (0.5, 33), (3, 15), (6, 30), (0, 18), (0, 33), (0, 40), (0, 50))
+OPTIMIZADO = "Optimized"
+RANGO_AUTO = "AUTOMÁTICO (sugerido por N25)"
+RANGO_OPT = "Optimized (Pa y Pb a mano)"
+
+
+def nombre_rango(Pa: float, Pb: float) -> str:
+    return f"{Pa:g} a {Pb:g} psig".replace(".", ",")
+
+
+RANGOS_LISTA = [RANGO_AUTO] + [nombre_rango(a, b) for a, b in RANGOS_OPERACION] + [RANGO_OPT]
+
+
+def rango_elegido(opcion: str, pa_pb: tuple | None = None) -> tuple[tuple | None, str]:
+    """(Pa, Pb) [psig] y nombre para DatosActuador según la opción de la lista (pa_pb: datos de Optimized)."""
+    if opcion == RANGO_OPT:
+        return pa_pb, OPTIMIZADO
+    for a, b in RANGOS_OPERACION:
+        if opcion == nombre_rango(a, b):
+            return (a, b), opcion
+    return None, ""
+
+
+def rango_operacion(r: ResultadoActuador, fz: Fuerzas, tipo: str) -> tuple | None:
+    """Rango estándar (Pa, Pb) de menor Pb que cubre el aire requerido sin que Pa impida cerrar o abrir.
+
+    Con resorte, la presión mínima Pa sigue aplicada con la señal mínima: en falla cierra la fuerza en el
+    asiento baja a (Pbl − Pa)·A y en falla abre el resorte debe vencer la fricción y la fuerza de apertura con
+    (Pbl − Pa)·A y (Pbu − Pa)·A. None: ningún rango estándar alcanza (opción optimizada de la herramienta).
+    """
+    if r.P_req_psig is None:
+        return None
+    A_ef = r.area_in2 * (ETA_PISTON if tipo.startswith("Pistón") else 1.0)
+    F_c, F_a = fz.cierre * MARGEN_LINEAL, fz.apertura * MARGEN_LINEAL
+    ok = []
+    for Pa, Pb in RANGOS_OPERACION:
+        if Pb < r.P_req_psig - 1e-9:
+            continue
+        if r.P_banco and A_ef:
+            Pbl, Pbu = r.P_banco
+            if r.falla == FO:
+                if (Pbl - Pa) * A_ef < fz.C + fz.D or (Pbu - Pa) * A_ef < F_a:
+                    continue
+            elif (Pbl - Pa) * A_ef < F_c - 1e-6:
+                continue
+        ok.append((Pb, Pa))
+    if not ok:
+        return None
+    Pb, Pa = min(ok)
+    return Pa, Pb
+
+
 def _v(x: float, dec: int) -> str:
     return "" if x is None else f"{x:.{dec}f}"
 
 
 def datos_externos(sv: Servicio, act: DatosActuador, fz: Fuerzas, r: ResultadoActuador) -> list:
     """Datos de N25 en el formato que piden las herramientas de actuadores de los fabricantes (unidades inglesas)."""
-    pmin, _ = _aire(act)
-    Pb = r.P_disp_psig if r.P_disp_psig is not None else pmin
     fuelle = sv.empaque == "fuelle"
     d_v = fz.d_vast
     origen_v = "dato de 4-Actuador" if act.d_vastago_mm else "estimado por diámetro y clase de la válvula"
-    filas = [
-        ("Operating Range", "Rango de operación", f"0 a {_v(Pb, 0)}" if Pb is not None else "", "psig", "ext_rango",
-         "De 0 (actuador venteado) a la presión con que trabaja el actuador (Pb)."),
-        ("Pa", "Presión inferior del rango", "0.00", "psig", "ext_rango", "Actuador venteado."),
-        ("Pb", "Presión superior del rango", _v(Pb, 2), "psig", "ext_rango",
-         "Menor entre el aire mínimo disponible y la presión máxima del actuador elegido o certificado."),
+    req = f"aire requerido por N25: {_v(r.P_req_psig, 1)} psig" if r.P_req_psig is not None else ""
+    elegido = act.rango is not None
+    rango = act.rango if elegido else (rango_operacion(r, fz, act.tipo) if r.neumatico else None)
+    if not r.neumatico:
+        filas = [("Operating Range", "Rango de operación", "—", "", "ext_rango", "No aplica: actuador no "
+                  "neumático.")]
+    elif elegido and act.rango_nombre == OPTIMIZADO:
+        Pa, Pb = rango
+        filas = [("Operating Range", "Rango de operación", OPTIMIZADO, "", "ext_rango",
+                  "Elegido en 4-Actuador: la herramienta retira el rango y se cargan Pa y Pb a mano."),
+                 ("Pa", "Presión mínima", _v(Pa, 2), "psig", "ext_rango", "Dato de 4-Actuador (Optimized)."),
+                 ("Pb", "Presión máxima", _v(Pb, 2), "psig", "ext_rango", "Dato de 4-Actuador (Optimized).")]
+    elif rango is None and r.P_req_psig is None:
+        filas = [("Operating Range", "Rango de operación", "—", "", "ext_rango",
+                  "Sin actuador que cumpla: no hay aire requerido para elegir el rango.")]
+    elif rango is None:
+        filas = [("Operating Range", "Rango de operación", OPTIMIZADO, "", "ext_rango",
+                  "Ningún rango estándar (hasta 0 a 50 psig) cubre el " + (req or "aire requerido") + " sin que la "
+                  "presión mínima impida cerrar o abrir. Elija la opción optimizada: la herramienta retira el rango y "
+                  "deja el resto de los datos.")]
+    else:
+        Pa, Pb = rango
+        filas = [
+            ("Operating Range", "Rango de operación", f"{_v(Pa, 1).rstrip('0').rstrip('.')} to {_v(Pb, 0)}",
+             "psig", "ext_rango", "Elegido en 4-Actuador." if elegido else
+             f"Sugerido: rango estándar de menor Pb que cubre el {req}, con Pa que no impide cerrar ni abrir."),
+            ("Pa", "Presión mínima del rango", _v(Pa, 2), "psig", "ext_rango",
+             "Presión con la señal mínima; con resorte reduce la fuerza del resorte en la posición de falla."),
+            ("Pb", "Presión máxima del rango", _v(Pb, 2), "psig", "ext_rango",
+             "Presión con la señal máxima: debe cubrir el aire requerido."),
+        ]
+    filas += [
         ("Valve Body Size", "Diámetro nominal de la válvula", _v(sv.nps, 2), "in", "ext_cuerpo", "1-Sistema."),
         ("Port Diameter", "Diámetro del puerto", _v(sv.puerto_in, 4), "in", "ext_puerto",
          "Tamaño del trim de 2-Cálculos Válvula (dato o puerto pleno típico)."),

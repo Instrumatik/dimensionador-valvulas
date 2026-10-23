@@ -275,7 +275,7 @@ _e("act_friccion", "Empaquetadura considerada (fricción C)",
 
 _e("act_tamano", "Tamaño del actuador (serie genérica)",
    "<p>Menor tamaño de una serie genérica que cumple todos los chequeos con el aire mínimo:</p><ul>"
-   "<li>Diafragma: áreas efectivas de 30 a 450 in² (194 a 2903 cm²); el tamaño de 30 in², para válvulas chicas, admite hasta 60 psig en la carcasa y los demás 40 a 50 psig.</li>"
+   "<li>Diafragma: áreas efectivas de 30 a 450 in² (194 a 2903 cm²); carcasa de hasta 50 psig (3,4 bar) hasta 156 in² y de 40 psig en los mayores.</li>"
    "<li>Multiresorte: 35 a 279 in² con hasta unos 6 bar.</li>"
    "<li>Pistón: cilindros de 3 a 24\" de diámetro con hasta unos 10 bar.</li>"
    "<li>Piñón y cremallera y yugo escocés: par de doble efecto a 5,5 bar.</li>"
@@ -620,16 +620,30 @@ _e("ext_verificacion", "Datos para verificación con software de fabricante",
             "Use la comparación para encontrar la causa de una diferencia."],
            "Globo de 1½\" desbalanceado, puerto 0,5\", cierre a 1058 psig: los datos se cargan y la otra "
            "herramienta devuelve área, banco y empuje para comparar."))
-_ext("ext_rango", "Operating Range, Pa y Pb",
-     "<p>Rango de presión de aire con que trabaja el actuador. <b>Pa</b> es la presión inferior (actuador "
-     "venteado: 0 psig) y <b>Pb</b> la superior. N25 toma Pb como la menor entre el aire mínimo disponible de "
-     "4-Actuador y la presión máxima del actuador elegido o certificado: es la presión con la que hace los "
-     "chequeos.</p><p>Si la herramienta externa solo ofrece rangos estándar, elija el menor que llegue a Pb y no "
-     "supere la presión máxima de la carcasa.</p>",
-     "Es la presión de aire disponible para mover el actuador.",
-     "Con más Pb el mismo actuador da más empuje y admite un banco más alto; con menos Pb hace falta más área.",
-     "Aire de 60 a 100 psig con carcasa de 60 psig: Pa = 0, Pb = 60 psig.",
-     ["Use el aire mínimo garantizado, no el normal.", "No supere la presión máxima de la carcasa."])
+_ext("ext_rango", "Operating Range (rango de operación), Pa y Pb",
+     "<p>Presión de aire que recibe el actuador en servicio: <b>Pa</b> con la señal mínima y <b>Pb</b> con la "
+     "máxima. <b>No es el ajuste de banco</b>: el banco es una propiedad del resorte (presiones a las que empieza y "
+     "termina la carrera en el banco de pruebas, sin válvula); el rango de operación es el aire que se le da. El "
+     "banco debe quedar dentro del rango, con margen arriba para abrir contra la fricción y la ΔP.</p>"
+     "<p>Opciones en 4-Actuador:</p><ul>"
+     "<li><b>AUTOMÁTICO</b>: N25 calcula con Pa = 0 y Pb = aire mínimo, y en la verificación externa sugiere el "
+     "rango estándar de menor Pb que cubre el aire requerido sin que Pa impida cerrar o abrir. Si ninguno "
+     "alcanza, sugiere <b>Optimized</b>.</li>"
+     "<li><b>Rangos estándar</b>: 0,5 a 18, 0,5 a 33, 3 a 15, 6 a 30, 0 a 18, 0 a 33, 0 a 40 y 0 a 50 psig. El "
+     "cálculo usa Pb como presión máxima disponible (si supera el aire mínimo se usa el aire mínimo y aparece "
+     "una alerta) y Pa como presión que queda aplicada con la señal mínima.</li>"
+     "<li><b>Optimized</b>: sin rango estándar; Pa y Pb se cargan a mano y entran igual en el cálculo.</li></ul>"
+     "<p><b>Efecto de Pa</b> en actuadores de resorte (diafragma, multiresorte y pistón con retorno por resorte): "
+     "en falla cierra, la fuerza del resorte en el asiento baja a (Pbl − Pa)·A; en falla abre, el resorte vence "
+     "la fricción con (Pbl − Pa)·A y abre con (Pbu − Pa)·A. Por eso el banco elegido sube Pa por encima de lo "
+     "que daría con Pa = 0. En pistones de doble acción y en rotativos solo se aplica el límite Pb.</p>",
+     "Es el aire que se le da al actuador con la señal mínima (Pa) y máxima (Pb).",
+     "Pb limita el empuje disponible; Pa resta fuerza al resorte en la posición de falla.",
+     "28LV580, aire 60 psig: AUTOMÁTICO sugiere 0 a 40 psig (requiere 39,2). Con 6 a 30 psig el diafragma pasa "
+     "de 46 a 105 in², porque Pb = 30 limita la apertura y Pa = 6 obliga a un banco más alto.",
+     ["Use rangos con Pa = 0 en falla cierra si el resorte queda justo.",
+      "Elija Pb menor o igual que el aire mínimo garantizado.",
+      "Si el actuador requiere más de 50 psig use Optimized y cargue Pa y Pb."])
 _ext("ext_cuerpo", "Valve Body Size", "<p>Diámetro nominal del cuerpo de la válvula, en pulgadas, de 1-Sistema.</p>",
      "Es el diámetro nominal de la válvula.", "Define en la otra herramienta los tamaños de vástago y de yugo "
      "disponibles.", "Válvula de 1½\": 1.50 in.")

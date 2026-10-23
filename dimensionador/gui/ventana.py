@@ -1505,6 +1505,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_carrera.setCurrentText(pref["carrera"])
         self.cb_carrera.blockSignals(False)
         self.f_aire.elegir(man)
+        self.f_rango.elegir(man)
         self.f_vastago.elegir(pref["longitud"])
         self.f_friccion.elegir(pref["fuerza"])
         for k, f in self.f_cert.items():
@@ -1940,7 +1941,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
     # ------------------------------------------------------------ archivo
     def _todas_las_filas(self):
         return [*self.filas.values(), self.f_Pc, self.f_Pd, self.f_Td, self.f_Rn, self.f_area, self.f_puerto,
-                self.f_carrera, self.f_aire, self.f_vastago, self.f_friccion, *self.f_cert.values()]
+                self.f_carrera, self.f_aire, self.f_vastago, self.f_friccion, self.f_rango, *self.f_cert.values()]
 
     def _estado(self) -> dict:
         s = {"version": __version__, "sistema": self.sistema, "campos": {}, "filas": {}}

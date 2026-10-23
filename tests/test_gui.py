@@ -496,3 +496,27 @@ def test_datos_para_verificacion_externa(app):
     assert "Fuerza requerida" in txt and "Seat Load Force" in txt
     w._eq_nuevo()
     assert w.tb_ext.rowCount() == 0
+
+
+def test_operating_range_en_pantalla(app):
+    from dimensionador import actuadores as A
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    cb = w.eq_w["act_rango"]
+    assert cb.currentText() == A.RANGO_AUTO and w.f_rango.edits[0].isHidden()
+    cb.setCurrentText("0 a 33 psig")
+    w.calcular()
+    ra = w.res.equipo.actuador
+    assert any(f.startswith("Rango de operación") and "0 a 33" in v for f, v, _ in ra.filas)
+    cb.setCurrentText(A.RANGO_OPT)
+    assert not w.f_rango.edits[0].isHidden()
+    w.f_rango.elegir("psig", False)
+    w.f_rango.edits[0].setText("0")
+    w.f_rango.edits[1].setText("45")
+    w.calcular()
+    ext = {f[0]: f for f in w.res.equipo.actuador.externos}
+    assert ext["Operating Range"][2] == "Optimized" and ext["Pb"][2] == "45.00"
+    w2 = VentanaPrincipal()
+    w2._cargar(w._estado())
+    assert w2.eq_w["act_rango"].currentText() == A.RANGO_OPT and w2.f_rango.edits[1].text() == "45"

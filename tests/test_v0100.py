@@ -94,20 +94,51 @@ def test_puerto_tipico_por_tabla():
     assert G.nps_de_puerto(G.puerto_tipico_in(2.5)) == pytest.approx(2.5)
 
 
-def test_diafragma_30_y_datos_externos_trim_reducido():
+def _lv580(**k):
     # Globo 1½" desbalanceado, trim reducido 0,5", clase IV, cierre a 1058 psig, aire 60 psig mínimo
     sv = _sv(nps=1.5, rating=600, cierre="ANSI Clase IV", P1=1058.3, P2=106, dP=952.3, dP_flujo=160, T_C=135,
              puerto_in=0.5, carrera_in=0.75, balanceado=False, empaque="grafito", trim="globo_contorneado")
-    act = _act(P_aire_min=60 * A.PSI_KPA, P_aire_max=100 * A.PSI_KPA, flujo="Up", d_vastago_mm=None)
+    base = dict(P_aire_min=60 * A.PSI_KPA, P_aire_max=100 * A.PSI_KPA, flujo="Up", d_vastago_mm=None)
+    base.update(k)
+    return sv, _act(**base)
+
+
+def test_datos_externos_y_rango_sugerido():
+    sv, act = _lv580()
     r = A.evaluar_actuador(sv, act)
-    assert r.ok and r.area_in2 == 30 and r.P_banco[0] == pytest.approx(22, abs=1)
+    assert r.ok and r.area_in2 == 46 and r.P_banco[0] == pytest.approx(14.5)
     ext = {f[0]: f for f in r.externos}
     assert list(ext)[:3] == ["Operating Range", "Pa", "Pb"]
-    assert ext["Pb"][2] == "60.00" and ext["Port Diameter"][2] == "0.5000"
-    assert ext["Unbalanced Area"][2] == "0.196" and ext["Seat Load Force"][2] == "63"
-    assert "Bellows Eff Area" not in ext
-    comp = A.comparar_externo(r, 30, (21, 45), 610)
-    assert [c[0] for c in comp][0].startswith("Fuerza") and all(
-        c[4].startswith(("Coinciden", "El resorte da el mismo", "")) for c in comp)
+    assert ext["Operating Range"][2] == "0 to 40" and ext["Pb"][2] == "40.00"
+    assert ext["Port Diameter"][2] == "0.5000" and ext["Unbalanced Area"][2] == "0.196"
+    assert ext["Seat Load Force"][2] == "63" and "Bellows Eff Area" not in ext
     lejos = A.comparar_externo(r, 105, None, 1600)
     assert "Seat Load Force" in lejos[0][4] and lejos[1][4].startswith("Sigue")
+    cerca = A.comparar_externo(r, 46, (14, 31), 600)
+    assert all(c[4].startswith(("Coinciden", "El resorte da el mismo", "")) for c in cerca)
+
+
+def test_rango_de_operacion_elegido():
+    assert A.RANGOS_LISTA[0] == A.RANGO_AUTO and A.RANGOS_LISTA[-1] == A.RANGO_OPT
+    assert A.rango_elegido("0 a 50 psig") == ((0, 50), "0 a 50 psig")
+    assert A.rango_elegido("0,5 a 33 psig")[0] == (0.5, 33)
+    assert A.rango_elegido(A.RANGO_OPT, (0, 60)) == ((0, 60), A.OPTIMIZADO)
+    sv, act = _lv580()
+    base = A.evaluar_actuador(sv, act)
+    # Pa = 6 psig: el resorte debe dar la fuerza de cierre por encima de Pa
+    r = A.evaluar_actuador(sv, _lv580(rango=(6, 30), rango_nombre="6 a 30 psig")[1])
+    assert r.ok and r.area_in2 > base.area_in2 and r.P_req_psig <= 30
+    assert (r.P_banco[0] - 6) * r.area_in2 >= r.terminos["cierre"] * A.MARGEN_LINEAL - 1e-6
+    assert any(f.startswith("Rango de operación") for f, _, _ in r.filas)
+    assert {f[0]: f for f in r.externos}["Operating Range"][2] == "6 to 30"
+    # Pb sobre el aire mínimo: alerta
+    r = A.evaluar_actuador(sv, _lv580(rango=(0, 50), rango_nombre="0 a 50 psig", P_aire_min=45 * A.PSI_KPA)[1])
+    assert "act_rango_aire" in _codigos(r)
+    # Actuador de la hoja original verificado en MANUAL con Optimized 0–60 psig
+    cert = dict(modo="MANUAL", cert_area_in2=30, cert_banco_psig=(21, 45), cert_carrera_in=0.75, cert_pmax_psig=60)
+    r = A.evaluar_actuador(sv, _lv580(rango=(0, 60), rango_nombre=A.OPTIMIZADO, **cert)[1])
+    ext = {f[0]: f for f in r.externos}
+    assert ext["Operating Range"][2] == "Optimized" and ext["Pb"][2] == "60.00"
+    sug = A.evaluar_actuador(sv, _lv580(**cert)[1])
+    assert {f[0]: f for f in sug.externos}["Operating Range"][2] == "Optimized" and "Pa" not in \
+        {f[0] for f in sug.externos}

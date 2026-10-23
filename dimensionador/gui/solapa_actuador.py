@@ -113,6 +113,7 @@ class SolapaEquipo:
             ("act_falla", "Modo de falla", A.FALLAS, "act_falla", A.FC),
             ("act_volante", "Volante", SI_NO, "act_volante", "No"),
             ("act_flujo", "Flow (sentido del flujo)", A.FLUJOS, "act_flujo", "Up"),
+            ("act_rango", "Operating Range (rango de operación)", A.RANGOS_LISTA, "ext_rango", A.RANGO_AUTO),
         ])
         grid = g.layout()
         r = grid.rowCount()
@@ -126,6 +127,12 @@ class SolapaEquipo:
         self.f_friccion = FilaUnidad("friccion_cert", "Fricción certificada de la empaquetadura", ("fuerza",), grid,
                                      r + 3, self.abrir_ayuda, n=1, ayuda_clave="act_friccion_cert")
         self.f_friccion.edits[0].setPlaceholderText("estimada")
+        self.f_rango = FilaUnidad("rango_pa_pb", "Pa / Pb del rango (Optimized)", ("presion",), grid, r + 4,
+                                  self.abrir_ayuda, n=2, ayuda_clave="ext_rango")
+        self.f_rango.elegir("psig", False)
+        self.f_rango.edits[0].setPlaceholderText("Pa")
+        self.f_rango.edits[1].setPlaceholderText("Pb")
+        self.eq_w["act_rango"].currentTextChanged.connect(self._act_rango_visible)
         self.f_friccion.edits[0].setToolTip("En blanco: fricción típica de la empaquetadura de 3-Materiales. Con dato, "
                                             "reemplaza el término C de la fuerza (válvulas de vástago deslizante).")
         self.lbl_act_tipo = QLabel("")
@@ -168,7 +175,27 @@ class SolapaEquipo:
         self._seccion_externa(lay)
         self._act_cambio_tipo()
         self._act_cert_visibles()
+        self._act_rango_visible()
         return self._scroll(cont)
+
+    def _act_rango_visible(self, *_):
+        opt = self.eq_w["act_rango"].currentText() == A.RANGO_OPT
+        for w in self.f_rango.widgets():
+            w.setVisible(opt)
+
+    def _act_rango(self) -> dict:
+        """rango y rango_nombre para A.DatosActuador (Pa y Pb en psig)."""
+        op = self.eq_w["act_rango"].currentText()
+        pa_pb = None
+        if op == A.RANGO_OPT:
+            vals = [self.f_rango.valor_base(j) for j in (0, 1)]
+            if any(v is None for v in vals):
+                raise ValueError("Operating Range «Optimized»: cargue Pa y Pb.")
+            pa_pb = tuple((v - 101.325) / A.PSI_KPA for v in vals)
+            if pa_pb[0] < 0 or pa_pb[1] <= pa_pb[0]:
+                raise ValueError("Operating Range «Optimized»: Pb debe ser mayor que Pa y Pa no negativa (psig).")
+        rango, nombre = A.rango_elegido(op, pa_pb)
+        return {"rango": rango, "rango_nombre": nombre}
 
     # ---------------------------------------------- datos para verificación con software de fabricante
     def _seccion_externa(self, lay):
@@ -338,7 +365,7 @@ class SolapaEquipo:
         for e in self.f_aire.edits:
             e.setEnabled(neum)
         self.f_aire.unidad.setEnabled(neum)
-        txt = {"Diafragma y resorte": "Simple efecto, resorte de falla; hasta unos 3,4 a 4,1 bar en la carcasa.",
+        txt = {"Diafragma y resorte": "Simple efecto, resorte de falla; hasta unos 3,4 bar en la carcasa.",
                "Multiresorte y diafragma": "Varios resortes cortos: compacto, admite hasta unos 6 bar.",
                "Pistón doble acción con resorte": "Aire a ambos lados y resorte que lleva a la falla.",
                "Pistón doble acción sin resorte": "Gran empuje; la falla requiere tanque y válvula de cambio.",
@@ -470,7 +497,7 @@ class SolapaEquipo:
             raise ValueError("La fricción certificada de la empaquetadura debe ser mayor que cero.")
         act = A.DatosActuador(t("act_tipo"), t("act_falla"), t("act_volante") == "Sí", pa[0], pa[1],
                               t("act_flujo"), dv, friccion_cert_lbf=None if fr is None else fr / A.LBF_N,
-                              **self._act_cert_datos())
+                              **self._act_cert_datos(), **self._act_rango())
         pos = A.DatosPosicionador(t("pos_tag"), t("pos_tipo"), t("pos_senal"), t("pos_accion"),
                                   t("pos_manometros") == "Sí", t("pos_set") == "Sí", t("pos_salida_set"))
         acc = A.DatosAccesorios(t("acc_boosters"), t("acc_quick_exhaust"), t("acc_bloqueo"), t("acc_cambio"),
@@ -502,6 +529,8 @@ class SolapaEquipo:
                 w.clear()
         self.f_vastago.edits[0].clear()
         self.f_friccion.edits[0].clear()
+        for e in self.f_rango.edits:
+            e.clear()
         for f in self.f_cert.values():
             for e in f.edits:
                 e.clear()

@@ -50,6 +50,9 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    válvula en el orden y las unidades que piden las herramientas de actuadores de los fabricantes (rango de
    operación, puerto, área desbalanceada, vástago, fricción, carga de asiento, presiones de cierre, gradiente
    negativo…), con cómo obtuvo N25 cada uno, y compara lo que devuelven (área, banco, fuerza) con su lectura.
+   **Operating Range** (v0.10.3): AUTOMÁTICO, los rangos estándar 0,5–18, 0,5–33, 3–15, 6–30, 0–18, 0–33,
+   0–40 y 0–50 psig, u Optimized con Pa y Pb a mano. Pb limita el aire del actuador y Pa, que queda aplicada
+   con la señal mínima, resta fuerza al resorte en la posición de falla.
 5. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
    alertas, su intensidad y las soluciones posibles.
 6. **Memoria de cálculo**, **Hoja de datos** e **Informe técnico**: vistas previas que se
