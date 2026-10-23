@@ -48,7 +48,8 @@ dimensionador/
   ayuda_mat_*.py    Ayuda de la solapa 3-Materiales (parámetros, componentes, alertas y agentes)
   gui/ventana.py    Interfaz PySide6: 1-Sistema, 2-Cálculos Válvula, 3-Materiales y entregables
   gui/solapa_materiales.py  Solapa 3-Materiales, análisis por componente y biblioteca
-  actuadores.py     Fuerzas (A+B+C+D) y pares de cierre, resorte y banco, tamaños genéricos de actuador
+  actuadores.py     Fuerzas (A+B+C+D) y pares de cierre, resorte y banco, tamaños genéricos de actuador,
+                    datos para verificación externa y comparación (datos_externos, comparar_externo)
                     (AUTOMÁTICO) o verificación del actuador certificado (MANUAL), fricción certificada,
                     vástago, aire, volante, bloqueo de señales del posicionador y coherencia de accesorios
   ayuda_actuador.py Ayuda de las solapas 4-Actuador, 5-Posicionador y 6-Accesorios

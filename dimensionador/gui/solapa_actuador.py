@@ -4,7 +4,8 @@ from __future__ import annotations
 import html as _html
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QPushButton, QTextBrowser,
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
+                               QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QTextBrowser,
                                QVBoxLayout, QWidget)
 
 from .. import actuadores as A
@@ -164,9 +165,129 @@ class SolapaEquipo:
         self._boton_calcular(lay)
         self.vista_act = _vista()
         lay.addWidget(self.vista_act, 1)
+        self._seccion_externa(lay)
         self._act_cambio_tipo()
         self._act_cert_visibles()
         return self._scroll(cont)
+
+    # ---------------------------------------------- datos para verificación con software de fabricante
+    def _seccion_externa(self, lay):
+        self.bt_ext = QPushButton("▸ Datos para verificación con software de fabricante")
+        self.bt_ext.setCheckable(True)
+        self.bt_ext.setStyleSheet("QPushButton{text-align:left;border:none;color:#1f4e79;font-weight:bold;padding:4px}")
+        self.bt_ext.setToolTip("Los datos de las solapas 1, 2 y 3 en el formato que piden las herramientas de "
+                               "actuadores de los fabricantes, y la comparación con lo que devuelven.")
+        lay.addWidget(self.bt_ext)
+        self.g_ext = QWidget()
+        le = QVBoxLayout(self.g_ext)
+        le.setContentsMargins(0, 0, 0, 0)
+        nota = QLabel("Cargue estos datos en la herramienta de actuadores del fabricante, en el mismo orden y "
+                      "unidades. Haga clic en una fila para ver qué es el dato y cómo lo obtuvo N25.")
+        nota.setWordWrap(True)
+        nota.setStyleSheet(NOTA)
+        le.addWidget(nota)
+        self.tb_ext = QTableWidget(0, 4)
+        self.tb_ext.setHorizontalHeaderLabels(["Campo", "Valor", "Unidad", "Dato y cómo lo obtuvo N25"])
+        self.tb_ext.verticalHeader().setVisible(False)
+        self.tb_ext.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tb_ext.setSelectionBehavior(QAbstractItemView.SelectRows)
+        hh = self.tb_ext.horizontalHeader()
+        for c in range(3):
+            hh.setSectionResizeMode(c, QHeaderView.ResizeToContents)
+        hh.setStretchLastSection(True)
+        self.tb_ext.setMinimumHeight(260)
+        self.tb_ext.setProperty("ayuda", "ext_verificacion")
+        self.tb_ext.cellClicked.connect(self._ext_ayuda)
+        le.addWidget(self.tb_ext)
+        h = QHBoxLayout()
+        self.bt_ext_copiar = QPushButton("Copiar datos")
+        self.bt_ext_copiar.setToolTip("Copia campo, valor y unidad, separados por tabulaciones.")
+        self.bt_ext_copiar.clicked.connect(self._ext_copiar)
+        h.addWidget(self.bt_ext_copiar)
+        b = QPushButton("Ver guía")
+        b.clicked.connect(lambda: self.abrir_ayuda("guia_verificacion_externa"))
+        h.addWidget(b)
+        h.addStretch()
+        le.addLayout(h)
+        gc = QGroupBox("Comparar con lo que devuelve el software del fabricante")
+        grid = QGridLayout(gc)
+        self.ed_ext = {}
+        for i, (k, et, ph) in enumerate((("area", "Área efectiva [in²]", ""),
+                                         ("banco_inf", "Ajuste de banco inferior [psig]", ""),
+                                         ("banco_sup", "Ajuste de banco superior [psig]", ""),
+                                         ("empuje", "Fuerza requerida por la válvula [lbf]", "sin margen"))):
+            grid.addWidget(QLabel(et), i, 0)
+            e = QLineEdit()
+            e.setPlaceholderText(ph)
+            e.setFixedWidth(110)
+            e.setProperty("ayuda", "ext_comparacion")
+            grid.addWidget(e, i, 1)
+            self.ed_ext[k] = e
+        bc = QPushButton("Comparar")
+        bc.clicked.connect(self._ext_comparar)
+        grid.addWidget(bc, 4, 1)
+        grid.setColumnStretch(2, 1)
+        le.addWidget(gc)
+        self.vista_ext = _vista()
+        self.vista_ext.setMinimumHeight(140)
+        le.addWidget(self.vista_ext)
+        self.g_ext.setVisible(False)
+        lay.addWidget(self.g_ext)
+        self.bt_ext.toggled.connect(self._ext_mostrar)
+
+    def _ext_mostrar(self, on: bool):
+        self.g_ext.setVisible(on)
+        self.bt_ext.setText(("▾ " if on else "▸ ") + "Datos para verificación con software de fabricante")
+
+    def _ext_filas(self) -> list:
+        eq = getattr(self.res, "equipo", None) if self.res is not None else None
+        return eq.actuador.externos if eq is not None else []
+
+    def _ext_llenar(self):
+        filas = self._ext_filas()
+        self.tb_ext.setRowCount(len(filas))
+        for i, (campo, nombre, valor, unidad, _clave, origen) in enumerate(filas):
+            for j, t in enumerate((campo, valor, unidad, f"{nombre}: {origen}")):
+                it = QTableWidgetItem(t)
+                if j == 1:
+                    it.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.tb_ext.setItem(i, j, it)
+        self.tb_ext.resizeRowsToContents()
+        if not filas:
+            self.vista_ext.setHtml("<p style='color:#55606d'>Solo para válvulas de vástago deslizante; se completa "
+                                   "con «Calcular».</p>")
+        else:
+            self.vista_ext.clear()
+
+    def _ext_ayuda(self, fila: int, _col: int = 0):
+        filas = self._ext_filas()
+        if 0 <= fila < len(filas):
+            self.abrir_ayuda(filas[fila][4])
+
+    def _ext_copiar(self):
+        txt = "\n".join(f"{c}\t{v}\t{u}" for c, _n, v, u, _k, _o in self._ext_filas())
+        QApplication.clipboard().setText(txt)
+
+    def _ext_comparar(self):
+        eq = getattr(self.res, "equipo", None) if self.res is not None else None
+        if eq is None or not eq.actuador.terminos:
+            self.vista_ext.setHtml("<p style='color:#c0392b'>Primero calcule una válvula de vástago deslizante.</p>")
+            return
+        val = {}
+        for k, e in self.ed_ext.items():
+            t = e.text().strip().replace(",", ".")
+            try:
+                val[k] = float(t) if t else None
+            except ValueError:
+                self.vista_ext.setHtml(f"<p style='color:#c0392b'>Valor no numérico: {_html.escape(e.text())}</p>")
+                return
+        banco = (val["banco_inf"], val["banco_sup"]) if None not in (val["banco_inf"], val["banco_sup"]) else None
+        filas = A.comparar_externo(eq.actuador, val["area"], banco, val["empuje"])
+        if not filas:
+            self.vista_ext.setHtml("<p style='color:#55606d'>Cargue al menos el área efectiva o la fuerza requerida "
+                                   "que informa el software del fabricante.</p>")
+            return
+        self.vista_ext.setHtml(_tabla(filas, ["Dato", "N25", "Fabricante", "Diferencia", "Lectura"]))
 
     def _act_cert_visibles(self, *_):
         """En MANUAL muestra los datos certificados que necesita el tipo de actuador elegido."""
@@ -217,7 +338,7 @@ class SolapaEquipo:
         for e in self.f_aire.edits:
             e.setEnabled(neum)
         self.f_aire.unidad.setEnabled(neum)
-        txt = {"Diafragma y resorte": "Simple efecto, resorte de falla; hasta unos 3,4 bar en la carcasa.",
+        txt = {"Diafragma y resorte": "Simple efecto, resorte de falla; hasta unos 3,4 a 4,1 bar en la carcasa.",
                "Multiresorte y diafragma": "Varios resortes cortos: compacto, admite hasta unos 6 bar.",
                "Pistón doble acción con resorte": "Aire a ambos lados y resorte que lleva a la falla.",
                "Pistón doble acción sin resorte": "Gran empuje; la falla requiere tanque y válvula de cambio.",
@@ -389,6 +510,10 @@ class SolapaEquipo:
         self._act_concordancia()
         for v in (self.vista_act, self.vista_pos, self.vista_acc):
             v.setHtml("<p style='color:#55606d'>Se calcula con «Calcular».</p>")
+        self.tb_ext.setRowCount(0)
+        for e in self.ed_ext.values():
+            e.clear()
+        self.vista_ext.clear()
 
     # --------------------------------------------------------------- mostrar
     def _mostrar_equipo(self):
@@ -396,6 +521,7 @@ class SolapaEquipo:
         if eq is None:
             for v in (self.vista_act, self.vista_pos, self.vista_acc):
                 v.setHtml("<p style='color:#55606d'>Se calcula con «Calcular».</p>")
+            self._ext_llenar()
             return
         ra, rp, rc = eq.actuador, eq.posicionador, eq.accesorios
         color = "#2e7d32" if ra.ok else "#c0392b"
@@ -411,6 +537,7 @@ class SolapaEquipo:
         h += ("<p style='color:#55606d;font-size:8pt'>Tamaños de series genéricas (no corresponden a ningún "
               "fabricante). El fabricante confirma modelo, resorte y ajuste de banco.</p>")
         self.vista_act.setHtml(h)
+        self._ext_llenar()
         self._pos_bloquear(rp.bloqueadas)
         hp = "<h4>Posicionador</h4>" + _tabla([(f, v) for f, v, _ in rp.filas], ["Dato", "Valor"])
         hp += (f"<p>Acción sugerida: <b>{_html.escape(rp.accion_sugerida)}</b> · Set de aire sugerido: "

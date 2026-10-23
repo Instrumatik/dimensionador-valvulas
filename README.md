@@ -46,6 +46,10 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    cargan los datos certificados del actuador ofertado (área, banco, carrera, presión máxima, pares o empuje
    nominal) y el programa lo verifica con CUMPLE / NO CUMPLE y su margen; la fricción certificada de la
    empaquetadura reemplaza la típica en los dos modos.
+   La sección **Datos para verificación con software de fabricante** (v0.10.2) entrega los datos de la
+   válvula en el orden y las unidades que piden las herramientas de actuadores de los fabricantes (rango de
+   operación, puerto, área desbalanceada, vástago, fricción, carga de asiento, presiones de cierre, gradiente
+   negativo…), con cómo obtuvo N25 cada uno, y compara lo que devuelven (área, banco, fuerza) con su lectura.
 5. **Calcular**: los resultados aparecen debajo de las entradas (celdas verdes) con las
    alertas, su intensidad y las soluciones posibles.
 6. **Memoria de cálculo**, **Hoja de datos** e **Informe técnico**: vistas previas que se

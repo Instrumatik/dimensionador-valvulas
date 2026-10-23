@@ -92,3 +92,22 @@ def test_puerto_tipico_por_tabla():
                      (4, "4 3/8 in"), (6, "7 in"), (8, "8 in"), (10, "10 in")):
         assert G.fraccion_in(G.estimar("globo_jaula_4v_fuera", False, nps, 1, 0).puerto_in) == txt
     assert G.nps_de_puerto(G.puerto_tipico_in(2.5)) == pytest.approx(2.5)
+
+
+def test_diafragma_30_y_datos_externos_trim_reducido():
+    # Globo 1½" desbalanceado, trim reducido 0,5", clase IV, cierre a 1058 psig, aire 60 psig mínimo
+    sv = _sv(nps=1.5, rating=600, cierre="ANSI Clase IV", P1=1058.3, P2=106, dP=952.3, dP_flujo=160, T_C=135,
+             puerto_in=0.5, carrera_in=0.75, balanceado=False, empaque="grafito", trim="globo_contorneado")
+    act = _act(P_aire_min=60 * A.PSI_KPA, P_aire_max=100 * A.PSI_KPA, flujo="Up", d_vastago_mm=None)
+    r = A.evaluar_actuador(sv, act)
+    assert r.ok and r.area_in2 == 30 and r.P_banco[0] == pytest.approx(22, abs=1)
+    ext = {f[0]: f for f in r.externos}
+    assert list(ext)[:3] == ["Operating Range", "Pa", "Pb"]
+    assert ext["Pb"][2] == "60.00" and ext["Port Diameter"][2] == "0.5000"
+    assert ext["Unbalanced Area"][2] == "0.196" and ext["Seat Load Force"][2] == "63"
+    assert "Bellows Eff Area" not in ext
+    comp = A.comparar_externo(r, 30, (21, 45), 610)
+    assert [c[0] for c in comp][0].startswith("Fuerza") and all(
+        c[4].startswith(("Coinciden", "El resorte da el mismo", "")) for c in comp)
+    lejos = A.comparar_externo(r, 105, None, 1600)
+    assert "Seat Load Force" in lejos[0][4] and lejos[1][4].startswith("Sigue")

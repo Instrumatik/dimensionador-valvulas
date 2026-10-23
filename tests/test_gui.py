@@ -473,3 +473,26 @@ def test_actuador_certificado_en_pantalla(app):
     w2._cargar(estado)
     w2.calcular()
     assert w2.res.equipo.actuador.seleccion == ra.seleccion
+
+
+def test_datos_para_verificacion_externa(app):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    w = VentanaPrincipal()
+    _cargar(w)
+    assert w.g_ext.isHidden()
+    w.bt_ext.setChecked(True)
+    assert not w.g_ext.isHidden()
+    w.calcular()
+    ra = w.res.equipo.actuador
+    campos = [w.tb_ext.item(i, 0).text() for i in range(w.tb_ext.rowCount())]
+    assert campos[:3] == ["Operating Range", "Pa", "Pb"] and "Seat Load Force" in campos
+    w._ext_copiar()
+    assert QtWidgets.QApplication.clipboard().text().startswith("Operating Range\t")
+    w._ext_ayuda(campos.index("Port Diameter"))
+    w.ed_ext["area"].setText(f"{ra.area_in2:g}")
+    w.ed_ext["empuje"].setText(f"{max(ra.terminos['cierre'], ra.terminos['apertura']) * 1.5:.0f}")
+    w._ext_comparar()
+    txt = w.vista_ext.toPlainText()
+    assert "Fuerza requerida" in txt and "Seat Load Force" in txt
+    w._eq_nuevo()
+    assert w.tb_ext.rowCount() == 0

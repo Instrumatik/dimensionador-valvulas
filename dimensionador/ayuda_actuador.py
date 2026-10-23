@@ -275,7 +275,7 @@ _e("act_friccion", "Empaquetadura considerada (fricción C)",
 
 _e("act_tamano", "Tamaño del actuador (serie genérica)",
    "<p>Menor tamaño de una serie genérica que cumple todos los chequeos con el aire mínimo:</p><ul>"
-   "<li>Diafragma: áreas efectivas de 46 a 450 in² (297 a 2903 cm²).</li>"
+   "<li>Diafragma: áreas efectivas de 30 a 450 in² (194 a 2903 cm²); el tamaño de 30 in², para válvulas chicas, admite hasta 60 psig en la carcasa y los demás 40 a 50 psig.</li>"
    "<li>Multiresorte: 35 a 279 in² con hasta unos 6 bar.</li>"
    "<li>Pistón: cilindros de 3 a 24\" de diámetro con hasta unos 10 bar.</li>"
    "<li>Piñón y cremallera y yugo escocés: par de doble efecto a 5,5 bar.</li>"
@@ -585,3 +585,177 @@ _alerta("acc_switching", "Falta tanque y válvula de cambio", "<p>Un pistón de 
         "tanque de reserva y válvula de cambio para la falla abre o cierra.</p>", "La falla pedida no se cumple.",
         "FC o FO con pistón sin resorte.", ["Completar «Válvula de cambio» y dimensionar el tanque."],
         "Tanque de 20 l con válvula de cambio.", ["acc_cambio"])
+
+# =====================================================================================
+# 4-ACTUADOR: DATOS PARA VERIFICACIÓN CON SOFTWARE DE FABRICANTE
+# =====================================================================================
+EXT = "Verificación externa"
+REF_EXT = "Método de fuerzas A + B + C + D; herramientas de actuadores de los fabricantes (vástago deslizante)"
+
+
+def _ext(clave, titulo, texto, que_es, que_indica, ejemplo, recomendaciones=(), formula=""):
+    _e(clave, titulo, texto, EXT, formula=formula, referencia=REF_EXT,
+       relacionadas=["ext_verificacion", "guia_verificacion_externa"],
+       guia=_g(que_es, "Es un dato de entrada de la herramienta de actuadores del fabricante; N25 lo entrega "
+               "calculado con los datos de las solapas 1, 2 y 3.", que_indica, "No aplica.", "No aplica.", "No aplica.",
+               ["Verificación externa del actuador"], list(recomendaciones) or
+               ["Cárguelo tal como lo muestra N25, en las mismas unidades."], ejemplo))
+
+
+_e("ext_verificacion", "Datos para verificación con software de fabricante",
+   "<p>Tabla con los datos de la válvula en el formato que piden las herramientas de dimensionamiento de "
+   "actuadores de los fabricantes: mismo nombre de campo, mismo orden y unidades inglesas (psig, in, in², lbf), "
+   "aunque el programa esté en SI. Sirve para verificar la selección de N25 con otra herramienta y ver qué "
+   "término explica cualquier diferencia.</p><p>Cada fila dice cómo obtuvo N25 el valor: dato cargado, valor "
+   "típico o cálculo. Haga clic en una fila para ver su explicación. «Copiar datos» copia campo, valor y unidad "
+   "separados por tabulaciones.</p><p>Solo válvulas de vástago deslizante (globo y ángulo).</p>",
+   EXT, referencia=REF_EXT, relacionadas=["guia_verificacion_externa", "ext_comparacion", "act_metodo"],
+   guia=_g("Es el puente entre N25 y la herramienta de actuadores del fabricante.",
+           "Evita recalcular a mano cada dato de entrada de la otra herramienta.",
+           "Con los mismos datos, las dos herramientas deberían dar fuerzas parecidas; las diferencias señalan "
+           "qué tabla usa cada una.", "No aplica.", "No aplica.", "No aplica.",
+           ["Verificación externa del actuador"],
+           ["Calcule en N25 antes de copiar los datos.",
+            "Cargue los campos en el mismo orden y revise las unidades de cada uno en la otra herramienta.",
+            "Use la comparación para encontrar la causa de una diferencia."],
+           "Globo de 1½\" desbalanceado, puerto 0,5\", cierre a 1058 psig: los datos se cargan y la otra "
+           "herramienta devuelve área, banco y empuje para comparar."))
+_ext("ext_rango", "Operating Range, Pa y Pb",
+     "<p>Rango de presión de aire con que trabaja el actuador. <b>Pa</b> es la presión inferior (actuador "
+     "venteado: 0 psig) y <b>Pb</b> la superior. N25 toma Pb como la menor entre el aire mínimo disponible de "
+     "4-Actuador y la presión máxima del actuador elegido o certificado: es la presión con la que hace los "
+     "chequeos.</p><p>Si la herramienta externa solo ofrece rangos estándar, elija el menor que llegue a Pb y no "
+     "supere la presión máxima de la carcasa.</p>",
+     "Es la presión de aire disponible para mover el actuador.",
+     "Con más Pb el mismo actuador da más empuje y admite un banco más alto; con menos Pb hace falta más área.",
+     "Aire de 60 a 100 psig con carcasa de 60 psig: Pa = 0, Pb = 60 psig.",
+     ["Use el aire mínimo garantizado, no el normal.", "No supere la presión máxima de la carcasa."])
+_ext("ext_cuerpo", "Valve Body Size", "<p>Diámetro nominal del cuerpo de la válvula, en pulgadas, de 1-Sistema.</p>",
+     "Es el diámetro nominal de la válvula.", "Define en la otra herramienta los tamaños de vástago y de yugo "
+     "disponibles.", "Válvula de 1½\": 1.50 in.")
+_ext("ext_puerto", "Port Diameter",
+     "<p>Diámetro del puerto (tamaño del trim). Es el dato que más pesa en la fuerza: el término de presión es "
+     "ΔP·π·d²/4. N25 usa el puerto cargado en 2-Cálculos Válvula o, en blanco, el puerto pleno típico del "
+     "diámetro nominal.</p><p>Si la oferta usa un trim reducido, cargue su puerto en N25 antes de comparar: con "
+     "un puerto distinto las fuerzas no se pueden comparar.</p>",
+     "Es el diámetro del orificio que cierra el obturador.",
+     "Duplicar el puerto multiplica por cuatro la fuerza de presión de un obturador desbalanceado.",
+     "Puerto de 0,5\" contra 1 7/8\" a 952 psi: 187 lbf contra 2630 lbf.", formula="F = ΔP·π·d²/4",
+     recomendaciones=["Confirme el puerto real del trim ofertado; el típico es solo una estimación."])
+_ext("ext_area_desb", "Unbalanced Area",
+     "<p>Área sobre la que actúa la ΔP. Con obturador <b>desbalanceado</b> es el área del puerto, π·d²/4. Con "
+     "obturador <b>balanceado</b> es la corona entre el diámetro del puerto y el del sello de balanceo; N25 la "
+     "estima como 0,037·π·d.</p>",
+     "Es el área que convierte la ΔP en fuerza sobre el obturador.",
+     "Un área desbalanceada chica es lo que hace que un trim balanceado pida poco actuador.",
+     "Puerto 0,5\" desbalanceado: 0,196 in².")
+_ext("ext_carrera", "Valve Travel", "<p>Carrera nominal del vástago de la válvula, de 2-Cálculos Válvula.</p>",
+     "Es lo que recorre el vástago de cerrada a abierta.",
+     "Define la carrera mínima del actuador y, con el banco, la constante del resorte.", "3/4\": 0.7500 in.")
+_ext("ext_vastago", "Valve Stem Size",
+     "<p>Diámetro del vástago. Si no se cargó en 4-Actuador, N25 lo estima por diámetro y clase de la válvula. "
+     "Afecta la fricción de la empaquetadura y la fuerza de la presión sobre el área del vástago.</p>",
+     "Es el diámetro del vástago que atraviesa la empaquetadura.",
+     "Más vástago, más fricción y más fuerza de presión sobre su área.", "Válvula de 1½\" CL600: 0.500 in.",
+     ["Si la otra herramienta solo ofrece diámetros estándar, elija el igual o el inmediato superior."])
+_ext("ext_friccion", "Valve Friction",
+     "<p>Fricción de la empaquetadura (término C). N25 la toma de la fricción certificada si se cargó, o de la "
+     "tabla de la empaquetadura de 3-Materiales por diámetro de vástago y clase de presión.</p><p>La herramienta "
+     "externa suele calcularla con su propia tabla si el campo queda vacío: cargarla y dejarla vacía da dos "
+     "lecturas útiles.</p>",
+     "Es la fuerza que hace falta para vencer el roce de la empaquetadura.",
+     "Es la mayor fuente de diferencia entre herramientas: el grafito puede dar de 3 a 10 veces más que el PTFE.",
+     "Grafito, vástago 0,5\", CL600: 320 lbf.")
+_ext("ext_adicional", "Additional Friction",
+     "<p>Fuerzas adicionales (término D), por ejemplo sellos especiales o guías. N25 no agrega ninguna: 0 lbf.</p>",
+     "Es cualquier fuerza extra que el actuador debe vencer.", "Se suma al cierre y a la apertura.", "0.00 lbf.")
+_ext("ext_asiento", "Seat Load Force",
+     "<p>Carga de asiento (término B) que pide la clase de cierre (ANSI/FCI 70-2), por pulgada de perímetro del "
+     "puerto. N25 informa el valor en lbf y la regla que usó.</p><p>Muchas herramientas externas la calculan "
+     "solas a partir de la clase y el puerto: compare su valor con el de N25.</p>",
+     "Es la fuerza que asegura la fuga admisible de la clase de cierre.",
+     "Clases altas y trims balanceados piden más carga; con la clase IV metálica es chica.",
+     "Clase IV, puerto 0,5\": 40·π·0,5 = 63 lbf.", formula="B = k·π·d_puerto")
+_ext("ext_p1", "P1 Max", "<p>Presión de entrada en la condición de cierre (Tight Shutoff), en psig.</p>",
+     "Es la presión aguas arriba con la válvula cerrada.",
+     "Con P2 da la ΔP de cierre, que define la fuerza de presión.", "1073 psia = 1058.30 psig.",
+     ["Use el caso de cierre real; si falta, N25 supone cierre contra la P1 máxima (conservador)."])
+_ext("ext_p2", "P2 Min", "<p>Presión de salida en la condición de cierre, en psig.</p>",
+     "Es la presión aguas abajo con la válvula cerrada.", "Cuanto menor, mayor la ΔP de cierre.",
+     "120,7 psia = 106.00 psig.")
+_ext("ext_desb_abrir", "Unbal Force @ Open",
+     "<p>Fuerza de la presión que hay que vencer para despegar el obturador del asiento. Es 0 cuando el flujo "
+     "ayuda a abrir (desbalanceado con flujo hacia arriba).</p>",
+     "Es la fuerza de desbalance en la apertura.", "Define el aire necesario para abrir en falla cierra.",
+     "Desbalanceado, flujo Up: 0 lbf.")
+_ext("ext_gradiente", "Fluid Neg. Gradient",
+     "<p>Gradiente negativo Kn: cuánto cambia la fuerza del fluido con la carrera cerca del asiento. Multiplicado "
+     "por la ΔP con caudal da la constante de resorte mínima para que el obturador no sea arrastrado al asiento "
+     "(inestabilidad). Es 0 con obturador balanceado o cuando el flujo tiende a abrir.</p>",
+     "Es la medida de cuánto tira el fluido del obturador hacia el asiento.",
+     "Si la constante del resorte es menor que Kn·ΔP, la válvula puede golpear el asiento.",
+     "Kn = 0,31 in con ΔP de 160 psi: resorte de al menos 49 lbf/in.", formula="K_resorte ≥ Kn·ΔP_flujo")
+_ext("ext_dp_flujo", "dP Flowing", "<p>Mayor ΔP de los casos con caudal de 2-Cálculos Válvula.</p>",
+     "Es la caída de presión con la válvula modulando.", "Con Kn define la constante de resorte mínima.",
+     "160.0 psi.")
+_ext("ext_volante", "With Side MO", "<p>Volante lateral (mando manual), de 4-Actuador.</p>",
+     "Es el mando manual montado al costado del actuador.", "Cambia el yugo y el peso del actuador.", "No.")
+_ext("ext_fuelle", "Datos del fuelle (Bellows)",
+     "<p>Solo con empaquetadura de fuelle. <b>Bellows Eff Area</b>: área efectiva típica del fuelle por diámetro "
+     "de la válvula. <b>Bellows Travel</b>: igual a la carrera de la válvula. <b>Bellows Spr Rate</b>: constante "
+     "del fuelle; N25 no la calcula porque es un dato del fabricante del fuelle, por lo que el campo queda "
+     "vacío.</p>",
+     "Son los datos del fuelle de estanqueidad.", "El fuelle reemplaza al área del vástago en la fuerza de presión.",
+     "Válvula de 2\": área del fuelle 0,353 in².")
+_e("ext_comparacion", "Comparación con el software del fabricante",
+   "<p>Cargue lo que devuelve la herramienta externa: área efectiva, ajuste de banco y fuerza requerida por la "
+   "válvula (sin margen de seguridad). N25 muestra la diferencia de cada dato y su lectura:</p><ul>"
+   "<li><b>Fuerza requerida</b>: si difiere más del 10 %, la causa está en las fuerzas de la válvula. Casi "
+   "siempre es la carga de asiento o la fricción, que cada herramienta toma de sus tablas; la fila indica los "
+   "valores de N25 para cargarlos en la otra herramienta y confirmar.</li>"
+   "<li><b>Área efectiva</b>: con fuerzas parecidas, una diferencia de área es solo de tamaño, porque cada "
+   "herramienta elige de su propia serie de actuadores.</li>"
+   "<li><b>Empuje del resorte en la falla</b> (banco inferior × área): es lo que realmente cierra o abre la "
+   "válvula sin aire. Si coincide, dos combinaciones distintas de área y banco son equivalentes; si difiere, la lectura dice si el resorte del fabricante cubre la fuerza que calcula N25, con y sin margen.</li></ul>"
+   "<p>Se considera coincidencia una diferencia de hasta el 10 %.</p>",
+   EXT, referencia=REF_EXT, relacionadas=["ext_verificacion", "guia_verificacion_externa", "act_modo"],
+   guia=_g("Es el control cruzado entre N25 y la herramienta del fabricante.",
+           "Separa las diferencias de fuerza de las diferencias de tamaño.",
+           "Hasta 10 %: coinciden. Más: la lectura dice dónde buscar.", "10 % de diferencia.",
+           "No aplica.", "No aplica.", ["Verificación externa del actuador"],
+           ["Compare primero la fuerza; el área solo tiene sentido con fuerzas parecidas.",
+            "Para validar un actuador ofertado use el modo MANUAL."],
+           "N25: 591 lbf, 30 in², banco 22–42 psig. Fabricante: 610 lbf, 30 in², banco 21–45 psig. Fuerza −3 %, "
+           "área 0 %, empuje del resorte 660 contra 630 lbf (+5 %): coinciden."))
+_e("guia_verificacion_externa", "Guía: verificar el actuador con el software del fabricante",
+   "<p>Las herramientas de actuadores de los fabricantes piden datos de la válvula que no figuran tal cual en "
+   "una hoja de datos. N25 los calcula y los deja listos. Pasos:</p><ol>"
+   "<li><b>Calcule la válvula en N25</b> con el puerto real del trim (si la oferta trae trim reducido, cárguelo "
+   "en 2-Cálculos Válvula), el caso de cierre y la empaquetadura.</li>"
+   "<li><b>Abra «Datos para verificación con software de fabricante»</b> en 4-Actuador y copie los datos.</li>"
+   "<li><b>Cárguelos en la otra herramienta</b> campo por campo, en psig, in, in² y lbf. Revise que las "
+   "presiones sean manométricas.</li>"
+   "<li><b>Primera corrida con los valores de N25</b> en Valve Friction y Seat Load Force: las fuerzas deberían "
+   "coincidir. Si no, hay un dato mal cargado.</li>"
+   "<li><b>Segunda corrida con esos dos campos vacíos</b>: la otra herramienta usa sus tablas. La diferencia "
+   "muestra cuánto cambia la fricción o la carga de asiento según el criterio de cada una.</li>"
+   "<li><b>Cargue el resultado en «Comparar»</b>: área, banco y fuerza requerida. La lectura dice si la "
+   "diferencia es de fuerzas o solo de tamaño.</li>"
+   "<li><b>Verifique la oferta en modo MANUAL</b> con el área, el banco, la carrera y la presión máxima del "
+   "actuador ofertado.</li></ol>"
+   "<p><b>Errores típicos</b>:</p><ul>"
+   "<li>Comparar con un puerto distinto: el puerto pleno típico contra un trim reducido cambia la fuerza varias "
+   "veces.</li><li>Presiones absolutas cargadas como manométricas (14,7 psi de diferencia).</li>"
+   "<li>Sentido del flujo invertido: con obturador desbalanceado cambia si la presión ayuda a cerrar o a "
+   "abrir.</li><li>Comparar la fuerza con margen de una herramienta con la fuerza sin margen de la otra.</li>"
+   "<li>Elegir un rango de operación mayor que la presión máxima de la carcasa.</li></ul>",
+   EXT, referencia=REF_EXT, relacionadas=["ext_verificacion", "ext_comparacion", "act_modo", "act_certificado"],
+   guia=_g("Es el procedimiento para validar la selección del actuador con otra herramienta.",
+           "Ordena los pasos para que cualquier diferencia tenga una causa identificable.",
+           "Si las fuerzas coinciden, la selección de N25 queda validada aunque el tamaño elegido sea otro.",
+           "Diferencia de fuerza de hasta 10 %.", "No aplica.", "No aplica.",
+           ["Verificación externa del actuador", "Selección del actuador"],
+           ["Empiece siempre por el puerto y el caso de cierre.",
+            "Haga las dos corridas: con los valores de N25 y con los campos vacíos."],
+           "Globo de 1½\": la hoja original declara 30 in² y banco 21–45 psig; N25 con puerto pleno típico daba "
+           "105 in², y con el trim reducido de 0,5\" da 30 in² y banco 22–42 psig."))

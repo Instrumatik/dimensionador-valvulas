@@ -465,7 +465,7 @@ class Tamano:
     vastago_area_in2: float = 0.0   # área del vástago del pistón (lado del vástago)
 
 
-DIAFRAGMA = [Tamano("D-046", 46, 0.75, 50, 1.5), Tamano("D-069", 69, 1.125, 50, 2.0),
+DIAFRAGMA = [Tamano("D-030", 30, 0.75, 60, 1.0), Tamano("D-046", 46, 0.75, 50, 1.5), Tamano("D-069", 69, 1.125, 50, 2.0),
              Tamano("D-105", 105, 1.5, 50, 2.5), Tamano("D-156", 156, 2.0, 50, 3.0),
              Tamano("D-220", 220, 3.0, 40, 4.0), Tamano("D-300", 300, 4.0, 40, 5.0),
              Tamano("D-450", 450, 4.0, 40, 6.0)]
@@ -512,6 +512,9 @@ class ResultadoActuador:
     resorte: bool = False
     neumatico: bool = False
     area_in2: float = 0.0
+    P_disp_psig: float | None = None   # aire con que trabaja el actuador: mín. del aire y del límite del actuador
+    externos: list = field(default_factory=list)       # datos para verificación con software de fabricante
+    terminos: dict = field(default_factory=dict)       # A, B, C, D, cierre, apertura [lbf] (vástago deslizante)
 
 
 @dataclass
@@ -775,6 +778,7 @@ def _resorte_lineal(r: ResultadoActuador, sv, act, fz: Fuerzas, serie, nombre_ti
                       "Revisar la clase de cierre: una clase menor baja la carga de asiento."],
             referencia=REF_ACT))
         return
+    r.P_disp_psig = elegido[1]
     if piston_doble:
         t, Pd, Fs_min, Fs_max, Ks = elegido
         area_ab = t.area_in2 - t.vastago_area_in2
@@ -1171,6 +1175,7 @@ def _certificado_lineal(r: ResultadoActuador, sv: Servicio, act: DatosActuador, 
     _chequeo(r, fallas, "Carrera del actuador frente a la de la válvula", act.cert_carrera_in, L, _in)
     Plim = act.cert_pmax_psig
     Pd = min(pmin, Plim)
+    r.P_disp_psig = Pd
     piston = tipo.startswith("Pistón")
     A_ef = act.cert_area_in2 * (ETA_PISTON if piston else 1.0)
     b = 0.25 * math.sqrt(4 * act.cert_area_in2 / math.pi)        # vástago del pistón ≈ ¼ del diámetro
@@ -1364,6 +1369,12 @@ def _lineal(r: ResultadoActuador, sv: Servicio, act: DatosActuador):
                 ("Fuerza requerida con margen", f"F × {_n(MARGEN_LINEAL, 2)}", _N(max(fz.cierre, fz.apertura)
                                                                                    * MARGEN_LINEAL))]
     _alertas_fuerza(r, sv, act, fz)
+    _seleccion_lineal(r, sv, act, fz)
+    r.externos = datos_externos(sv, act, fz, r)
+    r.terminos = dict(A=fz.A, B=fz.B, C=fz.C, D=fz.D, cierre=fz.cierre, apertura=fz.apertura)
+
+
+def _seleccion_lineal(r: ResultadoActuador, sv: Servicio, act: DatosActuador, fz: Fuerzas):
     tipo = act.tipo
     if act.manual and tipo != "Manual":
         _certificado_lineal(r, sv, act, fz)
@@ -1386,6 +1397,133 @@ def _lineal(r: ResultadoActuador, sv: Servicio, act: DatosActuador):
         _manual(r, act, r.requerido, False)
 
 
+# ------------------------------------------------------------- datos para verificación externa
+
+# Campos en el orden y con los nombres de las herramientas de dimensionamiento de actuadores de los fabricantes
+# (vástago deslizante). Cada fila: (campo, nombre en castellano, valor, unidad, clave de ayuda, cómo lo obtiene N25).
+CAMPOS_EXTERNOS = ("Operating Range", "Pa", "Pb", "Valve Body Size", "Port Diameter", "Unbalanced Area",
+                   "Valve Travel", "Valve Stem Size", "Valve Friction", "Additional Friction", "Seat Load Force",
+                   "P1 Max", "P2 Min", "Unbal Force @ Open", "Fluid Neg. Gradient", "dP Flowing", "With Side MO",
+                   "Bellows Spr Rate", "Bellows Eff Area", "Bellows Travel")
+
+
+def _v(x: float, dec: int) -> str:
+    return "" if x is None else f"{x:.{dec}f}"
+
+
+def datos_externos(sv: Servicio, act: DatosActuador, fz: Fuerzas, r: ResultadoActuador) -> list:
+    """Datos de N25 en el formato que piden las herramientas de actuadores de los fabricantes (unidades inglesas)."""
+    pmin, _ = _aire(act)
+    Pb = r.P_disp_psig if r.P_disp_psig is not None else pmin
+    fuelle = sv.empaque == "fuelle"
+    d_v = fz.d_vast
+    origen_v = "dato de 4-Actuador" if act.d_vastago_mm else "estimado por diámetro y clase de la válvula"
+    filas = [
+        ("Operating Range", "Rango de operación", f"0 a {_v(Pb, 0)}" if Pb is not None else "", "psig", "ext_rango",
+         "De 0 (actuador venteado) a la presión con que trabaja el actuador (Pb)."),
+        ("Pa", "Presión inferior del rango", "0.00", "psig", "ext_rango", "Actuador venteado."),
+        ("Pb", "Presión superior del rango", _v(Pb, 2), "psig", "ext_rango",
+         "Menor entre el aire mínimo disponible y la presión máxima del actuador elegido o certificado."),
+        ("Valve Body Size", "Diámetro nominal de la válvula", _v(sv.nps, 2), "in", "ext_cuerpo", "1-Sistema."),
+        ("Port Diameter", "Diámetro del puerto", _v(sv.puerto_in, 4), "in", "ext_puerto",
+         "Tamaño del trim de 2-Cálculos Válvula (dato o puerto pleno típico)."),
+        ("Unbalanced Area", "Área desbalanceada", _v(fz.A_desb, 3), "in²", "ext_area_desb",
+         "Corona del sello de balanceo, 0,037·π·d_puerto" if sv.balanceado else "Área del puerto, π·d²/4 (obturador "
+         "desbalanceado)."),
+        ("Valve Travel", "Carrera nominal de la válvula", _v(sv.carrera_in, 4), "in", "ext_carrera",
+         "Carrera nominal de 2-Cálculos Válvula."),
+        ("Valve Stem Size", "Diámetro del vástago", _v(d_v, 3), "in", "ext_vastago", origen_v + "."),
+        ("Valve Friction", "Fricción de la empaquetadura (C)", _v(fz.C, 0), "lbf", "ext_friccion",
+         fz.textos["C"] + "."),
+        ("Additional Friction", "Fuerzas adicionales (D)", _v(fz.D, 2), "lbf", "ext_adicional", "Sin fuerzas "
+         "adicionales declaradas."),
+        ("Seat Load Force", "Carga de asiento (B)", _v(fz.B, 0), "lbf", "ext_asiento",
+         f"{sv.cierre}: {fz.textos['B']}."),
+        ("P1 Max", "Presión de entrada a cierre", _v(sv.P1, 2), "psig", "ext_p1",
+         "Caso Tight Shutoff de 2-Cálculos Válvula" + (" (supuesto: P1 máxima)" if sv.cierre_supuesto else "") + "."),
+        ("P2 Min", "Presión de salida a cierre", _v(sv.P2, 2), "psig", "ext_p2",
+         "Caso Tight Shutoff" + (" (supuesto: atmósfera)" if sv.cierre_supuesto else "") + "."),
+        ("Unbal Force @ Open", "Fuerza de desbalance al abrir", _v(fz.A_ab, 0), "lbf", "ext_desb_abrir",
+         fz.textos["A_ab"] + "."),
+        ("Fluid Neg. Gradient", "Gradiente negativo del fluido (Kn)", _v(fz.Kn, 3), "in", "ext_gradiente",
+         "Kn de la tabla por diámetro de puerto (0 si el obturador es balanceado o el flujo tiende a abrir)."),
+        ("dP Flowing", "ΔP con caudal", _v(sv.dP_flujo, 1), "psi", "ext_dp_flujo",
+         "Mayor ΔP de los casos con caudal de 2-Cálculos Válvula."),
+        ("With Side MO", "Volante lateral", "Yes" if act.volante else "No", "", "ext_volante",
+         "Volante de 4-Actuador."),
+    ]
+    if fuelle:
+        filas += [
+            ("Bellows Spr Rate", "Constante del fuelle", "", "lbf/in", "ext_fuelle",
+             "N25 no la calcula: es un dato del fuelle del fabricante. Dejar el campo vacío."),
+            ("Bellows Eff Area", "Área efectiva del fuelle", _v(fz.A_vast, 3), "in²", "ext_fuelle",
+             "Área típica del fuelle por diámetro de la válvula."),
+            ("Bellows Travel", "Carrera del fuelle", _v(sv.carrera_in, 4), "in", "ext_fuelle",
+             "Igual a la carrera nominal de la válvula."),
+        ]
+    return filas
+
+
+TOL_EXTERNO = 10.0   # % de diferencia que se considera coincidencia
+
+
+def _dif(n25: float, ext: float) -> float:
+    return (n25 / ext - 1) * 100 if ext else 0.0
+
+
+def comparar_externo(r: ResultadoActuador, area_in2: float | None = None, banco: tuple | None = None,
+                     empuje_lbf: float | None = None) -> list:
+    """Compara lo que devuelve el software del fabricante con N25: (dato, N25, externo, diferencia, lectura).
+
+    empuje_lbf es la fuerza requerida por la válvula que informa la herramienta externa (sin margen).
+    """
+    filas = []
+    t = r.terminos
+    fuerzas_ok = None
+    if empuje_lbf and t:
+        req = max(t["cierre"], t["apertura"])
+        d = _dif(req, empuje_lbf)
+        fuerzas_ok = abs(d) <= TOL_EXTERNO
+        if fuerzas_ok:
+            lectura = "Coinciden: las fuerzas de la válvula son equivalentes."
+        else:
+            lectura = (f"La diferencia está en las fuerzas de la válvula. Revise Seat Load Force y Valve Friction, que "
+                       f"cada herramienta toma de sus tablas: N25 usó B = {_n(t['B'], 0)} lbf y C = {_n(t['C'], 0)} lbf "
+                       f"(A = {_n(t['A'], 0)} lbf es presión por área). Cargue en la herramienta externa los valores de "
+                       f"N25 para confirmar.")
+        filas.append(("Fuerza requerida por la válvula (sin margen)", f"{_n(req, 0)} lbf", f"{_n(empuje_lbf, 0)} lbf",
+                      f"{d:+.0f} %", lectura))
+    if area_in2 and r.area_in2:
+        d = _dif(r.area_in2, area_in2)
+        if abs(d) <= TOL_EXTERNO:
+            lectura = "Coinciden."
+        elif fuerzas_ok is False:
+            lectura = "Sigue a la diferencia de fuerza: resuelva primero esa fila."
+        else:
+            lectura = (f"Con fuerzas parecidas, la diferencia es de tamaño: N25 elige de una serie genérica "
+                       f"({', '.join(_n(x.area_in2, 0) for x in DIAFRAGMA)} in² en diafragma) y el fabricante de la "
+                       f"suya. Para verificar el actuador ofertado use el modo MANUAL.")
+        filas.append(("Área efectiva", f"{_n(r.area_in2, 1)} in²", f"{_n(area_in2, 1)} in²", f"{d:+.0f} %", lectura))
+    if banco and r.P_banco and area_in2 and r.area_in2:
+        F_n25, F_ext = r.P_banco[0] * r.area_in2, banco[0] * area_in2
+        d = _dif(F_n25, F_ext)
+        if abs(d) <= TOL_EXTERNO:
+            lectura = ("El resorte da el mismo empuje en la posición de falla; solo cambia el reparto entre área y "
+                       "banco.")
+        elif t:
+            req = t["apertura"] if r.falla == FO else t["cierre"]
+            lectura = (f"Difieren. El resorte del fabricante {'cubre' if F_ext >= req else 'NO cubre'} la fuerza que "
+                       f"N25 calcula en la posición de falla ({_n(req, 0)} lbf sin margen; "
+                       f"{_n(req * MARGEN_LINEAL, 0)} lbf con el margen {_n(MARGEN_LINEAL, 2)} de N25).")
+        else:
+            lectura = "Difieren."
+        filas.append(("Ajuste de banco", f"{_n(r.P_banco[0], 1)} – {_n(r.P_banco[1], 1)} psig",
+                      f"{_n(banco[0], 1)} – {_n(banco[1], 1)} psig", "—", ""))
+        filas.append(("Empuje del resorte en la falla (banco inferior × área)", f"{_n(F_n25, 0)} lbf",
+                      f"{_n(F_ext, 0)} lbf", f"{d:+.0f} %", lectura))
+    return filas
+
+
 def _piston_doble(r, sv, act, fz):
     pmin, pmax = _aire(act)
     F_c, F_a = fz.cierre * MARGEN_LINEAL, fz.apertura * MARGEN_LINEAL
@@ -1403,7 +1541,7 @@ def _piston_doble(r, sv, act, fz):
                                 referencia=REF_ACT))
         return
     P_req = max(F_c / (ETA_PISTON * t.area_in2), F_a / (ETA_PISTON * a_ab))
-    r.P_req_psig, r.area_in2 = P_req, t.area_in2
+    r.P_req_psig, r.area_in2, r.P_disp_psig = P_req, t.area_in2, Pd
     r.seleccion = (f"Pistón de doble acción sin resorte {t.nombre}: cilindro de "
                    f"{_in(math.sqrt(4 * t.area_in2 / math.pi))}, área {_area(t.area_in2)}")
     r.filas += [("Tamaño (serie genérica)", r.seleccion, "act_tamano"),
