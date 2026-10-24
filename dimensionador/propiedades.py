@@ -25,6 +25,7 @@ FLUIDOS = {
     "Oxígeno": "Oxygen",
     "Dióxido de carbono": "CarbonDioxide",
     "Hidrógeno": "Hydrogen",
+    "Gas natural": "",            # mezcla: la arma _cp_nombre con la composición molar (COMPONENTES_GN)
     "Metano": "Methane",
     "Etano": "Ethane",
     "Propano": "Propane",
@@ -53,6 +54,64 @@ class ErrorPropiedades(ValueError):
     pass
 
 
+# --- Gas natural: mezcla de la ecuación de estado GERG/HEOS de CoolProp con composición editable
+GAS_NATURAL = "Gas natural"
+COMPONENTES_GN = {
+    "Metano": "Methane", "Etano": "Ethane", "Propano": "Propane", "n-Butano": "n-Butane",
+    "Isobutano": "IsoButane", "n-Pentano": "n-Pentane", "Isopentano": "Isopentane", "n-Hexano": "n-Hexane",
+    "Nitrógeno": "Nitrogen", "Dióxido de carbono": "CarbonDioxide", "Sulfuro de hidrógeno": "HydrogenSulfide",
+    "Hidrógeno": "Hydrogen", "Helio": "Helium", "Oxígeno": "Oxygen", "Agua": "Water",
+}
+# Composición típica de un gas natural seco de gasoducto (% molar). No corresponde a ningún yacimiento.
+GN_TIPICO = {"Metano": 90.0, "Etano": 5.0, "Propano": 2.0, "n-Butano": 0.5, "Isobutano": 0.5,
+             "Nitrógeno": 1.0, "Dióxido de carbono": 1.0}
+
+
+def texto_composicion(comp: dict) -> str:
+    """«Metano 90; Etano 5; …» con coma decimal."""
+    return "; ".join(f"{k} {f'{v:g}'.replace('.', ',')}" for k, v in comp.items() if v)
+
+
+def leer_composicion(texto: str) -> dict:
+    """Lee «Metano 90; Etano 5; …» (% molar). Vacío = composición típica. Normaliza a 100 %."""
+    t = (texto or "").strip()
+    if not t:
+        return dict(GN_TIPICO)
+    comp, nombres = {}, {k.lower(): k for k in COMPONENTES_GN}
+    for parte in t.replace("\n", ";").split(";"):
+        parte = parte.strip()
+        if not parte:
+            continue
+        nombre, _, valor = parte.rpartition(" ")
+        clave = nombres.get(nombre.strip().rstrip(":=").strip().lower())
+        try:
+            v = float(valor.replace("%", "").replace(",", "."))
+        except ValueError:
+            v = None
+        if clave is None or v is None or v < 0:
+            raise ErrorPropiedades(
+                f"Composición del gas natural: no se entiende «{parte}». Escriba cada componente con su % "
+                f"molar separado por punto y coma, por ejemplo «Metano 90; Etano 5». Componentes posibles: "
+                f"{', '.join(COMPONENTES_GN)}.")
+        comp[clave] = comp.get(clave, 0.0) + v
+    total = sum(comp.values())
+    if total <= 0:
+        raise ErrorPropiedades("Composición del gas natural: la suma de los % molares es cero.")
+    if abs(total - 100) > 5:
+        raise ErrorPropiedades(f"Composición del gas natural: los % molares suman {total:.2f} %; deben sumar "
+                               "100 % (se acepta hasta ±5 % y se normaliza).")
+    return {k: v * 100 / total for k, v in comp.items() if v > 0}
+
+
+def masa_molar_mezcla(comp: dict) -> float:
+    return sum(CP.PropsSI("M", COMPONENTES_GN[k]) * 1000 * v / 100 for k, v in comp.items())
+
+
+def _mezcla(comp: dict) -> str:
+    total = sum(comp.values())
+    return "HEOS::" + "&".join(f"{COMPONENTES_GN[k]}[{v / total:.6f}]" for k, v in comp.items() if v > 0)
+
+
 @dataclass
 class PropiedadesLiquido:
     rho: float   # kg/m³
@@ -72,14 +131,18 @@ class PropiedadesGas:
     fase: str
 
 
-def _cp_nombre(fluido: str) -> str:
+def _cp_nombre(fluido: str, composicion: dict | None = None) -> str:
     if not DISPONIBLE:
         raise ErrorPropiedades("La biblioteca de propiedades no está disponible; ingrese las "
                                f"propiedades manualmente. ({ERROR_IMPORTACION})")
+    if fluido == GAS_NATURAL:
+        return _mezcla(composicion or GN_TIPICO)
     return FLUIDOS.get(fluido, fluido)
 
 
 def liquido(fluido: str, P1_kPa: float, T1_K: float) -> PropiedadesLiquido:
+    if fluido == GAS_NATURAL:
+        raise ErrorPropiedades("El gas natural de la lista se calcula como gas: elija el tipo de fluido Gas.")
     n = _cp_nombre(fluido)
     try:
         Pv = CP.PropsSI("P", "T", T1_K, "Q", 0, n) / 1000
@@ -97,10 +160,17 @@ def liquido(fluido: str, P1_kPa: float, T1_K: float) -> PropiedadesLiquido:
     return PropiedadesLiquido(rho, Pv, Pc, mu / rho, mu)
 
 
-def gas(fluido: str, P1_kPa: float, T1_K: float | None, saturado: bool = False) -> PropiedadesGas:
+def gas(fluido: str, P1_kPa: float, T1_K: float | None, saturado: bool = False,
+        composicion: dict | None = None) -> PropiedadesGas:
     """Propiedades a la entrada. Con ``saturado=True`` se toma vapor saturado seco a P1."""
-    n = _cp_nombre(fluido)
+    n = _cp_nombre(fluido, composicion)
     try:
+        if fluido == GAS_NATURAL:
+            args = ("T", T1_K, "P", P1_kPa * 1000)
+            rho = CP.PropsSI("D", *args, n)
+            kappa = rho * CP.PropsSI("A", *args, n) ** 2 / (P1_kPa * 1000)
+            return PropiedadesGas(rho, CP.PropsSI("M", *args, n) * 1000, kappa, CP.PropsSI("Z", *args, n),
+                                  CP.PropsSI("V", *args, n), "gas")
         if saturado:
             args = ("P", P1_kPa * 1000, "Q", 1)
         else:

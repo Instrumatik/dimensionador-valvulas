@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QVBoxLayout, QWidget)
 
 from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, propiedades, tuberias, unidades as U
-from ..estilos import CUERPOS, ESTILOS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES, TAMANOS
+from ..estilos import CARACTERISTICA_FIJA, CUERPOS, ESTILOS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES, TAMANOS
 from ..geometria import fraccion_in
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
@@ -450,7 +450,7 @@ SALIDAS = [
     ("Kapp", "Coef. cavitación de la aplicación (Kapp)", "Kapp", None, 3, "L"),
     ("dP", "Presión diferencial ΔP", "dP", "presion_dif", 4, "LGVS"),
     ("dP_P1", "Relación de caída de presión ΔP/P1", "dP_P1", None, 3, "LGVS"),
-    ("dPchoked", "ΔP para flujo estrangulado (ΔP choked)", "dPchoked", "presion_dif", 4, "LGVS"),
+    ("dPchoked", "ΔP crítica de flujo estrangulado (ΔP choked)", "dPchoked", "presion_dif", 4, "LGVS"),
     ("dPcav", "ΔP para cavitación (ΔP cav)", "dPcav", "presion_dif", 4, "L"),
     ("xFzp1", "Inicio de cavitación incipiente (xFzp1)", "xFz", None, 3, "L"),
     ("FF", "Factor de relación de presión crítica (FF)", "FF", None, 3, "L"),
@@ -945,6 +945,17 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_fluido.setCurrentText("Agua / vapor de agua")
         self.cb_fluido.currentIndexChanged.connect(self._cambio_fluido)
         self.vis_g1.append((self._fila(grid, r, "Fluido", self.cb_fluido, "fluido"), "LGV")); r += 1
+        self.ed_comp_gn = self._registrar("composicion_gn", QLineEdit(propiedades.texto_composicion(
+            propiedades.GN_TIPICO)))
+        self.ed_comp_gn.setToolTip("% molar de cada componente separados por punto y coma; en blanco = composición "
+                                   "típica. Componentes: " + ", ".join(propiedades.COMPONENTES_GN))
+        self.lbl_comp_gn = QLabel("")
+        self.lbl_comp_gn.setStyleSheet(f"color:{ACENTO};font-size:8pt")
+        self.lbl_comp_gn.setWordWrap(True)
+        self.ed_comp_gn.editingFinished.connect(self._comp_gn_resumen)
+        self.ed_comp_gn.setCursorPosition(0)
+        self.fila_comp_gn = self._fila(grid, r, "Composición del gas natural (% molar)", self.ed_comp_gn,
+                                       "composicion_gn", self.lbl_comp_gn, ancho=420); r += 1
         self.cb_variante = self._registrar("variante", Combo())
         self.lbl_salinidad = QLabel("")
         self.lbl_salinidad.setStyleSheet(f"color:{ACENTO};font-size:8pt")
@@ -1280,9 +1291,22 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         if getattr(self, "cb_anticav", None) is not None and self.cb_anticav.currentData() not in (None, "estandar"):
             self._cambio_anticav()
         self.cb_caract.setCurrentIndex(self.cb_caract.findData(e.caracteristica))
+        self._caract_concordancia()
         self.cb_trim.setToolTip(e.nombre + (f"\n\n{e.nota}" if e.nota else ""))
         self._act_flujo_desde_trim(k)
         self._mat_nombres_componentes()
+
+    def _caract_concordancia(self):
+        """Con un trim contorneado lineal o isoporcentual la característica es la del trim: se bloquea."""
+        k = self.cb_trim.currentData()
+        fija = k in CARACTERISTICA_FIJA
+        if fija:
+            self.cb_caract.setCurrentIndex(self.cb_caract.findData(ESTILOS[k].caracteristica))
+        self.cb_caract.setEnabled(not fija)
+        self.cb_caract.setToolTip(
+            "La fija el perfil del obturador del tipo de trim elegido." if fija else
+            "Curva de capacidad frente a la carrera del trim elegido; con jaula, rotativas y otros trims "
+            "puede elegirse según lo que ofrezca el fabricante.")
 
     def _cambio_anticav(self):
         """El trim anticavitación reemplaza FL, Fd y Kc de las condiciones de operación (o los restituye)."""
@@ -1426,6 +1450,27 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         for k in PROPIEDADES:
             self.filas[k].solo_lectura(k in auto and not manual, FLUYEN)
         self.f_Pc.solo_lectura(not manual)
+        gn = t == "gas" and self.cb_fluido.currentText() == propiedades.GAS_NATURAL
+        for w in self.fila_comp_gn:
+            w.setVisible(gn)
+        if gn:
+            self._comp_gn_resumen()
+
+    def _composicion(self) -> dict | None:
+        """Composición del gas natural en % molar (None si el fluido no es gas natural)."""
+        if self.tipo() != "gas" or self.cb_fluido.currentText() != propiedades.GAS_NATURAL:
+            return None
+        return propiedades.leer_composicion(self.ed_comp_gn.text())
+
+    def _comp_gn_resumen(self):
+        try:
+            c = self._composicion()
+            if c is None:
+                return
+            M = propiedades.masa_molar_mezcla(c)
+            self.lbl_comp_gn.setText(f"M = {fmt(M)} kg/kmol · SG = {fmt(M / 28.9647)} · {fmt(c.get('Metano', 0), 3)} % metano")
+        except Exception as e:
+            self.lbl_comp_gn.setText(str(e))
 
     def _magnitud_caudal(self) -> str:
         vol = self.cb_tipo_caudal.currentIndex() == 0
@@ -1585,7 +1630,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                 continue
             if P2 is None:
                 raise ValueError(f"Caso {CASOS[j]}: ingrese P2 para obtener las condiciones de salida.")
-            e = CG.resolver_estado(CG.CasoGas(CASOS[j], 1.0, None, P1, P2, T1), t, fluido)
+            e = CG.resolver_estado(CG.CasoGas(CASOS[j], 1.0, None, P1, P2, T1), t, fluido, self._composicion())
             F["M"].poner_base(j, e.M)
             F["mu"].poner_base(j, e.mu)
             F["gamma"].edits[j].setText(_num(e.gamma))
@@ -1663,7 +1708,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         dim = Dimensionamiento(casos, None, self.cb_trim.currentData(), self.cb_tamano.currentData(),
                                self.cb_caract.currentData(), "Agua / vapor de agua" if t == "steam" else fluido,
                                cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado(), **self._geo_cert(),
-                               **self._datos_fluido())
+                               composicion=self._composicion(), **self._datos_fluido())
         return ident, inst, dim
 
     def _geo_cert(self) -> dict:
@@ -1720,6 +1765,11 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
     # ----------------------------------------------------------- mostrar
     def _mostrar(self):
         res = self.res
+        A = next((x.get("A_salida") for x in res.salidas if x.get("A_salida")), None)
+        u = self.f_area.unidad.currentText()
+        self.f_area.edits[0].setPlaceholderText(
+            f"nominal: {fmt(U.desde_base(A, 'area', u))}" if A and not self.f_area.edits[0].text().strip()
+            else "nominal")
         peor = res.peor()
         estado = {Severidad.INFO: ("#2e7d32", "Sin fenómenos que requieran acción."),
                   Severidad.ADVERTENCIA: ("#d9771e", "Hay advertencias para revisar."),
@@ -1988,6 +2038,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             elif w is not None:
                 w.setText(v)
         self._act_concordancia()  # un proyecto anterior puede traer un actuador que no corresponde a la válvula
+        self._caract_concordancia()  # y una característica distinta de la que fija el trim
         self.res = None
         self._actualizar_vistas()
 

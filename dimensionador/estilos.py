@@ -46,6 +46,13 @@ ESTILOS: dict[str, EstiloValvula] = {e.clave: e for e in [
                   "globo", 0.90, 0.75, 0.46, 11.0, "isoporcentual", 50),
     EstiloValvula("globo_contorneado_iso_cierra", "Globo, obturador contorneado, isoporcentual, flujo tiende a cerrar",
                   "globo", 0.80, 0.70, 1.00, 11.0, "isoporcentual", 50),
+    EstiloValvula("globo_doble_guia_superior",
+                  "Globo, doble guía de vástago superior, obturador contorneado, flujo tiende a abrir",
+                  "globo", 0.90, 0.72, 0.46, 12.0, "isoporcentual", 50,
+                  "Diseño de válvula de globo en el que el obturador o el vástago se apoya y se alinea en dos "
+                  "puntos de guiado separados, ubicados en la parte superior del conjunto, por encima de la "
+                  "corriente del fluido. Los factores son los del obturador contorneado de IEC 60534-2-1; la "
+                  "característica (isoporcentual o lineal) la define el perfil del obturador."),
     EstiloValvula("globo_jaula_4v_fuera",
                   "Globo, jaula caracterizada 4 ventanas, flujo de adentro hacia afuera de la jaula (tiende a abrir)",
                   "globo", 0.90, 0.75, 0.41, 14.0, "isoporcentual", 50,
@@ -138,7 +145,7 @@ class Cuerpo:
 
 CUERPOS: dict[str, Cuerpo] = {c.clave: c for c in [
     Cuerpo("globo", "Globo", ("globo_contorneado_iso_abre", "globo_contorneado_lineal_abre",
-                              "globo_contorneado_iso_cierra", "globo_jaula_4v_fuera",
+                              "globo_contorneado_iso_cierra", "globo_doble_guia_superior", "globo_jaula_4v_fuera",
                               "globo_jaula_4v_dentro", "globo_jaula_60_orificios",
                               "globo_jaula_120_orificios", "globo_multietapa"),
            0.5, 24, False, "Guiado superior / por jaula", -4.6),
@@ -235,7 +242,7 @@ KC_TIPICO = {
     "globo_contorneado_iso_cierra": 0.55, "globo_contorneado_lineal_cierra": 0.55,
     "globo_jaula_4v_fuera": 0.70, "globo_jaula_4v_dentro": 0.65,
     "globo_jaula_60_orificios": 0.80, "globo_jaula_120_orificios": 0.85, "globo_multietapa": 0.95,
-    "globo_liner_contorneado": 0.60,
+    "globo_liner_contorneado": 0.60, "globo_doble_guia_superior": 0.65,
     "angular_contorneado_abre": 0.65, "angular_contorneado_cierra": 0.55, "angular_jaula_abre": 0.65,
     "angular_venturi": 0.20,
     "bola_segmentada": 0.25, "bola_paso_total_70": 0.30, "bola_paso_completo_90": 0.20,
@@ -246,6 +253,11 @@ KC_TIPICO = {
     "rotativa_obturador_excentrico_abre": 0.50, "rotativa_obturador_excentrico_cierra": 0.35,
 }
 
+# Trims cuya característica inherente la fija el perfil del obturador y ya figura en su nombre: con
+# ellos la «Característica inherente» de la solapa 2 se toma del trim y no se puede cambiar aparte.
+CARACTERISTICA_FIJA = ("globo_contorneado_lineal_abre", "globo_contorneado_lineal_cierra",
+                       "globo_contorneado_iso_abre", "globo_contorneado_iso_cierra")
+
 # Nombre corto para el desplegable de la solapa 2 (el cuerpo ya se elige en 1-Sistema); el nombre completo
 # queda en la ayuda emergente, la ayuda «Ver» y los documentos.
 NOMBRE_CORTO = {
@@ -253,6 +265,7 @@ NOMBRE_CORTO = {
     "globo_contorneado_lineal_cierra": "Contorneado lineal · flujo cierra",
     "globo_contorneado_iso_abre": "Contorneado isoporcentual · flujo abre",
     "globo_contorneado_iso_cierra": "Contorneado isoporcentual · flujo cierra",
+    "globo_doble_guia_superior": "Doble guía de vástago - superior · flujo abre",
     "globo_jaula_4v_fuera": "Jaula 4 ventanas · flujo abre",
     "globo_jaula_4v_dentro": "Jaula 4 ventanas · flujo cierra",
     "globo_jaula_60_orificios": "Jaula 60 orificios (baja cavitación)",

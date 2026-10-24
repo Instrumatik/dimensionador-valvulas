@@ -91,7 +91,24 @@ _e("fluido", "Fluido",
    "<p>El fluido se define <b>solo aquí</b>: con la <b>calidad / variante</b> (qué agua es, o qué tipo de "
    "fluido definido por el usuario) y el <b>agua libre</b>, alimenta también la selección de materiales de la "
    "solapa 3, que no vuelve a preguntarlo.</p>",
-   relacionadas=["rho", "Pv", "Pc", "viscosidad", "variante_fluido", "agua_libre"])
+   relacionadas=["rho", "Pv", "Pc", "viscosidad", "variante_fluido", "agua_libre", "composicion_gn"])
+
+_e("composicion_gn", "Composición del gas natural",
+   "<p>Con <b>Gas natural</b> en la lista, N25 calcula las propiedades de la mezcla con la ecuación de estado "
+   "multicomponente de CoolProp (HEOS, de la familia GERG): masa molar, viscosidad, exponente isoentrópico, "
+   "Z1 a la entrada y, por expansión isoentálpica, T2 y Z2 a la salida. Así el enfriamiento por "
+   "Joule-Thomson del gas sale del cálculo sin cargarlo a mano.</p>"
+   "<p>Escriba el % molar de cada componente separado por punto y coma, por ejemplo «Metano 90; Etano 5; "
+   "Propano 2; Nitrógeno 1; Dióxido de carbono 1». Si la suma difiere de 100 % (hasta ±5 %) se normaliza. "
+   "En blanco se usa una composición típica de gas seco de gasoducto, que no corresponde a ningún "
+   "yacimiento: cargue la cromatografía del proyecto.</p>"
+   "<p>Componentes posibles: metano, etano, propano, n-butano, isobutano, n-pentano, isopentano, n-hexano, "
+   "nitrógeno, dióxido de carbono, sulfuro de hidrógeno, hidrógeno, helio, oxígeno y agua.</p>"
+   "<p>Ejemplo: 90 % metano, de 70 a 20 bar a desde 27 °C da Z1 ≈ 0,86, T2 ≈ 2 °C y Z2 ≈ 0,94.</p>"
+   "<p>Si el gas trae H₂S o CO₂, declárelos también como agentes en 3-Materiales para la selección "
+   "según ISO 15156.</p>",
+   tipicos="Gas de gasoducto: metano 85–96 %, etano 2–8 %, propano 0,5–3 %, N₂ y CO₂ 0–3 % cada uno",
+   relacionadas=["fluido", "Z", "T2", "M"])
 
 _e("caudal", "Caudal",
    "<p>Cantidad de fluido que debe pasar la válvula en cada caso de operación. Puede ingresarse "
@@ -336,7 +353,12 @@ _e("caracteristica", "Característica inherente",
    "porcentaje. Es la más usada cuando la caída de presión de la válvula disminuye al aumentar "
    "el caudal.</li><li><b>Lineal</b>: capacidad proporcional a la carrera. Apta cuando la "
    "válvula toma casi toda la pérdida del sistema (control de nivel, by-pass).</li>"
-   "<li><b>Apertura rápida</b>: para servicios todo-nada.</li></ul>",
+   "<li><b>Apertura rápida</b>: para servicios todo-nada.</li></ul>"
+   "<p><b>Diferencia con el «Tipo de trim»</b>: el tipo de trim carga los factores FL, xT, Fd y Kc del "
+   "obturador; la característica define la curva con que se calcula la apertura. En los trims contorneados "
+   "lineal e isoporcentual la curva la fija el perfil del obturador, por eso N25 la toma del trim y bloquea "
+   "esta lista. En jaulas, doble guía superior, ángulo y rotativas el fabricante puede ofrecer distintas "
+   "curvas con los mismos internos, y aquí se elige la que corresponda.</p>",
    formula="Isoporcentual: φ = R^(h−1);   Lineal: φ = 1/R + (1 − 1/R)·h",
    relacionadas=["apertura", "rangeabilidad"])
 
@@ -365,8 +387,12 @@ _e("FF", "Factor de presión crítica del líquido FF",
 _e("dPchoked", "Caída de presión de flujo crítico ΔPchoked",
    "<p>Máxima caída de presión que aumenta el caudal en un líquido. Más allá de este valor la "
    "vena contracta está a la presión de vaporización y el caudal queda limitado (flujo "
-   "bloqueado o crítico). Si ΔP ≥ ΔPchoked, la válvula se dimensiona con ΔPchoked.</p>",
-   formula="ΔPchoked = (FLP/FP)²·(P1 − FF·Pv)", referencia="IEC 60534-2-1 ec. (3)",
+   "bloqueado o crítico). Si ΔP ≥ ΔPchoked, la válvula se dimensiona con ΔPchoked.</p>"
+   "<p><b>En gases y vapores</b> es la caída de presión a la que el gas llega a velocidad sónica en la "
+   "vena contracta: ΔPchoked = Fγ·xTP·P1. No es lo mismo que xT: xT es un factor sin unidades (una "
+   "relación ΔP/P1 medida con aire) y ΔPchoked es una presión. Por ejemplo, con P1 = 10 bar a, Fγ = 0,93 "
+   "y xT = 0,72, ΔPchoked = 0,93·0,72·10 ≈ 6,7 bar.</p>",
+   formula="Líquidos: ΔPchoked = (FLP/FP)²·(P1 − FF·Pv);   gases: ΔPchoked = Fγ·xTP·P1", referencia="IEC 60534-2-1 ec. (3)",
    relacionadas=["FL", "FF", "cavitacion", "flashing"], categoria="Resultados")
 
 _e("FP", "Factor de geometría de tubería FP",
@@ -790,7 +816,10 @@ _e("trim", "Tipo de trim hidrodinámico",
    "<p>Internos de la válvula (obturador, asiento y jaula). Cada opción trae sus factores típicos "
    "de IEC 60534-2-1 (FL, Fd), su Kc y su característica, que se cargan en las entradas y se pueden "
    "reemplazar por los certificados del fabricante.</p><ul><li><b>Contorneado</b>: obturador "
-   "perfilado, estándar.</li><li><b>Jaula caracterizada de 4 ventanas</b>: guiado estable.</li>"
+   "perfilado, estándar.</li><li><b>Doble guía de vástago - superior</b>: diseño de válvula de globo en el "
+   "que el obturador o el vástago se apoya y se alinea en dos puntos de guiado separados, ubicados en la parte "
+   "superior del conjunto (por encima de la corriente del fluido). Usa los factores del obturador contorneado; "
+   "la característica la define el perfil del obturador.</li><li><b>Jaula caracterizada de 4 ventanas</b>: guiado estable.</li>"
    "<li><b>Jaula de orificios</b> (60 o 120): anticavitación de etapa simple; bajo Fd retrasa la "
    "cavitación.</li><li><b>Multietapa</b>: divide la caída de presión, para cavitación severa.</li><li><b>Bola</b>: paso completo o reducido a 70° (rango de control recomendado) o 90° (máxima capacidad, FL y xT muy bajos); segmentada con V de 90°, 60° o 30° (menos capacidad y más rangeabilidad cuanto más cerrada la V). Solo la bola de paso total a 70° y la segmentada de 90° tienen factores en IEC 60534-2-1; el resto son estimaciones a confirmar con el fabricante.</li><li><b>Tapón excéntrico</b>: flujo que tiende a abrir (FL 0,85) o a cerrar (FL 0,68).</li></ul>"
    "<p><b>Sentido de flujo</b> (lo que más confunde):</p><ul>"

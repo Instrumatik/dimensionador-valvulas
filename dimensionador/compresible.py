@@ -89,7 +89,7 @@ def _err(caso, codigo, titulo, texto):
     return Alerta(codigo, Severidad.ERROR, titulo, f"Caso {caso}: {texto}")
 
 
-def resolver_estado(c: CasoGas, tipo: str, fluido: str | None) -> Estado:
+def resolver_estado(c: CasoGas, tipo: str, fluido: str | None, composicion: dict | None = None) -> Estado:
     """Completa las propiedades de un caso. Los datos del usuario tienen prioridad."""
     errores = []
     if c.P2 >= c.P1:
@@ -101,7 +101,7 @@ def resolver_estado(c: CasoGas, tipo: str, fluido: str | None) -> Estado:
     p1 = None
     if biblio and c.T1 is not None and None in (c.M, c.mu, c.gamma, c.Z1 if tipo == "gas" else c.rho1):
         try:
-            p1 = propiedades.gas(biblio, c.P1, c.T1)
+            p1 = propiedades.gas(biblio, c.P1, c.T1, composicion=composicion)
         except propiedades.ErrorPropiedades as e:
             raise ErrorDatos([_err(c.nombre, "dato_propiedades", "Propiedades del fluido", str(e))]) from None
     M = c.M or (p1.M if p1 else None)
@@ -135,7 +135,7 @@ def resolver_estado(c: CasoGas, tipo: str, fluido: str | None) -> Estado:
     if biblio and (T2 is None or (Z2 is None and tipo == "gas") or (rho2 is None and tipo == "vapor")):
         try:
             CP = propiedades.CP
-            n = propiedades._cp_nombre(biblio)
+            n = propiedades._cp_nombre(biblio, composicion)
             h1 = CP.PropsSI("H", "T", T1, "P", c.P1 * 1000, n)
             T2c = CP.PropsSI("T", "H", h1, "P", c.P2 * 1000, n) if T2 is None else T2
             T2 = T2c

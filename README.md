@@ -17,7 +17,9 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
 2. **2-Cálculos Válvula**: fluido, caudal volumétrico o másico, P1, P2, T1, gravedad específica,
    viscosidad, Pv y Pc para los casos mínimo, normal y máximo; calidad / variante del fluido (por ejemplo,
    agua de mar, que corrige SG, μ y Pv por salinidad) y agua libre, que también usa la selección de materiales; tipo de trim con sus factores
-   típicos FL, Fd y Kc (editables), diámetro de válvula y Cv nominal. Los diámetros y cédulas
+   típicos FL, Fd y Kc (editables), diámetro de válvula y Cv nominal. **Gas natural** (v0.11.0) con composición
+   molar editable: M, μ, κ, Z1, T2 y Z2 salen de la ecuación de estado multicomponente. Trim «Doble guía de vástago
+   - superior». En los trims contorneados lineal e isoporcentual la característica inherente la fija el trim. Los diámetros y cédulas
    de tubería se copian desde 1-Sistema. El programa informa el tamaño del trim (diámetro del puerto) en
    pulgadas y milímetros, la carrera nominal del vástago y la carrera de operación de cada caso (en las
    rotativas, la rotación del eje); si se cargan el puerto y la carrera certificados, reemplazan a los estimados.

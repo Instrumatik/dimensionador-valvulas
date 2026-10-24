@@ -187,6 +187,38 @@ GUIA = {
              'de válvula.'),
         ],
     },
+    'composicion_gn': {
+        'que_es': ('Es la cromatografía del gas natural: el % molar de metano, etano, propano, '
+                   'nitrógeno, CO₂ y demás componentes de la mezcla.'),
+        'que_hace': ('Con «Gas natural» en la lista, N25 calcula con ella la masa molar, la '
+                     'viscosidad, el exponente isoentrópico y Z1 a la entrada, y T2 y Z2 a la salida '
+                     'por expansión isoentálpica (ecuación de estado multicomponente HEOS de '
+                     'CoolProp).'),
+        'que_indica': ('Más etano, propano y butanos suben la masa molar y bajan Z; más N₂ y CO₂ '
+                       'reducen el poder calorífico pero cambian poco la hidráulica.'),
+        'umbrales': ('La suma debe ser 100 %; entre 95 y 105 % se normaliza. Gas de gasoducto '
+                     'típico: metano 85–96 %, etano 2–8 %, propano 0,5–3 %.'),
+        'por_debajo': ('Si falta un componente pesado de la cromatografía, M y la densidad salen '
+                       'bajas y el Cv requerido algo menor que el real.'),
+        'por_encima': ('Si se sobrestiman los pesados, M y la densidad salen altas y el Cv '
+                       'requerido algo mayor.'),
+        'ejemplo': ('90 % metano, 5 % etano, 2 % propano, 1 % butanos, 1 % N₂ y 1 % CO₂, de 70 a '
+                    '20 bar a desde 27 °C: Z1 ≈ 0,86, T2 ≈ 2 °C y Z2 ≈ 0,94. Con metano puro T2 '
+                    'sería ≈ 5 °C.'),
+        'afecta': [
+            'Masa molar y densidad',
+            'Viscosidad y número de Reynolds',
+            'Exponente isoentrópico y flujo crítico',
+            'Z1, T2 y Z2',
+            'Ruido aerodinámico y velocidades',
+        ],
+        'recomendaciones': [
+            'Cargue la cromatografía del proyecto; la composición por defecto es solo típica.',
+            'Si hay H₂S o CO₂, declárelos además como agentes en 3-Materiales (ISO 15156).',
+            ('Con gas húmedo o cerca del punto de rocío use «Definido por el usuario» con los datos '
+             'del simulador: N25 trata la mezcla como gas.'),
+        ],
+    },
     'caudal': {
         'que_es': ('Es la cantidad de fluido por unidad de tiempo que la válvula debe dejar pasar '
                    'en cada caso. Puede expresarse en volumen (m³/h, gpm), en masa (kg/h, lb/h) o '
@@ -946,7 +978,10 @@ GUIA = {
                    ' y apertura rápida.'),
         'que_hace': ('Se usa para convertir la relación Kv requerido/Kv nominal en una apertura '
                      'estimada y para evaluar si la válvula controlará con ganancia razonable en '
-                     'todo el rango.'),
+                     'todo el rango. No repite el «Tipo de trim»: el trim da los factores FL, xT, Fd y '
+                     'Kc, y la característica da la curva de apertura. Con los trims contorneados lineal '
+                     'o isoporcentual la curva la fija el obturador y N25 la toma del trim (lista '
+                     'bloqueada); con jaulas, doble guía superior, ángulo y rotativas se elige aquí.'),
         'que_indica': ('Indica cómo responderá el lazo: en isoporcentual la ganancia crece con la '
                        'apertura y compensa la caída de ΔP del sistema al subir el caudal; en '
                        'lineal la ganancia es constante si el ΔP de la válvula es casi constante.'),
@@ -1076,9 +1111,11 @@ GUIA = {
         ],
     },
     'dPchoked': {
-        'que_es': ('Es la caída de presión máxima que todavía aumenta el caudal de líquido. Al '
-                   'superarla, la vena contracta ya está a la presión de vaporización y el caudal '
-                   'no crece aunque baje P2.'),
+        'que_es': ('Es la caída de presión máxima que todavía aumenta el caudal. En líquidos, al '
+                   'superarla la vena contracta ya está a la presión de vaporización y el caudal '
+                   'no crece aunque baje P2. En gases es ΔPchoked = Fγ·xTP·P1, la caída a la que el '
+                   'gas llega a velocidad sónica: es una presión, mientras que xT es la relación '
+                   'ΔP/P1 (sin unidades) que la define.'),
         'que_hace': ('El programa compara el ΔP real con ΔPchoked: si ΔP ≥ ΔPchoked, usa ΔPchoked '
                      'para calcular el Cv requerido y señala flujo bloqueado (cavitación plena o '
                      'flashing).'),
@@ -2893,6 +2930,10 @@ GUIA = {
         ],
         'recomendaciones': [
             'Comparar Kapp con el Kc de cada trim antes de elegir.',
+            ('Doble guía de vástago - superior: diseño de válvula de globo en el que el obturador o '
+             'el vástago se apoya y se alinea en dos puntos de guiado separados, ubicados en la parte '
+             'superior del conjunto (por encima de la corriente del fluido). Da buena alineación sin '
+             'guías dentro de la zona de flujo; usa los factores del obturador contorneado.'),
             ('Usar flujo que tiende a abrir (de adentro hacia afuera en jaulas) salvo que haya '
              'flashing o un motivo del fabricante.'),
             ('Flujo que tiende a cerrar: más estable con ΔP baja pero puede producir golpe al '

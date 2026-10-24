@@ -204,7 +204,7 @@ def _tabla_salidas(res: Resultado, pr: Presentacion, completa=True):
         _fila("Coef. de cavitación de la aplicación Kapp", "-", [x["Kapp"] for x in s], cifras=3),
         _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
         _fila("Relación ΔP/P1", "-", [x["dP_P1"] for x in s], cifras=3),
-        _fila("ΔP de flujo estrangulado (ΔP choked)", "", [x["dPchoked"] for x in s], pr, "presion_dif"),
+        _fila("ΔP crítica de flujo estrangulado (ΔP choked)", "", [x["dPchoked"] for x in s], pr, "presion_dif"),
         _fila("ΔP de inicio de cavitación (ΔP cav)", "", [x["dPcav"] for x in s], pr, "presion_dif"),
         _fila("ΔP de cavitación incipiente (xFzp1)", "", [x["dPinc"] for x in s], pr, "presion_dif"),
         _fila("Condición", "", [x["condicion"] for x in s]),
@@ -504,6 +504,9 @@ def _nombre_fluido(res: Resultado) -> str:
     if d.tipo == "steam":
         return "Agua, vapor (propiedades IAPWS-95)"
     t = d.fluido or "Definido por el usuario"
+    if d.fluido == "Gas natural":
+        from .propiedades import GN_TIPICO, texto_composicion
+        t += f" (% molar: {texto_composicion({k: round(v, 3) for k, v in (d.composicion or GN_TIPICO).items()})})"
     if d.variante:
         t += f" — {d.variante}"
     if d.agua_libre and d.agua_libre != "Sí" and d.tipo != "liquido":
@@ -595,7 +598,7 @@ def _salidas_compresible(doc: Documento, res: Resultado, pr: Presentacion, compl
            otro,
            _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
            _fila("Relación de caída de presión x = ΔP/P1", "-", [x["x"] for x in s], cifras=3),
-           _fila("ΔP de flujo estrangulado (ΔP choked)", "", [x["dPchoked"] for x in s], pr, "presion_dif"),
+           _fila("ΔP crítica de flujo estrangulado (ΔP choked)", "", [x["dPchoked"] for x in s], pr, "presion_dif"),
            _fila("Factor de tubería Fp", "-", [x["FP"] for x in s], cifras=3),
            _fila("Factor de recuperación combinado FLp", "-", [x["FLP"] for x in s], cifras=3),
            _fila("Factor xT ajustado xTP", "-", [x["xTP"] for x in s], cifras=3)]

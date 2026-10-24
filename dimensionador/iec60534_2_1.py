@@ -438,8 +438,9 @@ def dimensionar_gas(f: Gas, v: Valvula) -> Resultado:
     m.agregar("C_turb", "Kv requerido en régimen turbulento", C_t, "m³/h",
               "W/(N6·FP·Y·√(xs·P1·ρ1))", f"{REF} ec. (10)")
 
-    Qreal = W / rho1
-    nu = f.mu / rho1
+    Qreal = m.agregar("Q", "Caudal volumétrico real a la entrada (para Rev)", W / rho1, "m³/h", "W/ρ1",
+                      f"{REF} cláusula 9, nota 1: caudal real, no normal ni estándar")
+    nu = m.agregar("ν", "Viscosidad cinemática a la entrada", f.mu / rho1, "m²/s", "μ/ρ1")
     Rev = reynolds_valvula(Qreal, nu, C_t, v)
     FR, C, regimen = 1.0, C_t, "turbulento"
     if Rev < 10000:

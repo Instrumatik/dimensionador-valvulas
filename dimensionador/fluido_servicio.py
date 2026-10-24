@@ -55,7 +55,7 @@ VARIANTES_USUARIO = {
     },
 }
 # Familia de los fluidos de la biblioteca (el nombre ya define el fluido)
-_HC = {"Metano", "Etano", "Propano", "n-Butano", "Isobutano", "n-Pentano", "n-Hexano", "n-Heptano",
+_HC = {"Gas natural", "Metano", "Etano", "Propano", "n-Butano", "Isobutano", "n-Pentano", "n-Hexano", "n-Heptano",
        "Etileno", "Propileno", "Benceno", "Tolueno"}
 _SOLV = {"Metanol", "Etanol"}
 # Gases de la biblioteca que se suponen secos salvo indicación del usuario

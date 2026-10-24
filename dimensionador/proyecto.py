@@ -13,7 +13,7 @@ from dataclasses import dataclass, field, replace
 
 from . import anticavitacion as AC
 from . import asme_b16_34, compresible as CG, tuberias
-from .estilos import ANTICAVITACION, CUERPOS, ESTILOS, TAMANOS, apertura_requerida
+from .estilos import ANTICAVITACION, CARACTERISTICA_FIJA, CUERPOS, ESTILOS, TAMANOS, apertura_requerida
 from .iec60534_2_1 import RHO_AGUA_15C, Liquido, factor_FLP
 from . import ruido
 from .modelos import _n, Alerta, ErrorDatos, Severidad, fdP, fP, fT, fV
@@ -124,6 +124,12 @@ class Dimensionamiento:
     carrera_mm: float | None = None    # carrera nominal certificada (None = estimada)
     Cv_reducido_cert: float | None = None   # Cv certificado del trim reducido (None = estimado por el puerto)
     anticav: str = "estandar"          # clave de anticavitacion.TRIMS (solo líquidos)
+    composicion: dict | None = None    # % molar del gas natural (None = típica, propiedades.GN_TIPICO)
+
+    def __post_init__(self):
+        # Con un trim contorneado lineal o isoporcentual la característica es la que fija su obturador
+        if self.trim in CARACTERISTICA_FIJA:
+            self.caracteristica = ESTILOS[self.trim].caracteristica
 
     @property
     def compresible(self) -> bool:
@@ -644,8 +650,13 @@ def _guia_obturador(dim, dP_max, nps) -> str:
     """Texto de guía y balanceo del obturador para el informe (cuerpos de vástago deslizante)."""
     conviene = dP_max > DP_BALANCE and nps >= 3
     jaula = "jaula" in dim.trim or "multietapa" in dim.trim
-    base = ("Obturador guiado por jaula" if jaula else
-            "Obturador contorneado guiado superior (o superior y por puerto en diámetros grandes)")
+    if jaula:
+        base = "Obturador guiado por jaula"
+    elif dim.trim == "globo_doble_guia_superior":
+        base = ("Obturador contorneado con doble guía de vástago superior (dos puntos de guiado por encima "
+                "de la corriente del fluido)")
+    else:
+        base = "Obturador contorneado guiado superior (o superior y por puerto en diámetros grandes)"
     if dim.balanceado is None:
         return base + (", balanceado (reduce la fuerza del actuador; verificar que el sello de balanceo "
                        "cumpla la clase de cierre)." if conviene and jaula else ".")
@@ -892,7 +903,7 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
     if errores:
         raise ErrorDatos(errores)
     fluido = "Agua / vapor de agua" if dim.tipo == "steam" else dim.fluido
-    estados = [CG.resolver_estado(c, dim.tipo, fluido) for c in dim.casos]
+    estados = [CG.resolver_estado(c, dim.tipo, fluido, dim.composicion) for c in dim.casos]
 
     cuerpo = CUERPOS[inst.cuerpo]
     estilo = replace(ESTILOS[dim.trim], caracteristica=dim.caracteristica)

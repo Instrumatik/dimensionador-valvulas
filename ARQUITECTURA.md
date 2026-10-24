@@ -71,6 +71,7 @@ tests/              Validación contra ejemplos de las normas
 | 5. Ejecutables Windows, macOS y Linux por GitHub Actions, con prueba de cálculo y de ventana | Hecho |
 | 7. Materiales (v0.7.0): selección por componente, galling, NACE, dureza por cavitación, biblioteca y ayuda | Hecho, en validación |
 | 8. Actuador, posicionador y accesorios (v0.9.0): fuerza/par, resorte, aire, vástago, señales y solenoide | Hecho, en validación |
+| 9. Gas natural como mezcla (v0.11.0): composición molar editable, propiedades HEOS de CoolProp, T2 y Z2 isoentálpicos | Hecho |
 | 6. Versión 2 (solo líquidos): flujo 1-Sistema → 2-Cálculos Válvula, tuberías por cédula, Kc/Kapp, entregables Word e impresión, marca N25 Valves Sizing | Hecho, en validación |
 
 ## Próximos pasos sugeridos
