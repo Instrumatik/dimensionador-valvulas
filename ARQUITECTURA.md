@@ -96,7 +96,7 @@ certificados de la válvula ofertada.
 
 ## Validación actual
 
-`python -m pytest tests` (171 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
+`python -m pytest tests` (177 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
 IEC 60534-2-1:2011 reproducidos:
 
 | Ejemplo | Norma | Programa |

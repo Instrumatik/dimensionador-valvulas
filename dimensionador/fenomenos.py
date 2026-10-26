@@ -274,9 +274,23 @@ def evaluar_erosional(v_ms: float, rho_kgm3: float, donde: str, C: float = 100.0
 # ---------------------------------------------------------------------------
 # Selección: apertura
 # ---------------------------------------------------------------------------
-def evaluar_apertura(h: float, caracteristica: str, caso: str = "máximo") -> list[Alerta]:
+def evaluar_apertura(h: float, caracteristica: str, caso: str = "máximo",
+                     bajo_minimo: tuple[float, float, float] | None = None) -> list[Alerta]:
+    """``bajo_minimo`` = (Cv requerido, Cv mínimo controlable, rangeabilidad) cuando el Cv pedido queda por
+    debajo del mínimo controlable: la apertura calculada (0 %) no tiene sentido físico."""
     alertas = []
     pct = h * 100
+    if bajo_minimo is not None:
+        Cv, Cv_min, R = bajo_minimo
+        alertas.append(Alerta(
+            "bajo_cv_minimo", Severidad.ADVERTENCIA, "Caudal por debajo del Cv mínimo controlable",
+            f"Con el caudal {caso} el Cv requerido ({_n(Cv, 3)}) es menor que el Cv mínimo controlable de la "
+            f"válvula ({_n(Cv_min, 3)} = Cv nominal / rangeabilidad {_n(R, 0)}). La válvula no puede regular "
+            "ese caudal: trabajaría pegada al asiento, abriendo y cerrando, con desgaste rápido del asiento.",
+            remedios=["Seleccionar un diámetro menor o internos de capacidad reducida.",
+                      "Instalar una válvula chica en paralelo para el caudal bajo (split range).",
+                      "Usar un trim de mayor rangeabilidad (isoporcentual)."]))
+        return alertas
     if h > 1.0:
         alertas.append(Alerta(
             "subdimensionada", Severidad.CRITICA, "Válvula subdimensionada",

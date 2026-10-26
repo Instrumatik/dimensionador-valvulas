@@ -788,8 +788,11 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         i = max(range(len(sal)), key=lambda i: sal[i]["Cv"])
         self.kpi["Cv"][0].setText(fmt(sal[i]["Cv"]))
         self.kpi["Cv"][1].setText(f"caso {nombres[i]}")
-        ap = [s["apertura"] * 100 for s in sal if s.get("apertura") is not None]
-        if ap:
+        ap = [s["apertura"] * 100 for s in sal if s.get("apertura") is not None and not s.get("bajo_cv_minimo")]
+        if any(s.get("bajo_cv_minimo") for s in sal):
+            self.kpi["apertura"][0].setText(f"{E.BAJO_MINIMO} – {max(ap):.0f} %" if ap else E.BAJO_MINIMO)
+            self.kpi["apertura"][1].setText("del recorrido, mín. a máx.")
+        elif ap:
             self.kpi["apertura"][0].setText(f"{min(ap):.0f} – {max(ap):.0f} %")
             self.kpi["apertura"][1].setText("del recorrido, mín. a máx.")
         ruido = [(s["Lp"], n) for s, n in zip(sal, nombres) if s.get("Lp") is not None]
@@ -1920,9 +1923,14 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                         txt = pr.v(v, mag, fs.cifras)
                     else:
                         txt = fmt(v, fs.cifras)
+                    if k in ("apertura", "carrera") and s.get("bajo_cv_minimo"):
+                        txt = E.BAJO_MINIMO
                 c = fs.celdas[j]
                 c.setText(txt)
                 c.setToolTip(txt if mag == "texto" else "")
+                if txt == E.BAJO_MINIMO:
+                    c.setToolTip(f"Cv requerido menor que el Cv mínimo controlable de la válvula "
+                                 f"({fmt(s.get('Cv_minimo'), 3)}): ver la alerta.")
                 if mag == "texto":
                     c.setAlignment(Qt.AlignLeft)
                     c.setCursorPosition(0)

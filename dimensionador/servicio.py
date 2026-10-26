@@ -9,6 +9,7 @@ from dataclasses import dataclass, field, replace
 
 from . import anticavitacion, asme_b16_34, fenomenos, propiedades, ruido
 from .estilos import ESTILOS, TAMANOS, EstiloValvula, apertura_requerida, espesor_pared, kv_nominal
+from .unidades import kv_a_cv
 from .iec60534_2_1 import (Bifasico, CapacidadInsuficiente, Gas, Liquido, Resultado, Valvula,
                            dimensionar_bifasico, dimensionar_gas, dimensionar_liquido, factor_FLP,
                            factor_FP)
@@ -121,8 +122,7 @@ def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> Res
         if sel.calcular_ruido:
             alertas.append(Alerta("ruido_no_calculado", Severidad.INFO, "Ruido no calculado en bifásico",
                                   "Las normas IEC 60534-8 no cubren el ruido de flujos bifásicos."))
-        h = apertura_requerida(r.Kv / Kv_nom, sel.estilo.caracteristica, sel.estilo.rangeabilidad)
-        alertas += fenomenos.evaluar_apertura(h, sel.estilo.caracteristica, caso.nombre.lower())
+        h = _apertura(r, Kv_nom, sel, caso, datos, alertas)
         return ResultadoCaso(caso, r, h, alertas, datos)
     if isinstance(e, Liquido):
         r = dimensionar_liquido(e, v)
@@ -170,9 +170,22 @@ def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> Res
         except (ValueError, ZeroDivisionError, OverflowError) as ex:
             alertas.append(Alerta("ruido_no_calculado", Severidad.INFO, "Ruido no calculado",
                                   f"No se pudo estimar el ruido con estos datos ({ex})."))
-    h = apertura_requerida(r.Kv / Kv_nom, sel.estilo.caracteristica, sel.estilo.rangeabilidad)
-    alertas += fenomenos.evaluar_apertura(h, sel.estilo.caracteristica, caso.nombre.lower())
+    h = _apertura(r, Kv_nom, sel, caso, datos, alertas)
     return ResultadoCaso(caso, r, h, alertas, datos)
+
+
+def _apertura(r: Resultado, Kv_nom: float, sel: Seleccion, caso: Caso, datos: dict, alertas: list) -> float:
+    """Apertura requerida y, si el Cv pedido queda por debajo del mínimo controlable (Cv nominal/R en las
+    características lineal e isoporcentual), la marca para que no se lea como «0 %» de apertura."""
+    car, R = sel.estilo.caracteristica, sel.estilo.rangeabilidad
+    h = apertura_requerida(r.Kv / Kv_nom, car, R)
+    Kv_min = Kv_nom / R if car in ("lineal", "isoporcentual") else 0.0
+    bajo = r.Kv > 0 and r.Kv < Kv_min
+    datos["bajo_cv_minimo"] = bajo
+    datos["Cv_minimo"] = kv_a_cv(Kv_min) if Kv_min else None
+    alertas += fenomenos.evaluar_apertura(h, car, caso.nombre.lower(),
+                                          (kv_a_cv(r.Kv), kv_a_cv(Kv_min), R) if bajo else None)
+    return h
 
 
 def _ruido(caso: Caso, r: Resultado, v: Valvula, sel: Seleccion, datos: dict) -> list[Alerta]:

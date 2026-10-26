@@ -4257,3 +4257,23 @@ GUIA["capacidad_trim"] = {
     'ejemplo': ('Jaula de 6": típico 394 lineal (fabricantes 370 a 417). Un Cv certificado de 430 difiere +9 % '
                 '(coherente); uno de 520, +32 % y fuera de la banda: advertencia.'),
 }
+
+GUIA["bajo_cv_minimo"] = {
+    'que_es': ('Es la alerta que aparece cuando el Cv que pide un caso es menor que el Cv mínimo que la '
+               'válvula puede regular (Cv nominal dividido por su rangeabilidad).'),
+    'que_hace': ('Reemplaza la apertura y la carrera de ese caso por «< Cv mín.», para que no se lea un 0 % '
+                 'como si fuera un resultado válido.'),
+    'que_indica': ('La válvula es demasiado grande para ese caudal: no tiene una posición que dé ese Cv y '
+                   'trabajaría abriendo y cerrando sobre el asiento.'),
+    'umbrales': 'Cv requerido < Cv nominal / R (R ≈ 50 globo estándar; 15 orificios; 33 multietapa).',
+    'por_debajo': 'Control de dos posiciones, golpeteo del obturador y erosión rápida del asiento.',
+    'por_encima': 'No aplica.',
+    'afecta': ['Apertura y carrera del caso', 'Selección del tamaño', 'Rangeabilidad'],
+    'recomendaciones': [
+        'Seleccionar un diámetro menor o un trim reducido.',
+        'Para caudales muy distintos, dos válvulas en paralelo (split range).',
+        'Un trim isoporcentual da más resolución a caudal bajo.',
+    ],
+    'ejemplo': ('Jaula de 3" lineal, Cv 142, R 50: el Cv mínimo es 2,8. Un caso con Cv 2,5 queda por debajo; '
+                'con un trim reducido de Cv 40 el mínimo baja a 0,8 y el caso se puede regular.'),
+}

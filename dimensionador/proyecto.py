@@ -483,6 +483,7 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
             "Q": Q, "W": Q * e.rho1, "Lp": d.get("ruido_LpAe1m"),
             "v1": Q / 3600 / _area(D1), "v2": Q / 3600 / _area(D2),
             "v_valvula": d.get("v_salida_valvula"), "apertura": rc.apertura,
+            "bajo_cv_minimo": d.get("bajo_cv_minimo", False), "Cv_minimo": d.get("Cv_minimo"),
             "condicion": d.get("regimen", ""), "bloqueado": r.bloqueado, "regimen_flujo": r.regimen,
             "calidad": d.get("calidad_salida"), "sigma": d.get("sigma"),
         })
@@ -1098,6 +1099,7 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
         rc.alertas = al
         salidas.append({
             "Cv": r.Cv, "Kv": r.Kv, "apertura": rc.apertura, "FL": c.FL, "Fd": c.Fd, "xT": c.xT,
+            "bajo_cv_minimo": rc.datos.get("bajo_cv_minimo", False), "Cv_minimo": rc.datos.get("Cv_minimo"),
             "W": W, "QN": W / CG.densidad_normal(e.M), "Q1": Q1,
             "dP": c.P1 - c.P2, "dP_P1": x["x"], "x": x["x"], "FP": r.FP, "FLP": FLP, "xTP": x["xTP"],
             "Fgamma": x["Fgamma"], "xchoked": x["xchoked"], "dPchoked": x["xchoked"] * c.P1,

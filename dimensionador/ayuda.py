@@ -625,6 +625,18 @@ _e("apertura_baja", "Válvula sobredimensionada",
    "inestable, el desgaste por alta velocidad es mayor y la fricción de la empaquetadura "
    "domina el movimiento.</p>", relacionadas=["apertura"], categoria="Fenómenos")
 
+_e("bajo_cv_minimo", "Caudal por debajo del Cv mínimo controlable",
+   "<p>Toda válvula tiene un Cv mínimo por debajo del cual no puede regular: Cv mínimo = Cv nominal / R, "
+   "donde R es la rangeabilidad inherente del trim (≈ 50 en globo estándar, ≈ 15 en jaulas de orificios, "
+   "≈ 33 en multietapa). Si el caso pide un Cv menor, la curva característica no tiene una carrera que "
+   "lo dé: el obturador quedaría apoyado en el asiento, abriendo y cerrando (control de dos posiciones), "
+   "con erosión del asiento por la velocidad en la ranura mínima.</p>"
+   "<p>En ese caso N25 muestra «&lt; Cv mín.» en la apertura y la carrera, en lugar de 0 %, que se "
+   "podría leer como un resultado válido.</p>",
+   formula="Cv mínimo = Cv nominal / R",
+   tipicos="Jaula de 3\" lineal, Cv 142, R 50: Cv mínimo ≈ 2,8",
+   relacionadas=["apertura", "apertura_baja", "Kv_nominal", "caracteristica"], categoria="Fenómenos")
+
 _e("kv_tipico", "Capacidad nominal típica",
    "<p>La capacidad nominal usada para la apertura es un valor típico del estilo genérico, no de "
    "un producto. Cargue el Kv o Cv certificado y fije el diámetro para verificar una válvula "

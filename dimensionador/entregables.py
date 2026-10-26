@@ -118,8 +118,18 @@ def _fila_carrera(res, pr: Presentacion):
     """Carrera de operación en la unidad elegida (mm o in), o rotación del eje en grados."""
     s = res.salidas
     if res.geometria.rotativa:
-        return _fila("Rotación de operación", "°", [x["rotacion"] for x in s], cifras=3)
-    return _fila("Carrera de operación", "", [x["carrera_mm"] for x in s], pr, "carrera", 3)
+        f = _fila("Rotación de operación", "°", [x["rotacion"] for x in s], cifras=3)
+    else:
+        f = _fila("Carrera de operación", "", [x["carrera_mm"] for x in s], pr, "carrera", 3)
+    return f[:2] + [BAJO_MINIMO if x.get("bajo_cv_minimo") else v for x, v in zip(s, f[2:])]
+
+
+def _ap(x: dict):
+    """Apertura en %, o el aviso de Cv por debajo del mínimo controlable (no «0 %»)."""
+    return BAJO_MINIMO if x.get("bajo_cv_minimo") else x["apertura"] * 100
+
+
+BAJO_MINIMO = "< Cv mín."
 
 
 def _fila(et, unidad, valores, pr: Presentacion | None = None, magnitud=None, cifras=4):
@@ -200,7 +210,7 @@ def _tabla_salidas(res: Resultado, pr: Presentacion, completa=True):
     s = res.salidas
     f = [
         _fila("Coeficiente de caudal Cv", "-", [x["Cv"] for x in s]),
-        _fila("Apertura estimada", "%", [x["apertura"] * 100 for x in s], cifras=3),
+        _fila("Apertura estimada", "%", [_ap(x) for x in s], cifras=3),
         _fila_carrera(res, pr),
         _fila("Coef. de cavitación de la aplicación Kapp", "-", [x["Kapp"] for x in s], cifras=3),
         _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
@@ -318,7 +328,7 @@ def memoria(res: Resultado, pr: Presentacion) -> Documento:
         ["xFzp1 = xFz·(6·10⁵/P1)^0,125 (cavitación incipiente)", "-", *[fmt(x["xFzp1"], 3) for x in s]],
         *([["k = 1 − ((P2 − Pv)/(P1 − Pv))^(1/N), Kapp por etapa", "-",
             *[fmt(x.get("k_etapa"), 3) for x in s]]] if _etapas(res) > 1 else []),
-        ["Apertura para Cv requerido", "%", *[fmt(x["apertura"] * 100, 3) for x in s]],
+        ["Apertura para Cv requerido", "%", *[fmt(_ap(x), 3) for x in s]],
         [_ecuacion_carrera(res), *_fila_carrera(res, pr)[1:]],
         ["LpAe,1m (IEC 60534-8-4" + (", última etapa)" if _etapas(res) > 1 else ")"), "dB(A)",
          *[fmt(x["Lp"], 3) for x in s]],
@@ -361,7 +371,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         _fila("Presión crítica Pc", "", [d.Pc] * len(s), pr, "presion_abs"),
         _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
         _fila("Cv requerido", "-", [x["Cv"] for x in s]),
-        _fila("Apertura", "%", [x["apertura"] * 100 for x in s], cifras=3),
+        _fila("Apertura", "%", [_ap(x) for x in s], cifras=3),
         _fila_carrera(res, pr),
         _fila("Kapp / Kc", "-", [f"{fmt(x['Kapp'], 3)} / {fmt(x['Kc'], 3)}" for x in s]),
         _fila("Condición", "", [x["condicion"] for x in s]),
@@ -595,7 +605,7 @@ def _salidas_compresible(doc: Documento, res: Resultado, pr: Presentacion, compl
     else:
         otro = _fila("Caudal volumétrico estándar", "", [x["QN"] for x in s], pr, "caudal_gas_std")
     dim = [_fila("Coeficiente de caudal Cv", "-", [x["Cv"] for x in s]),
-           _fila("Apertura estimada", "%", [x["apertura"] * 100 for x in s], cifras=3),
+           _fila("Apertura estimada", "%", [_ap(x) for x in s], cifras=3),
         _fila_carrera(res, pr),
            otro,
            _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
@@ -691,7 +701,7 @@ def memoria_compresible(res: Resultado, pr: Presentacion) -> Documento:
         ["Rev = N4·Fd·Q/(ν·√(C·FL))·(FL²·C²/(N2·D⁴) + 1)^¼", "-", *[fmt(x["Rev"]) for x in s]],
         ["FR (factor de Reynolds)", "-", *[fmt(x["FR"], 3) for x in s]],
         ["Cv = Kv/0,865 (÷FR si Rev < 10⁴)", "-", *[fmt(x["Cv"]) for x in s]],
-        ["Apertura para Cv requerido", "%", *[fmt(x["apertura"] * 100, 3) for x in s]],
+        ["Apertura para Cv requerido", "%", *[fmt(_ap(x), 3) for x in s]],
         [_ecuacion_carrera(res), *_fila_carrera(res, pr)[1:]],
         ["c = √(γ·P/ρ) aguas arriba / aguas abajo", pr.un("velocidad"),
          *[f"{pr.v(x['c1'], 'velocidad')} / {pr.v(x['c2'], 'velocidad')}" for x in s]],
@@ -734,7 +744,7 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
     filas = _tabla_entradas_compresible(res, pr) + [
         _fila("Presión diferencial ΔP", "", [x["dP"] for x in s], pr, "presion_dif"),
         _fila("Cv requerido", "-", [x["Cv"] for x in s]),
-        _fila("Apertura", "%", [x["apertura"] * 100 for x in s], cifras=3),
+        _fila("Apertura", "%", [_ap(x) for x in s], cifras=3),
         _fila_carrera(res, pr),
         _fila("Tipo de cálculo", "", [x["tipo_calculo"] for x in s]),
         _fila("Ruido de la válvula LpA a 1 m", "dB(A)", [x["Lp"] for x in s], cifras=3),
