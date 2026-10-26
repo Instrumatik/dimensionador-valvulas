@@ -978,10 +978,11 @@ GUIA = {
                    ' y apertura rápida.'),
         'que_hace': ('Se usa para convertir la relación Kv requerido/Kv nominal en una apertura '
                      'estimada y para evaluar si la válvula controlará con ganancia razonable en '
-                     'todo el rango. No repite el «Tipo de trim»: el trim da los factores FL, xT, Fd y '
-                     'Kc, y la característica da la curva de apertura. Con los trims contorneados lineal '
-                     'o isoporcentual la curva la fija el obturador y N25 la toma del trim (lista '
-                     'bloqueada); con jaulas, doble guía superior, ángulo y rotativas se elige aquí.'),
+                     'todo el rango. No repite el «Estilo de trim»: el estilo da la geometría y los factores '
+                     'FL, xT, Fd y Kc, el sentido de flujo se elige en su propia fila, y la característica da '
+                     'la curva de apertura y corrige el Cv nominal según la familia. En válvulas de vástago se '
+                     'elige lineal, isoporcentual o apertura rápida para cualquier estilo; en rotativas la '
+                     'fija el elemento de cierre.'),
         'que_indica': ('Indica cómo responderá el lazo: en isoporcentual la ganancia crece con la '
                        'apertura y compensa la caída de ΔP del sistema al subir el caudal; en '
                        'lineal la ganancia es constante si el ΔP de la válvula es casi constante.'),
@@ -4168,9 +4169,9 @@ GUIA["trim_size"] = {
                  'el juego de internos y el que se pide en la hoja de datos.'),
     'que_indica': ('Un puerto menor que el pleno indica un trim reducido: la válvula tiene más capacidad de la que '
                    'el servicio necesita y se achica el paso para controlar mejor.'),
-    'umbrales': ('Puerto pleno típico de globo: 1" → 1 5/16", 1½" → 1 7/8", 2" → 2 5/16", 3" → 3 7/16", '
-                 '4" → 4 3/8", 6" → 7", 8" → 8", interpolado entre tamaños. El programa redondea al 1/16 in y '
-                 'lo informa también en mm.'),
+    'umbrales': ('Puerto pleno típico (tabla de capacidad, mediana de fabricantes). Contorneado: 2" → 1 5/8", '
+                 '3" → 2 5/8", 4" → 3 1/2", 6" → 5", 8" → 6 1/4". Jaula: 3" → 3 7/16", 4" → 4 3/8", 6" → 6", '
+                 '8" → 7 1/4". El programa redondea al 1/16 in y lo informa también en mm.'),
     'por_debajo': 'Un puerto mucho menor que el pleno (trim reducido) aumenta la velocidad en el asiento.',
     'por_encima': 'No puede superar el puerto pleno del cuerpo.',
     'afecta': ['Carrera nominal estimada', 'Cv del trim reducido', 'Apertura estimada', 'Actuador', 'Hoja de datos',
@@ -4179,8 +4180,9 @@ GUIA["trim_size"] = {
         'Cargue el puerto certificado cuando tenga la hoja del fabricante.',
         'Si el Cv nominal es mucho menor que el típico, verifique que el fabricante ofrezca ese trim reducido.',
     ],
-    'ejemplo': ('Válvula de globo de 8": puerto pleno típico 8 in (203,2 mm). Un trim reducido con la '
-                'mitad del Cv tendría un puerto de unos 8 × √0,5 ≈ 5 5/8 in.'),
+    'ejemplo': ('Globo de 3" de jaula: pleno típico puerto 3 7/16 in, carrera 1 1/2 in, Cv 142 lineal. Con un '
+                'Cv nominal de 67 el programa propone el puerto de 2 5/16 in con carrera 1 1/8 in (puerto, carrera '
+                'y Cv van juntos).'),
 }
 GUIA["Cv_reducido"] = {
     'que_es': 'Es el Cv nominal del trim reducido: el de un asiento con puerto menor que el del trim completo del cuerpo.',
@@ -4188,17 +4190,17 @@ GUIA["Cv_reducido"] = {
                  'las alertas de tamaño y los documentos.'),
     'que_indica': ('Cuánta capacidad queda con el puerto reducido. Si es cercano al Cv máximo requerido, la válvula '
                    'trabaja en la zona media de la carrera y controla mejor.'),
-    'umbrales': ('Sin Cv certificado se estima: Cv reducido = Cv típico × (d reducido / d típico)². Se considera trim '
-                 'reducido cuando el puerto certificado es menor que el 97 % del típico.'),
+    'umbrales': ('Sin Cv certificado se estima con el puerto y la carrera (tabla de capacidad, dos restricciones en '
+                 'serie). Se considera trim reducido cuando el puerto certificado es menor que el 97 % del típico.'),
     'por_debajo': 'Si el Cv reducido es menor que el requerido, la válvula queda subdimensionada (alerta crítica).',
     'por_encima': 'Si sigue muy por encima del requerido, la apertura queda baja: conviene un puerto aún menor.',
     'afecta': ['Apertura estimada', 'Carrera de operación', 'Curva de Cv', 'Alertas de tamaño', 'Hoja de datos'],
     'recomendaciones': [
-        'Cargue el Cv certificado del fabricante: la relación de áreas suele subestimar el Cv de puertos chicos.',
+        'Cargue el Cv certificado del fabricante: el Cv de un reducido varía mucho entre fabricantes.',
         'Busque que el caso máximo quede entre 70 % y 85 % de apertura y el mínimo por encima de 10 %.',
     ],
-    'ejemplo': ('Globo de 1½" con trim completo típico de puerto 1 5/16" y Cv 31, con puerto reducido de ½": '
-                'Cv ≈ 31 × (0,5/1,3125)² ≈ 4,5.'),
+    'ejemplo': ('Globo de 3" de jaula con puerto reducido de 2 5/16" y carrera 1 1/8": Cv típico ≈ 67 (la relación '
+                'de áreas daba 49; los fabricantes publican de ≈ 40 a 102 para ese puerto).'),
 }
 GUIA["carrera_nominal"] = {
     'que_es': 'Es el recorrido total del vástago entre la válvula cerrada y abierta del todo (rated travel).',
@@ -4217,4 +4219,41 @@ GUIA["carrera_nominal"] = {
     ],
     'ejemplo': ('Globo de 4" con carrera nominal de 2 in (50,8 mm) y apertura de 62 %: carrera de operación '
                 '0,62 × 50,8 = 31,5 mm (1,24 in).'),
+}
+
+GUIA["sentido_flujo"] = {
+    'que_es': 'Es hacia dónde empuja el fluido al obturador: tiende a abrir (Up) o tiende a cerrar (Down).',
+    'que_hace': ('Elige los factores FL, xT y Fd del trim para ese sentido y fija el sentido de la fuerza del fluido '
+                 'en el cálculo del actuador. La fila «Flow» de la solapa 4 lo toma de aquí.'),
+    'que_indica': ('Con flujo que tiende a cerrar las burbujas de cavitación o flashing colapsan lejos del asiento, '
+                   'pero FL baja y el obturador puede golpear al cerrar.'),
+    'umbrales': 'Tiende a abrir: FL ≈ 0,90. Tiende a cerrar: FL ≈ 0,80–0,85 (IEC 60534-2-1, Tabla 2).',
+    'por_debajo': 'No aplica.',
+    'por_encima': 'No aplica.',
+    'afecta': ['FL, xT y Fd', 'ΔP choked y cavitación', 'Fuerza del fluido sobre el obturador', 'Flow del actuador'],
+    'recomendaciones': [
+        'Use tiende a abrir salvo flashing, cavitación o indicación del fabricante.',
+        'Con tiende a cerrar verifique el actuador: la fuerza del fluido ayuda a cerrar y puede dar golpe.',
+    ],
+    'ejemplo': ('Globo contorneado con flujo que tiende a cerrar: FL 0,80 en lugar de 0,90, así que la ΔP choked de '
+                'un líquido baja a (0,80/0,90)² ≈ 79 % de la del otro sentido.'),
+}
+GUIA["capacidad_trim"] = {
+    'que_es': ('Es la tabla con la que N25 estima el Cv típico, el puerto y la carrera de las válvulas de globo y '
+               'ángulo, por familia de trim y tamaño, a partir de datos publicados de varios fabricantes.'),
+    'que_hace': ('Da el Cv nominal típico cuando no se carga el certificado, liga el puerto y la carrera con el Cv, '
+                 'estima el Cv de un trim reducido y compara los datos certificados con los típicos (±10 %).'),
+    'que_indica': ('La banda entre fabricantes muestra cuánto puede variar el Cv real de un mismo tamaño: es chica '
+                   'en el trim pleno (±5 a ±25 %) y grande en los reducidos de jaula (de 0,5 a 1,5 veces).'),
+    'umbrales': 'Tolerancia de coherencia: ±10 % respecto del típico del puerto y la carrera.',
+    'por_debajo': 'Un Cv certificado mucho menor que el típico puede indicar un trim reducido o de baja capacidad.',
+    'por_encima': 'Un Cv mucho mayor puede indicar un trim de alta capacidad o un dato de otro juego de trim.',
+    'afecta': ['Cv nominal típico', 'Puerto y carrera estimados', 'Cv del trim reducido', 'Alerta de coherencia',
+               'Selección del tamaño con trims especiales'],
+    'recomendaciones': [
+        'Use la tabla para preseleccionar; verifique con el Cv certificado del fabricante.',
+        'Si la alerta de coherencia aparece, confirme que puerto, carrera y Cv sean del mismo juego de trim.',
+    ],
+    'ejemplo': ('Jaula de 6": típico 394 lineal (fabricantes 370 a 417). Un Cv certificado de 430 difiere +9 % '
+                '(coherente); uno de 520, +32 % y fuera de la banda: advertencia.'),
 }

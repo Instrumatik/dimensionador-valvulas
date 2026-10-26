@@ -114,6 +114,13 @@ class Contexto:
     casos_cav: list[tuple[str, str, float, float, float]] = field(default_factory=list)  # caso, sev, Kapp, Kc, FL²
     P_min_kPa: float = 101.325       # presión absoluta mínima (vacío en la empaquetadura)
     M_gas: float | None = None       # masa molar del gas o vapor [kg/kmol] (fracciones en masa → molar)
+    T_op_C: float | None = None      # temperatura máxima de OPERACIÓN (corrosión); T_max_C es la de diseño
+
+    @property
+    def T_corr(self) -> float:
+        """Temperatura para la corrosión y el galling: la de operación (la de diseño queda para los límites
+        mecánicos, el rating y la temperatura admisible de cada material)."""
+        return self.T_max_C if self.T_op_C is None else self.T_op_C
 
 
 @dataclass
@@ -271,6 +278,8 @@ def severidad_cavitacion(s: dict) -> str:
         return "incipiente"
     if "incipiente" in cond:
         return "incipiente"
+    if "sin cavitación" in cond or "no cavita" in cond:
+        return "ninguna"
     if "cavitación" in cond:
         return "moderada"
     return "ninguna"
@@ -444,7 +453,7 @@ def evaluar_material(m: MT.Material, comp: str, ctx: Contexto, sv: ServicioMater
     # química
     comps = []
     if not (comp == "cuerpo" and ctx.liner):
-        comps = [Q.evaluar(m, n, ctx.T_max_C, acuoso) for n in agentes]
+        comps = [Q.evaluar(m, n, ctx.T_corr, acuoso) for n in agentes]
     nivel = Q._peor(*(c.nivel for c in comps)) if comps else "A"
     if any(c.nivel == "?" for c in comps) and nivel in "AB":
         nivel = "?"
@@ -454,7 +463,7 @@ def evaluar_material(m: MT.Material, comp: str, ctx: Contexto, sv: ServicioMater
         motivos.append("Incompatible químicamente: " + "; ".join(malos))
     # servicio agrio
     if agrio:
-        fallo = evaluar_agrio(m, norma, pH2S, ctx.T_max_C, sv.pH, azufre)
+        fallo = evaluar_agrio(m, norma, pH2S, ctx.T_corr, sv.pH, azufre)
         if fallo:
             ok = False
             motivos.append(fallo)
@@ -651,9 +660,14 @@ def _mecanismos(sv, ctx, agentes, acuoso, agrio, pH2S) -> list[Mecanismo]:
     if cl > 0 and acuoso:
         add("M02", "Corrosión localizada por cloruros (picaduras / rendijas)", "Detectado" if cl >= 200 else "Potencial",
             f"Cloruros equivalentes ≈ {_n(cl, 0)} mg/L.")
-        if ctx.T_max_C > 60 and cl >= 50:
+        if ctx.T_corr > 60 and cl >= 50:
             add("M03", "Corrosión bajo tensión por cloruros (Cl-SCC)", "Detectado",
-                f"Cl⁻ ≈ {_n(cl, 0)} mg/L y {_n(ctx.T_max_C, 0)} °C > 60 °C: los austeníticos 304/316 son susceptibles.")
+                f"Cl⁻ ≈ {_n(cl, 0)} mg/L y {_n(ctx.T_corr, 0)} °C > 60 °C: los austeníticos 304/316 son susceptibles.")
+        elif ctx.T_corr > 100:
+            add("M03", "Corrosión bajo tensión por cloruros (Cl-SCC)", "Potencial",
+                f"Cl⁻ ≈ {_n(cl, 0)} mg/L a {_n(ctx.T_corr, 0)} °C: por encima de 100 °C los cloruros se concentran "
+                "por evaporación en rendijas y zonas secas o húmedas alternadas, y aun pocos mg/L pueden agrietar los "
+                "austeníticos 304/316.")
     if agrio:
         add("M04", "Agrietamiento por H₂S (SSC)", "Detectado", f"pH₂S = {_n(pH2S, 2)} kPa ≥ 0,3 kPa con agua libre.")
         add("M05", "HIC / SOHIC", "Potencial", "H₂S húmedo: relevante en chapas y tubos laminados; las fundiciones "
@@ -671,7 +685,7 @@ def _mecanismos(sv, ctx, agentes, acuoso, agrio, pH2S) -> list[Mecanismo]:
         add("M07", "Ataque por oxidantes", "Detectado", "Oxidantes: " + ", ".join(Q.AGENTES[k].formula for k in ox) + ".")
     alc = [k for k in ("naoh", "koh") if k in claves]
     if alc:
-        add("M08", "Corrosión / agrietamiento cáustico", "Detectado" if ctx.T_max_C > 50 else "Potencial",
+        add("M08", "Corrosión / agrietamiento cáustico", "Detectado" if ctx.T_corr > 50 else "Potencial",
             "Álcalis presentes; el agrietamiento cáustico del acero al carbono aparece por encima de ~50–80 °C "
             "según la concentración (NACE SP0403).")
     if {"hf", "fluoruros"} & set(claves):
@@ -703,9 +717,9 @@ def _mecanismos(sv, ctx, agentes, acuoso, agrio, pH2S) -> list[Mecanismo]:
         add("M24", "SCC del acero al carbono en amoníaco anhidro", "Potencial",
             "El amoníaco anhidro con aire y sin agua (< 0,2 %) agrieta aceros al carbono de alta resistencia.")
     if "aminas" in claves:
-        add("M25", "SCC por aminas", "Potencial" if ctx.T_max_C < 60 else "Detectado",
+        add("M25", "SCC por aminas", "Potencial" if ctx.T_corr < 60 else "Detectado",
             "Acero al carbono en aminas: PWHT obligatorio por encima de ~60 °C (API RP 945).")
-    if "nitratos" in claves and ctx.T_max_C > 60:
+    if "nitratos" in claves and ctx.T_corr > 60:
         add("M26", "SCC por nitratos", "Potencial", "Nitratos calientes concentrados agrietan aceros al carbono.")
     if "o2" in claves and sv.fluido == "Oxígeno":
         add("M27", "Ignición en servicio de oxígeno", "Detectado",
@@ -856,7 +870,7 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
         if pareja:
             filtrados = []
             for e in aptos:
-                riesgos = [riesgo_galling(e.material, p, ctx.T_max_C)[0] for p in pareja]
+                riesgos = [riesgo_galling(e.material, p, ctx.T_corr)[0] for p in pareja]
                 if "ALTO" not in riesgos:
                     filtrados.append(e)
                 else:
@@ -1080,7 +1094,7 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
         a, b = comps[ka].elegido, comps[kb].elegido
         if not (a and b and comps[ka].aplica and comps[kb].aplica):
             return
-        nivel, mot, rem = riesgo_galling(a, b, ctx.T_max_C)
+        nivel, mot, rem = riesgo_galling(a, b, ctx.T_corr)
         gall.append(Galling(nombre, a.clave, b.clave, nivel, mot, rem))
         if nivel != "BAJO":
             sev = Severidad.CRITICA if nivel == "ALTO" else Severidad.ADVERTENCIA
@@ -1130,7 +1144,7 @@ def seleccionar(sv: ServicioMateriales, ctx: Contexto) -> ResultadoMateriales:
                 ok = False
                 mot.append(f"{nombres[c]} ({m.clave}): {_unir(e.motivos)}")
         for c in ("asiento", "jaula"):
-            if c in piezas and riesgo_galling(piezas["obturador"], piezas[c], ctx.T_max_C)[0] == "ALTO":
+            if c in piezas and riesgo_galling(piezas["obturador"], piezas[c], ctx.T_corr)[0] == "ALTO":
                 ok = False
                 mot.append(f"Riesgo alto de galling {nombres['obturador'].lower()} – {nombres[c].lower()}.")
         if j.blando != ctx.blando:
@@ -1163,7 +1177,7 @@ def _inserto(ctx, sv, agentes, acuoso) -> MT.Material | None:
     for m in cands:
         if ctx.T_max_C > m.T_max_C or ctx.T_min_C < m.T_min_C:
             continue
-        niv = Q._peor(*(Q.evaluar(m, n, ctx.T_max_C, acuoso).nivel for n in agentes)) if agentes else "A"
+        niv = Q._peor(*(Q.evaluar(m, n, ctx.T_corr, acuoso).nivel for n in agentes)) if agentes else "A"
         if niv in ("D", "C"):
             continue
         f = 1.0 if niv == "A" else 1.5
@@ -1183,6 +1197,7 @@ def contexto(res, sv: ServicioMateriales | None = None) -> Contexto:
         T_ops.append(dim.cierre.T1)
     T_ops = [t for t in T_ops if t]
     T_max = max([res.T_diseno] + T_ops) - 273.15
+    T_op = max(T_ops) - 273.15
     T_min = min(T_ops) - 273.15
     sevs = []
     flashing = False
@@ -1214,4 +1229,4 @@ def contexto(res, sv: ServicioMateriales | None = None) -> Contexto:
                     liner=inst.cuerpo == "globo_liner", compresible=dim.compresible, tipo=dim.tipo,
                     dP_max_kPa=max(dPs), severidad_cav=peor, flashing=flashing, blando=blando, SG=SG or 1.0,
                     casos_cav=casos_cav, P_min_kPa=min([c.P2 for c in dim.casos] + [c.P1 for c in dim.casos]),
-                    M_gas=M_gas)
+                    M_gas=M_gas, T_op_C=T_op)

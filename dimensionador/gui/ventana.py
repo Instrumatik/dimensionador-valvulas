@@ -14,7 +14,8 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QVBoxLayout, QWidget)
 
 from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, propiedades, tuberias, unidades as U
-from ..estilos import CARACTERISTICA_FIJA, CUERPOS, ESTILOS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES, TAMANOS
+from ..estilos import (CLAVES_ANTERIORES, CUERPOS, ESTILOS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES, SENTIDOS,
+                       TAMANOS, clave_trim, factores, geometria_sentido, geometrias, nombre_geometria, sentidos)
 from ..geometria import fraccion_in
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
@@ -991,7 +992,10 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self._fila(grid, r, "Diámetro de válvula", self.cb_tamano, "tamano"); r += 1
         self.cb_trim = self._registrar("trim", Combo())
         self.cb_trim.currentIndexChanged.connect(self._cambio_trim)
-        self.lbl_trim = self._fila(grid, r, "Tipo de trim hidrodinámico", self.cb_trim, "trim")[0]; r += 1
+        self.lbl_trim = self._fila(grid, r, "Estilo de trim", self.cb_trim, "trim")[0]; r += 1
+        self.cb_sentido = self._registrar("sentido", Combo())
+        self.cb_sentido.currentIndexChanged.connect(self._cambio_estilo)
+        self.fila_sentido = self._fila(grid, r, "Sentido de flujo", self.cb_sentido, "sentido_flujo"); r += 1
         self.cb_balance = self._registrar("balance", Combo())
         self.cb_balance.addItem("Desbalanceado", False)
         self.cb_balance.addItem("Balanceado", True)
@@ -1000,6 +1004,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_caract = self._registrar("caracteristica", Combo())
         for k, t in E.CARACTERISTICA.items():
             self.cb_caract.addItem(t, k)
+        self.cb_caract.currentIndexChanged.connect(self._cambio_caracteristica)
         self._fila(grid, r, "Característica inherente", self.cb_caract, "caracteristica"); r += 1
         self.f_puerto = FilaUnidad("puerto", "Tamaño del trim (puerto) certificado", ("longitud",), grid, r,
                                    self.abrir_ayuda, 1, "trim_size")
@@ -1259,8 +1264,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         c = self.cuerpo()
         self.cb_trim.blockSignals(True)
         self.cb_trim.clear()
-        for k in c.trims:
-            self.cb_trim.addItem(NOMBRE_CORTO.get(k, ESTILOS[k].nombre), k)
+        for g in geometrias(c.clave):
+            self.cb_trim.addItem(nombre_geometria(g), g)
+            k = clave_trim(c.clave, g, "abre")
             self.cb_trim.setItemData(self.cb_trim.count() - 1, ESTILOS[k].nombre, Qt.ToolTipRole)
         self.cb_trim.blockSignals(False)
         for w in self.fila_balance:
@@ -1278,35 +1284,76 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         if hasattr(self, "cb_anticav"):
             self._anticav_concordancia()
 
+    def trim_clave(self) -> str:
+        """Clave de ESTILOS del estilo de trim y el sentido de flujo elegidos en la solapa 2."""
+        g = self.cb_trim.currentData()
+        if not g or self.cb_cuerpo.currentData() is None:
+            return ""
+        return clave_trim(self.cuerpo().clave, g, self.cb_sentido.currentData() or "")
+
     def _cambio_trim(self):
-        k = self.cb_trim.currentData()
+        """Cambió el estilo de trim: sentidos de flujo que admite y característica habitual."""
+        g = self.cb_trim.currentData()
+        if not g:
+            return
+        previo = self.cb_sentido.currentData()
+        ops = sentidos(self.cuerpo().clave, g)
+        self.cb_sentido.blockSignals(True)
+        self.cb_sentido.clear()
+        for sd in ops:
+            self.cb_sentido.addItem(SENTIDOS[sd], sd)
+        i = self.cb_sentido.findData(previo)
+        self.cb_sentido.setCurrentIndex(max(0, i))
+        self.cb_sentido.setEnabled(len(ops) > 1)
+        self.cb_sentido.setToolTip("Sentido en que el flujo empuja al obturador. Es el mismo dato que «Flow» de la "
+                                   "solapa 4, que lo toma de aquí." if ops != [""] else
+                                   "En esta válvula el sentido del flujo no cambia los factores del trim.")
+        self.cb_sentido.blockSignals(False)
+        k = self.trim_clave()
+        self.cb_caract.blockSignals(True)
+        self.cb_caract.setCurrentIndex(self.cb_caract.findData(ESTILOS[k].caracteristica))
+        self.cb_caract.blockSignals(False)
+        self._cambio_estilo()
+
+    def _cambio_estilo(self):
+        """Factores típicos del trim con el sentido y la característica elegidos."""
+        k = self.trim_clave()
         if not k:
             return
         e = ESTILOS[k]
+        FL, xT, Fd = factores(k, self.cb_caract.currentData() or e.caracteristica)
         for j in FLUYEN:
-            for clave, val in (("FL", e.FL), ("Fd", e.Fd), ("xT", e.xT)):
+            for clave, val in (("FL", FL), ("Fd", Fd), ("xT", xT)):
                 self.filas[clave].edits[j].setText(f"{val:g}".replace(".", ","))
             kc = KC_TIPICO.get(k)
             self.filas["Kc"].edits[j].setText(f"{kc:g}".replace(".", ",") if kc else "")
         if getattr(self, "cb_anticav", None) is not None and self.cb_anticav.currentData() not in (None, "estandar"):
             self._cambio_anticav()
-        self.cb_caract.setCurrentIndex(self.cb_caract.findData(e.caracteristica))
         self._caract_concordancia()
         self.cb_trim.setToolTip(e.nombre + (f"\n\n{e.nota}" if e.nota else ""))
         self._act_flujo_desde_trim(k)
         self._mat_nombres_componentes()
 
+    def _cambio_caracteristica(self):
+        k = self.trim_clave()
+        if k and factores(k, "lineal") != factores(k, "isoporcentual"):
+            self._cambio_estilo()
+
     def _caract_concordancia(self):
-        """Con un trim contorneado lineal o isoporcentual la característica es la del trim: se bloquea."""
-        k = self.cb_trim.currentData()
-        fija = k in CARACTERISTICA_FIJA
-        if fija:
+        """Vástago ascendente: lineal, isoporcentual o apertura rápida; rotativas: la propia del elemento."""
+        k = self.trim_clave()
+        if not k:
+            return
+        rot = self.cuerpo().rotativa
+        if rot:
+            self.cb_caract.blockSignals(True)
             self.cb_caract.setCurrentIndex(self.cb_caract.findData(ESTILOS[k].caracteristica))
-        self.cb_caract.setEnabled(not fija)
+            self.cb_caract.blockSignals(False)
+        self.cb_caract.setEnabled(not rot)
         self.cb_caract.setToolTip(
-            "La fija el perfil del obturador del tipo de trim elegido." if fija else
-            "Curva de capacidad frente a la carrera del trim elegido; con jaula, rotativas y otros trims "
-            "puede elegirse según lo que ofrezca el fabricante.")
+            "En una válvula rotativa la característica la da la forma del disco, la bola o el segmento." if rot else
+            "Curva de capacidad frente a la carrera: la define el perfil del obturador o las ventanas de la jaula. "
+            "Elija la que ofrezca el fabricante para el estilo de trim elegido.")
 
     def _cambio_anticav(self):
         """El trim anticavitación reemplaza FL, Fd y Kc de las condiciones de operación (o los restituye)."""
@@ -1314,7 +1361,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         if not k:
             return
         if k == "estandar":
-            self._cambio_trim()
+            self._cambio_estilo()
             return
         t = AC.TRIMS[k]
         for j in FLUYEN:
@@ -1698,14 +1745,14 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             Pc = self.f_Pc.valor_base(0)
             if Pc is None:
                 raise ValueError("Falta la presión crítica del líquido.")
-            return ident, inst, Dimensionamiento(casos, Pc, self.cb_trim.currentData(), self.cb_tamano.currentData(),
+            return ident, inst, Dimensionamiento(casos, Pc, self.trim_clave(), self.cb_tamano.currentData(),
                                                  self.cb_caract.currentData(), fluido, cierre,
                                                  balanceado=self._balanceado(), **self._geo_cert(),
                                                  anticav=self.cb_anticav.currentData() or "estandar",
                                                  **self._datos_fluido())
         ruido_g = RuidoAerodinamico(self.cb_trim_ruido.currentData(), self.f_Rn.valor_base(0) or 1.0,
                                     self.f_area.valor_base(0))
-        dim = Dimensionamiento(casos, None, self.cb_trim.currentData(), self.cb_tamano.currentData(),
+        dim = Dimensionamiento(casos, None, self.trim_clave(), self.cb_tamano.currentData(),
                                self.cb_caract.currentData(), "Agua / vapor de agua" if t == "steam" else fluido,
                                cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado(), **self._geo_cert(),
                                composicion=self._composicion(), **self._datos_fluido())
@@ -2012,8 +2059,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                 i = w.findText(v)
                 if i < 0 and v in NOMBRES_ANTERIORES:
                     i = w.findData(NOMBRES_ANTERIORES[v])
-                if i < 0 and w is self.cb_trim:   # proyectos anteriores guardaban el nombre completo del trim
-                    i = next((w.findData(k) for k, e in ESTILOS.items() if e.nombre == v and w.findData(k) >= 0), -1)
+                if i < 0 and w is self.cb_trim:   # proyectos de v0.11.0 y anteriores: el trim incluía el sentido
+                    if self._migrar_trim(v):
+                        continue
                 if i >= 0:
                     w.setCurrentIndex(i)
             elif w is not None:
@@ -2038,9 +2086,30 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             elif w is not None:
                 w.setText(v)
         self._act_concordancia()  # un proyecto anterior puede traer un actuador que no corresponde a la válvula
-        self._caract_concordancia()  # y una característica distinta de la que fija el trim
+        self._caract_concordancia()  # y una característica que no corresponde a una rotativa
         self.res = None
         self._actualizar_vistas()
+
+    def _migrar_trim(self, v: str) -> bool:
+        """Trim guardado por una versión anterior (nombre corto o completo de la clave vieja): elige el estilo
+        de trim, el sentido y, si la clave la llevaba, la característica."""
+        k = NOMBRES_ANTERIORES.get(v)
+        if k is None:
+            k = next((c for c, e in ESTILOS.items() if v in (e.nombre, NOMBRE_CORTO.get(c))), None)
+        if k is None:
+            return False
+        nueva, car = CLAVES_ANTERIORES.get(k, (k, None))
+        g, sd = geometria_sentido(nueva)
+        i = self.cb_trim.findData(g)
+        if i < 0:
+            return False
+        self.cb_trim.setCurrentIndex(i)
+        j = self.cb_sentido.findData(sd)
+        if j >= 0:
+            self.cb_sentido.setCurrentIndex(j)
+        if car:
+            self.cb_caract.setCurrentIndex(self.cb_caract.findData(car))
+        return True
 
     def nuevo(self):
         for f in self._todas_las_filas():

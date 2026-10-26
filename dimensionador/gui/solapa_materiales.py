@@ -432,7 +432,7 @@ class SolapaMateriales:
             return
         rot = self.cuerpo().rotativa
         nombres = MT.COMPONENTES_ROTATIVA if rot else MT.COMPONENTES
-        k = self.cb_trim.currentData() or ""
+        k = self.trim_clave() if hasattr(self, "cb_sentido") else ""
         jaula = "jaula" in k or "multietapa" in k
         for c, (lbl, modo, sel, an, rec) in self.mat_comp.items():
             lbl.setText(nombres[c])

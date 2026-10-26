@@ -75,6 +75,14 @@ def tipos_bloqueados(rotativa: bool) -> dict[str, str]:
     return {t: "actuador de cuarto de vuelta; la válvula elegida es de vástago deslizante" for t in TIPOS_ROTATIVOS}
 
 
+def _trim_cierra(trim: str) -> bool:
+    """El trim de la solapa 2 es de flujo que tiende a cerrar (Down)."""
+    from .estilos import ESTILOS, geometria_sentido
+    if trim in ESTILOS:
+        return geometria_sentido(trim)[1] == "cierra"
+    return "cierra" in trim or "dentro" in trim
+
+
 def flujos_bloqueados(cuerpo: str, rotativa: bool) -> dict[str, str]:
     """Opciones de Flow que no corresponden al cuerpo: Up/Down solo en globo y ángulo, bidireccional solo en bolas."""
     if not rotativa:
@@ -1333,7 +1341,7 @@ def evaluar_actuador(sv: Servicio, act: DatosActuador) -> ResultadoActuador:
         return r
     bloq = flujos_bloqueados(sv.cuerpo, sv.rotativa)
     if act.flujo in bloq:
-        usado = ("Down" if ("cierra" in sv.trim or "dentro" in sv.trim) else "Up") if not sv.rotativa \
+        usado = ("Down" if _trim_cierra(sv.trim) else "Up") if not sv.rotativa \
             else "Unidireccional"
         r.alertas.append(Alerta("act_flujo_valvula", Severidad.ADVERTENCIA, "Flow no corresponde a la válvula",
                                 f"Se eligió «{act.flujo}», que {bloq[act.flujo]}. Se calculó con «{usado}».",
@@ -1670,7 +1678,7 @@ def _piston_doble(r, sv, act, fz):
 
 
 def _alertas_fuerza(r, sv: Servicio, act: DatosActuador, fz: Fuerzas):
-    trim_cierra = "cierra" in sv.trim or "dentro" in sv.trim
+    trim_cierra = _trim_cierra(sv.trim)
     if (act.flujo == "Down") != trim_cierra and not sv.rotativa:
         r.alertas.append(Alerta(
             "act_flujo_trim", Severidad.ADVERTENCIA, "Sentido del flujo distinto del trim",

@@ -1,5 +1,5 @@
 {
- "version": "0.8.1",
+ "version": "0.12.0",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -9,7 +9,7 @@
   "id_documento": "WS-01",
   "id_revision": "0",
   "id_preparado": "INSTRUMATIK S.A.S.",
-  "id_fecha": "24/10/2026",
+  "id_fecha": "26/10/2026",
   "cuerpo": "Mariposa triple excentricidad",
   "rating": "CL150",
   "nps_entrada": "12\"",
@@ -21,14 +21,19 @@
   "cierre": "ANSI Clase IV",
   "tipo_fluido": "Líquido",
   "fluido": "Agua / vapor de agua",
+  "composicion_gn": "Metano 90; Etano 5; Propano 2; n-Butano 0,5; Isobutano 0,5; Nitrógeno 1; Dióxido de carbono 1",
   "variante": "Agua industrial / de enfriamiento",
   "agua_libre": "Sí",
   "tipo_caudal": "Volumétrico",
   "tamano": "Automático",
-  "trim": "Mariposa triple excéntrica, 90°",
+  "trim": "Triple excéntrica · 90°",
+  "sentido": "No aplica",
   "balance": "Desbalanceado",
-  "caracteristica": "Lineal",
+  "caracteristica": "Isoporcentual",
+  "Cv_reducido": "",
+  "anticav": "Estándar (trim elegido, 1 etapa)",
   "trim_ruido": "Estándar (pasaje único)",
+  "carrera_salida": "mm",
   "visc_salida": "Dinámica",
   "mat_industria": "Química",
   "mat_composicion": "Confirmada por análisis",
@@ -67,22 +72,51 @@
   "mat_ag5_unidad": "mg/L",
   "mat_ag5_conc": "",
   "mat_ag5_fase": "Desconocida",
+  "mat_juego": "Por componente (modo de cada pieza)",
   "mat_modo_cuerpo": "AUTOMÁTICO",
   "mat_sel_cuerpo": "ASTM A216 WCB — acero al carbono fundido",
   "mat_modo_bonete": "AUTOMÁTICO",
   "mat_sel_bonete": "ASTM A216 WCB — acero al carbono fundido",
   "mat_modo_asiento": "AUTOMÁTICO",
-  "mat_sel_asiento": "Stellite 6 macizo (Co-Cr-W, fundido o forjado 6B)",
+  "mat_sel_asiento": "17-4PH H900 (40–47 HRC)",
   "mat_modo_jaula": "AUTOMÁTICO",
   "mat_sel_jaula": "Inoxidable 410 templado (38–45 HRC)",
   "mat_modo_guia": "AUTOMÁTICO",
-  "mat_sel_guia": "Inconel 718 (N07718) envejecido",
+  "mat_sel_guia": "17-4PH H1150D (≤ 33 HRC, NACE)",
   "mat_modo_obturador": "AUTOMÁTICO",
-  "mat_sel_obturador": "Inconel 718 (N07718) envejecido",
+  "mat_sel_obturador": "17-4PH H1075 (≈ 33–38 HRC)",
   "mat_modo_vastago": "AUTOMÁTICO",
-  "mat_sel_vastago": "Dúplex 2205 (S31803 / S32205) barra",
+  "mat_sel_vastago": "Inoxidable 316 / 316L (A479, A276)",
   "mat_modo_empaquetadura": "AUTOMÁTICO",
-  "mat_sel_empaquetadura": "Anillos en V de PTFE, simple, con resorte"
+  "mat_sel_empaquetadura": "Anillos en V de PTFE, simple, con resorte",
+  "act_modo": "AUTOMÁTICO",
+  "act_tipo": "Piñón y cremallera (Rack and pinion)",
+  "act_falla": "Cierra (FC)",
+  "act_volante": "No",
+  "act_flujo": "Unidireccional",
+  "act_rango": "AUTOMÁTICO (sugerido por N25)",
+  "pos_tag": "",
+  "pos_tipo": "Digital-HART",
+  "pos_senal": "4-20mA dc",
+  "pos_accion": "Configurable",
+  "pos_manometros": "Sí",
+  "pos_set": "Sí",
+  "pos_salida_set": "Ajustable 0-80 psi",
+  "acc_boosters": "",
+  "acc_quick_exhaust": "",
+  "acc_bloqueo": "",
+  "acc_cambio": "",
+  "acc_sol_accion": "No requerido",
+  "acc_sol_vias": "3 vías",
+  "acc_sol_material": "Acero Inoxidable",
+  "acc_sol_puerto": "1/4\"",
+  "acc_sol_voltaje": "24 Vdc",
+  "acc_sol_potencia": "",
+  "acc_lim_tipo": "No requerido",
+  "acc_lim_contactos": "SPDT",
+  "acc_lim_voltaje": "",
+  "acc_lim_corriente": "",
+  "acc_lim_frecuencia": "50/60Hz"
  },
  "filas": {
   "caudal": {
@@ -294,6 +328,94 @@
    "valores": [
     ""
    ]
+  },
+  "puerto": {
+   "unidad": "mm",
+   "valores": [
+    ""
+   ]
+  },
+  "carrera": {
+   "unidad": "mm",
+   "valores": [
+    ""
+   ]
+  },
+  "aire_instrumentos": {
+   "unidad": "bar g",
+   "valores": [
+    "4,00000",
+    "7,00000"
+   ]
+  },
+  "d_vastago": {
+   "unidad": "mm",
+   "valores": [
+    ""
+   ]
+  },
+  "friccion_cert": {
+   "unidad": "N",
+   "valores": [
+    ""
+   ]
+  },
+  "rango_pa_pb": {
+   "unidad": "bar g",
+   "valores": [
+    "",
+    ""
+   ]
+  },
+  "cert_area_in2": {
+   "unidad": "mm²",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_banco_psig": {
+   "unidad": "bar g",
+   "valores": [
+    "",
+    ""
+   ]
+  },
+  "cert_carrera_in": {
+   "unidad": "mm",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_pmax_psig": {
+   "unidad": "bar g",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_par_aire_lbfin": {
+   "unidad": "N·m",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_p_par_psig": {
+   "unidad": "bar g",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_par_resorte_lbfin": {
+   "unidad": "N·m",
+   "valores": [
+    "",
+    ""
+   ]
+  },
+  "cert_nominal": {
+   "unidad": "N·m",
+   "valores": [
+    ""
+   ]
   }
  },
  "materiales": {
@@ -361,7 +483,7 @@
    },
    "asiento": {
     "modo": "AUTOMÁTICO",
-    "material": "ST6"
+    "material": "174_H900"
    },
    "jaula": {
     "modo": "AUTOMÁTICO",
@@ -369,20 +491,51 @@
    },
    "guia": {
     "modo": "AUTOMÁTICO",
-    "material": "718"
+    "material": "174_H1150D"
    },
    "obturador": {
     "modo": "AUTOMÁTICO",
-    "material": "718"
+    "material": "174_H1075"
    },
    "vastago": {
     "modo": "AUTOMÁTICO",
-    "material": "2205"
+    "material": "316"
    }
   },
   "empaquetadura": {
    "modo": "AUTOMÁTICO",
    "clave": "ptfe_v"
-  }
+  },
+  "juego_trim": ""
+ },
+ "equipo": {
+  "act_modo": "AUTOMÁTICO",
+  "act_tipo": "Piñón y cremallera (Rack and pinion)",
+  "act_falla": "Cierra (FC)",
+  "act_volante": "No",
+  "act_flujo": "Unidireccional",
+  "act_rango": "AUTOMÁTICO (sugerido por N25)",
+  "pos_tag": "",
+  "pos_tipo": "Digital-HART",
+  "pos_senal": "4-20mA dc",
+  "pos_accion": "Configurable",
+  "pos_manometros": "Sí",
+  "pos_set": "Sí",
+  "pos_salida_set": "Ajustable 0-80 psi",
+  "acc_boosters": "",
+  "acc_quick_exhaust": "",
+  "acc_bloqueo": "",
+  "acc_cambio": "",
+  "acc_sol_accion": "No requerido",
+  "acc_sol_vias": "3 vías",
+  "acc_sol_material": "Acero Inoxidable",
+  "acc_sol_puerto": "1/4\"",
+  "acc_sol_voltaje": "24 Vdc",
+  "acc_sol_potencia": "",
+  "acc_lim_tipo": "No requerido",
+  "acc_lim_contactos": "SPDT",
+  "acc_lim_voltaje": "",
+  "acc_lim_corriente": "",
+  "acc_lim_frecuencia": "50/60Hz"
  }
 }

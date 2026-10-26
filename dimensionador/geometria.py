@@ -2,6 +2,10 @@
 
 Válvulas de vástago ascendente (globo y ángulo):
 
+* Desde v0.12.0, los trims con tabla de capacidad (``capacidad.PLENO``: contorneado, jaula, orificios y
+  multietapa) toman el puerto, la carrera y el Cv del pleno de esa tabla, ligados entre sí; un trim
+  reducido toma el puerto que da el Cv nominal con el modelo de restricciones en serie. Lo que sigue
+  queda para los trims sin tabla (Venturi).
 * El diámetro del puerto del trim completo se toma de ``PUERTO_NPS``, el puerto pleno típico de los
   cuerpos de globo y ángulo de jaula según el diámetro nominal (en tamaños chicos el puerto es igual o
   mayor que la conexión), interpolado entre tamaños y redondeado al 1/16 in. Si el Cv nominal ingresado es menor que
@@ -164,12 +168,33 @@ def _puerto_rotativa(trim: str, d_pulg: float, DI_mm: float | None) -> float:
 
 def estimar(trim: str, rotativa: bool, d_pulg: float, Cv_nominal: float, Cv_tipico: float,
             DI_mm: float | None = None, puerto_mm: float | None = None,
-            carrera_mm: float | None = None) -> Geometria:
-    """Puerto y carrera de la válvula; los valores certificados (no None) reemplazan a los estimados."""
+            carrera_mm: float | None = None, familia: str = "", caracteristica: str = "lineal",
+            factor_cv: float = 1.0) -> Geometria:
+    """Puerto y carrera de la válvula; los valores certificados (no None) reemplazan a los estimados.
+
+    Con ``familia`` (tabla de capacidad, v0.12.0) el puerto, la carrera y el Cv van ligados: el pleno
+    sale de la tabla del cuerpo y, si el Cv nominal es menor, el puerto es el que da ese Cv con el
+    modelo de restricciones en serie, con la carrera típica de ese puerto."""
     if rotativa:
         p = puerto_mm or _puerto_rotativa(trim, d_pulg, DI_mm)
         return Geometria(True, p, puerto_mm is not None, None, False, rotacion(trim),
                          nota="La carrera de una válvula rotativa es la rotación del eje.")
+    if familia:
+        from . import capacidad as CAP
+        pl = CAP.pleno(familia, d_pulg, caracteristica)
+        reducido = False
+        if puerto_mm:
+            p_in = puerto_mm / MM_IN
+        elif Cv_tipico and Cv_nominal < 0.95 * Cv_tipico:
+            p_in = round(CAP.puerto_para_cv(familia, d_pulg, Cv_nominal / factor_cv, caracteristica) * 16) / 16
+            reducido = True
+        else:
+            p_in = pl.puerto_in
+        h = carrera_mm or CAP.carrera_para(familia, d_pulg, p_in) * MM_IN
+        nota = ("Trim reducido: puerto estimado con el Cv nominal y la tabla de capacidad (puerto y carrera "
+                "ligados)." if reducido else "")
+        return Geometria(False, p_in * MM_IN, puerto_mm is not None, h, carrera_mm is not None, None, reducido,
+                         nota)
     reducido = False
     if puerto_mm:
         p = puerto_mm

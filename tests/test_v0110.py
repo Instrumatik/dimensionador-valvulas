@@ -41,9 +41,11 @@ def test_rev_de_gas_usa_caudal_real():
 
 
 def test_doble_guia_superior_y_caracteristica_fija():
-    e = ESTILOS["globo_doble_guia_superior"]
-    assert e.FL == 0.90 and e.xT == 0.72 and "globo_doble_guia_superior" in CUERPOS["globo"].trims
+    # v0.12.0: la doble guía tiene los dos sentidos de flujo y la clave de v0.11.0 se convierte
+    e = ESTILOS["globo_doble_guia_abre"]
+    assert e.FL == 0.90 and e.xT == 0.72 and "globo_doble_guia_cierra" in CUERPOS["globo"].trims
     assert "dos puntos de guiado" in e.nota
+    assert Dimensionamiento([], 22120, "globo_doble_guia_superior").trim == "globo_doble_guia_abre"
     d = Dimensionamiento([], 22120, "globo_contorneado_iso_abre", caracteristica="lineal")
     assert d.caracteristica == "isoporcentual"
     d = Dimensionamiento([], 22120, "globo_jaula_4v_fuera", caracteristica="lineal")
@@ -60,11 +62,11 @@ def test_gui_gas_natural_y_caracteristica(app):
     from dimensionador.gui.ventana import VentanaPrincipal
     w = VentanaPrincipal()
     w.show()
-    w.cb_trim.setCurrentIndex(w.cb_trim.findData("globo_contorneado_lineal_abre"))
-    assert not w.cb_caract.isEnabled() and w.cb_caract.currentData() == "lineal"
-    w.cb_trim.setCurrentIndex(w.cb_trim.findData("globo_doble_guia_superior"))
+    w.cb_trim.setCurrentIndex(w.cb_trim.findData("contorneado"))   # v0.12.0: característica libre
     assert w.cb_caract.isEnabled()
-    assert w.cb_trim.currentText() == "Doble guía de vástago - superior · flujo abre"
+    w.cb_trim.setCurrentIndex(w.cb_trim.findData("doble_guia"))
+    assert w.cb_caract.isEnabled() and w.trim_clave() == "globo_doble_guia_abre"
+    assert w.cb_trim.currentText() == "Doble guía de vástago - superior"
     w.cb_tipo_fluido.setCurrentIndex(w.cb_tipo_fluido.findData("gas"))
     assert w.ed_comp_gn.isHidden()
     w.cb_fluido.setCurrentText("Gas natural")

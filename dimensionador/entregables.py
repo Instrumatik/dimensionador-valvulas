@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from . import anticavitacion as AC
 from . import __version__, compresible as CG, geometria as G, tuberias, unidades as U
 from .modelos import Severidad
+from .estilos import SENTIDOS as _SENTIDOS
 from .proyecto import FUGA_CIERRE, REF_CIERRE, Resultado
 
 EMPRESA = "INSTRUMATIK S.A.S."
@@ -387,6 +388,7 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
     rec = dict(res.recomendaciones)
     doc.tabla([
         ["Tipo de trim", res.trim.nombre],
+        ["Sentido de flujo", _SENTIDOS[d.sentido]],
         ["Trim anticavitación", _nombre_anticav(res)],
         ["Obturador", BALANCE[d.balanceado]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
@@ -760,6 +762,7 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
     rec = dict(res.recomendaciones)
     doc.tabla([
         ["Tipo de trim", res.trim.nombre],
+        ["Sentido de flujo", _SENTIDOS[d.sentido]],
         ["Obturador", BALANCE[d.balanceado]],
         ["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[d.ruido.trim][0]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],

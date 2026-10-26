@@ -13,7 +13,8 @@ from dataclasses import dataclass, field, replace
 
 from . import anticavitacion as AC
 from . import asme_b16_34, compresible as CG, tuberias
-from .estilos import ANTICAVITACION, CARACTERISTICA_FIJA, CUERPOS, ESTILOS, TAMANOS, apertura_requerida
+from .estilos import (ANTICAVITACION, CLAVES_ANTERIORES, CUERPOS, ESTILOS, TAMANOS, apertura_requerida,
+                      estilo_con, geometria_sentido)
 from .iec60534_2_1 import RHO_AGUA_15C, Liquido, factor_FLP
 from . import ruido
 from .modelos import _n, Alerta, ErrorDatos, Severidad, fdP, fP, fT, fV
@@ -127,13 +128,31 @@ class Dimensionamiento:
     composicion: dict | None = None    # % molar del gas natural (None = típica, propiedades.GN_TIPICO)
 
     def __post_init__(self):
-        # Con un trim contorneado lineal o isoporcentual la característica es la que fija su obturador
-        if self.trim in CARACTERISTICA_FIJA:
-            self.caracteristica = ESTILOS[self.trim].caracteristica
+        # Claves de trim de v0.11.0 y anteriores: la característica iba en la clave
+        if self.trim in CLAVES_ANTERIORES:
+            self.trim, car = CLAVES_ANTERIORES[self.trim]
+            if car:
+                self.caracteristica = car
 
     @property
     def compresible(self) -> bool:
         return self.tipo != "liquido"
+
+    @property
+    def sentido(self) -> str:
+        """«abre», «cierra» o "" (no aplica), según el trim elegido."""
+        return geometria_sentido(self.trim)[1]
+
+
+def estilo_efectivo(dim: Dimensionamiento, rotativa: bool):
+    """Estilo con la característica elegida y, en líquidos, el trim anticavitación aplicado."""
+    estilo = estilo_con(dim.trim, dim.caracteristica)
+    tac = AC.TRIMS.get(dim.anticav, AC.TRIMS["estandar"])
+    if tac.clave != "estandar" and not rotativa:
+        estilo = replace(estilo, FL=tac.FL, Fd=tac.Fd, familia_cv=tac.familia or estilo.familia_cv,
+                         factor_cv=tac.factor if tac.familia else estilo.factor_cv,
+                         rangeabilidad=tac.rangeabilidad)
+    return estilo
 
 
 @dataclass
@@ -177,8 +196,9 @@ class Resultado:
         from .estilos import kv_nominal
         d = self.nps_valvula
         DI = next((di for p, _, di in TAMANOS if abs(p - d) < 1e-6), None)
-        return G.estimar(self.dim.trim, self.cuerpo.rotativa, d, self.Cv_nominal,
-                         kv_nominal(self.trim, d) / 0.865, DI, self.dim.puerto_mm, self.dim.carrera_mm)
+        e = estilo_efectivo(self.dim, self.cuerpo.rotativa)
+        return G.estimar(self.dim.trim, self.cuerpo.rotativa, d, self.Cv_nominal, kv_nominal(e, d) / 0.865, DI,
+                         self.dim.puerto_mm, self.dim.carrera_mm, e.familia_cv, e.caracteristica, e.factor_cv)
 
     def peor(self) -> Severidad:
         return max([a.severidad for _, a in self.alertas] or [Severidad.INFO])
@@ -237,6 +257,8 @@ class TrimReducido:
     puerto_certificado: bool
     Cv: float
     Cv_certificado: bool
+    carrera_mm: float | None = None
+    banda: tuple[float, float] | None = None      # Cv entre fabricantes para ese puerto y carrera
 
     @property
     def relacion_areas(self) -> float:
@@ -244,28 +266,94 @@ class TrimReducido:
 
     @property
     def texto_Cv(self) -> str:
-        return f"{_n(self.Cv, 3)} " + ("(certificado)" if self.Cv_certificado else
-                                     f"(estimado por puerto: {_n(self.Cv_tipico, 1)} × "
-                                     f"({_n(self.puerto_mm / 25.4, 3)}/{_n(self.puerto_tipico_mm / 25.4, 3)})²)")
+        if self.Cv_certificado:
+            return f"{_n(self.Cv, 3)} (certificado)"
+        if self.banda:
+            return (f"{_n(self.Cv, 3)} (típico del puerto {_n(self.puerto_mm / 25.4, 3)} in y carrera "
+                    f"{_n((self.carrera_mm or 0) / 25.4, 3)} in; entre fabricantes {_n(self.banda[0], 0)} a "
+                    f"{_n(self.banda[1], 0)})")
+        return (f"{_n(self.Cv, 3)} (estimado por puerto: {_n(self.Cv_tipico, 1)} × "
+                f"({_n(self.puerto_mm / 25.4, 3)}/{_n(self.puerto_tipico_mm / 25.4, 3)})²)")
 
 
 def trim_reducido(inst: Instalacion, dim: Dimensionamiento, d_pulg: float) -> TrimReducido | None:
     """Cv del trim reducido para el cuerpo de ``d_pulg``: el certificado o, si solo se conoce el puerto
-    certificado y es menor que el del trim completo, el típico escalado por la relación de áreas de paso."""
-    from . import geometria as G
+    certificado y es menor que el del trim completo, el típico de ese puerto y esa carrera
+    (``capacidad.cv_geometria``; en trims sin tabla de capacidad, el típico escalado por la relación de áreas)."""
+    from . import capacidad as CAP, geometria as G
     from .estilos import kv_nominal
     rot = CUERPOS[inst.cuerpo].rotativa
-    estilo = ESTILOS[dim.trim]
+    estilo = estilo_efectivo(dim, rot)
+    fam = estilo.familia_cv
     Cv_tip = kv_nominal(estilo, d_pulg) / 0.865
     DI = next((di for p, _, di in TAMANOS if abs(p - d_pulg) < 1e-6), None)
-    p_tip = G.estimar(dim.trim, rot, d_pulg, Cv_tip, Cv_tip, DI).puerto_mm
+    geo_tip = G.estimar(dim.trim, rot, d_pulg, Cv_tip, Cv_tip, DI, None, None, fam, estilo.caracteristica,
+                        estilo.factor_cv)
+    p_tip = geo_tip.puerto_mm
     if dim.Cv_reducido_cert:
         Cv = dim.Cv_reducido_cert
-        p = G.estimar(dim.trim, rot, d_pulg, Cv, Cv_tip, DI, dim.puerto_mm).puerto_mm
-        return TrimReducido(p_tip, Cv_tip, p, dim.puerto_mm is not None, Cv, True)
+        g = G.estimar(dim.trim, rot, d_pulg, Cv, Cv_tip, DI, dim.puerto_mm, dim.carrera_mm, fam,
+                      estilo.caracteristica, estilo.factor_cv)
+        return TrimReducido(p_tip, Cv_tip, g.puerto_mm, dim.puerto_mm is not None, Cv, True, g.carrera_mm)
     if rot or not dim.puerto_mm or dim.puerto_mm >= 0.97 * p_tip:
         return None
+    if fam:
+        g = G.estimar(dim.trim, rot, d_pulg, Cv_tip, Cv_tip, DI, dim.puerto_mm, dim.carrera_mm, fam,
+                      estilo.caracteristica, estilo.factor_cv)
+        co = CAP.coherencia(fam, d_pulg, estilo.caracteristica, dim.puerto_mm / 25.4, g.carrera_mm / 25.4, None)
+        f = estilo.factor_cv
+        return TrimReducido(p_tip, Cv_tip, dim.puerto_mm, True, co.Cv_tipico * f, False, g.carrera_mm,
+                            (co.banda[0] * f, co.banda[1] * f))
     return TrimReducido(p_tip, Cv_tip, dim.puerto_mm, True, Cv_tip * (dim.puerto_mm / p_tip) ** 2, False)
+
+
+def _alerta_coherencia(res: "Resultado") -> Alerta | None:
+    """Puerto, carrera y Cv certificados frente a los típicos de la tabla de capacidad (±10 %)."""
+    from . import capacidad as CAP
+    dim = res.dim
+    if res.cuerpo.rotativa or not (dim.puerto_mm or dim.carrera_mm or dim.Cv_nominal or dim.Cv_reducido_cert):
+        return None
+    e = estilo_efectivo(dim, False)
+    if not e.familia_cv:
+        return None
+    nps, f = res.nps_valvula, e.factor_cv
+    pl = CAP.pleno(e.familia_cv, nps, e.caracteristica)
+    geo = res.geometria
+    d, h = geo.puerto_in, geo.carrera_in
+    Cv_u = dim.Cv_reducido_cert or dim.Cv_nominal
+    co = CAP.coherencia(e.familia_cv, nps, e.caracteristica, d, h, Cv_u / f if Cv_u else None)
+    tip, lo, hi = co.Cv_tipico * f, co.banda[0] * f, co.banda[1] * f
+    obs, fuera = [], False
+    if Cv_u and abs(co.desvio) > CAP.TOLERANCIA:
+        dentro = lo * 0.97 <= Cv_u <= hi * 1.03
+        fuera |= not dentro
+        obs.append(f"El Cv cargado ({_n(Cv_u, 1)}) difiere {_n(co.desvio * 100, 0)} % del típico de ese puerto y "
+                   f"esa carrera ({_n(tip, 1)}); " + ("está dentro de la dispersión entre fabricantes "
+                                                      f"({_n(lo, 0)} a {_n(hi, 0)})." if dentro else
+                                                      f"queda fuera de la dispersión entre fabricantes ({_n(lo, 0)} a "
+                                                      f"{_n(hi, 0)})."))
+    if dim.puerto_mm and d > pl.puerto_in * (1 + CAP.TOLERANCIA):
+        fuera = True
+        obs.append(f"El puerto cargado ({_n(d, 3)} in) supera en más de 10 % el puerto pleno típico del cuerpo de "
+                   f"{_n(nps)}\" ({_n(pl.puerto_in, 3)} in).")
+    if Cv_u and dim.puerto_mm:
+        p_cv = CAP.puerto_para_cv(e.familia_cv, nps, Cv_u / f, e.caracteristica)
+        if Cv_u < pl.Cv * f and abs(d - p_cv) / p_cv > CAP.TOLERANCIA:
+            obs.append(f"Para un Cv de {_n(Cv_u, 1)} el puerto típico sería {_n(p_cv, 3)} in.")
+    if dim.carrera_mm:
+        h_tip = CAP.carrera_para(e.familia_cv, nps, d)
+        if abs(h - h_tip) / h_tip > CAP.TOLERANCIA:
+            obs.append(f"La carrera cargada ({_n(h, 3)} in) difiere {_n((h - h_tip) / h_tip * 100, 0)} % de la típica "
+                       f"del puerto de {_n(d, 3)} in ({_n(h_tip, 3)} in).")
+    if not obs:
+        return None
+    sev = Severidad.ADVERTENCIA if fuera else Severidad.INFO
+    return Alerta("coherencia_trim", sev, "Coherencia de puerto, carrera y Cv",
+                  co.detalle + ". " + " ".join(obs) + " Puerto, carrera y Cv van juntos: un Cv que no corresponde al "
+                  "puerto cambia la apertura calculada y el actuador.",
+                  remedios=["Confirmar en la hoja de datos del fabricante que el Cv, el puerto y la carrera "
+                            "corresponden al mismo juego de trim."],
+                  referencia="Tabla de capacidad de N25 (mediana de datos publicados de fabricantes)")
 
 
 def _alerta_trim_reducido(tr: TrimReducido, h_max: float) -> Alerta:
@@ -275,8 +363,11 @@ def _alerta_trim_reducido(tr: TrimReducido, h_max: float) -> Alerta:
            "La apertura, la carrera de operación, la curva de Cv y el actuador se calculan con el trim reducido.")
     if tr.Cv_certificado:
         return Alerta("trim_reducido", Severidad.INFO, "Trim reducido con Cv certificado", txt)
-    txt += (" La relación de áreas suele subestimar el Cv de puertos chicos (las aperturas reales serían algo "
-            "menores).")
+    if not tr.banda:
+        txt += (" La relación de áreas suele subestimar el Cv de puertos chicos (las aperturas reales serían algo "
+                "menores).")
+    else:
+        txt += " El Cv de un trim reducido varía mucho entre fabricantes: cargue el certificado."
     if h_max > 0.9:
         return Alerta("trim_reducido", Severidad.ADVERTENCIA, "Trim reducido al límite con el Cv estimado",
                       txt + f" Con el Cv estimado el caso máximo necesita {_n(h_max * 100, 0)} % de apertura: antes "
@@ -294,15 +385,22 @@ def calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, ma
     Con un trim reducido (Cv certificado del trim reducido, o puerto certificado menor que el del trim
     completo) el cálculo se repite con el Cv nominal de ese trim en el cuerpo elegido."""
     if dim.Cv_nominal or not (dim.puerto_mm or dim.Cv_reducido_cert):
-        return _calcular(ident, inst, dim, mat, equipo)
+        return _con_coherencia(_calcular(ident, inst, dim, mat, equipo))
     d = dim.nps_valvula or _calcular(ident, inst, dim).nps_valvula
     tr = trim_reducido(inst, dim, d)
     if tr is None:
-        return _calcular(ident, inst, dim, mat, equipo)
+        return _con_coherencia(_calcular(ident, inst, dim, mat, equipo))
     res = _calcular(ident, inst, replace(dim, nps_valvula=d, Cv_nominal=tr.Cv), mat, equipo)
     res.dim = replace(res.dim, nps_valvula=dim.nps_valvula)
     res.trim_reducido = tr
     res.alertas.append(("General", _alerta_trim_reducido(tr, max(x["apertura"] for x in res.salidas))))
+    return _con_coherencia(res)
+
+
+def _con_coherencia(res: "Resultado") -> "Resultado":
+    a = _alerta_coherencia(res)
+    if a is not None:
+        res.alertas.append(("General", a))
     res.alertas.sort(key=lambda t: -t[1].severidad)
     return res
 
@@ -347,13 +445,11 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
         raise ErrorDatos(errores)
 
     cuerpo = CUERPOS[inst.cuerpo]
-    estilo = replace(ESTILOS[dim.trim], caracteristica=dim.caracteristica)
     tac = AC.TRIMS.get(dim.anticav, AC.TRIMS["estandar"])
     aviso_rotativa = tac.clave != "estandar" and cuerpo.rotativa
     if aviso_rotativa:
         tac = AC.TRIMS["estandar"]
-    if tac.clave != "estandar":
-        estilo = replace(estilo, FL=tac.FL, Fd=tac.Fd, Cd=tac.Cd or estilo.Cd, rangeabilidad=30)
+    estilo = estilo_efectivo(dim, cuerpo.rotativa)
     tamanos = tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= cuerpo.nps_max)
     sel = Seleccion(estilo, d_pulg=dim.nps_valvula,
                     Kv_nominal=dim.Cv_nominal * 0.865 if dim.Cv_nominal else None,
@@ -906,13 +1002,11 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
     estados = [CG.resolver_estado(c, dim.tipo, fluido, dim.composicion) for c in dim.casos]
 
     cuerpo = CUERPOS[inst.cuerpo]
-    estilo = replace(ESTILOS[dim.trim], caracteristica=dim.caracteristica)
     tac = AC.TRIMS.get(dim.anticav, AC.TRIMS["estandar"])
     aviso_rotativa = tac.clave != "estandar" and cuerpo.rotativa
     if aviso_rotativa:
         tac = AC.TRIMS["estandar"]
-    if tac.clave != "estandar":
-        estilo = replace(estilo, FL=tac.FL, Fd=tac.Fd, Cd=tac.Cd or estilo.Cd, rangeabilidad=30)
+    estilo = estilo_efectivo(dim, cuerpo.rotativa)
     tamanos = tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= cuerpo.nps_max)
     c0 = dim.casos[0]
     sel = Seleccion(estilo, d_pulg=dim.nps_valvula,

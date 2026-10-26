@@ -287,18 +287,18 @@ _e("tamano", "Diámetro de la válvula",
 _e("trim_size", "Tamaño del trim (diámetro del puerto)",
    "<p>Diámetro del orificio del asiento por el que pasa el fluido. Junto con la carrera define la "
    "capacidad del trim y es el dato con que el fabricante identifica el juego de internos.</p>"
-   "<p>En blanco el programa lo <b>estima</b>: el puerto pleno típico de globo o ángulo de jaula "
-   "sale de una tabla por diámetro nominal: 1\" → 1 5/16\", 1½\" → 1 7/8\", 2\" → 2 5/16\", 3\" → 3 7/16\", "
-   "4\" → 4 3/8\", 6\" → 7\" y 8\" → 8\", interpolada entre tamaños (en tamaños chicos el puerto es igual o "
-   "mayor que la conexión). Hay cuerpos del mismo diámetro con puertos menores: cárguelo si lo conoce. Si el Cv nominal es menor que el típico (trim reducido) "
-   "el puerto se reduce con la raíz de la relación de Cv. Se informa en pulgadas, redondeado al 1/16 "
-   "más cercano, y en milímetros.</p><p>En válvulas rotativas el dato es el orificio de la bola, el "
+   "<p>En blanco el programa lo <b>estima</b> con la <b>tabla de capacidad</b> (desde v0.12.0): cada familia "
+   "de trim (contorneado, jaula, jaula de orificios, multietapa) tiene, por diámetro nominal, el puerto pleno, la "
+   "carrera y el Cv típicos, tomados como mediana de datos publicados de fabricantes. Puerto, carrera y Cv van "
+   "juntos: si el Cv nominal es menor que el típico (trim reducido), el puerto es el que da ese Cv con su "
+   "carrera típica. Se informa en pulgadas, redondeado al 1/16 más cercano, y en milímetros.</p><p>En válvulas rotativas el dato es el orificio de la bola, el "
    "disco de la mariposa o el asiento del tapón excéntrico.</p><p>Si tiene la hoja del fabricante, cargue "
    "el puerto certificado: reemplaza al estimado en la pantalla y en los documentos. Si es menor que el del "
    "trim completo, el programa lo trata como <b>trim reducido</b> y calcula el Cv con el puerto reducido "
    "(ver «Cv certificado del trim reducido»).</p>",
-   tipicos="Trim pleno: 2\" ≈ 1 3/4 in (44 mm); 4\" ≈ 3 1/2 in (89 mm); 8\" ≈ 7 in (178 mm)",
-   relacionadas=["carrera_nominal", "tamano", "Kv_nominal", "Cv_reducido"])
+   tipicos="Pleno contorneado: 3\" 2 5/8 in, 4\" 3 1/2 in, 6\" 5 in. Pleno de jaula: 3\" 3 7/16 in, "
+   "4\" 4 3/8 in, 6\" 6 in",
+   relacionadas=["carrera_nominal", "tamano", "Kv_nominal", "Cv_reducido", "capacidad_trim"])
 
 _e("Cv_reducido", "Trim reducido: puerto reducido y Cv con el puerto reducido",
    "<p>Un <b>trim reducido</b> monta en el cuerpo un asiento con puerto menor que el del trim completo. Se usa "
@@ -308,29 +308,33 @@ _e("Cv_reducido", "Trim reducido: puerto reducido y Cv con el puerto reducido",
    "<li><b>Trim completo típico</b>: puerto y Cv típicos del estilo para el diámetro de la válvula.</li>"
    "<li><b>Trim reducido</b>: el puerto certificado cargado arriba, cuando es menor que el típico.</li>"
    "<li><b>Cv con el puerto reducido</b>: el certificado que se carga en esta celda o, si queda en blanco, el "
-   "estimado con la relación de áreas: Cv reducido = Cv típico × (d reducido / d típico)².</li></ul>"
+   "típico de ese puerto y esa carrera (tabla de capacidad): el paso por el asiento y el paso lateral que "
+   "descubre el obturador se suman como dos restricciones en serie.</li></ul>"
    "<p>Ese Cv reemplaza al típico en la apertura estimada de cada caso, la carrera de operación, la curva de Cv, "
    "las alertas de válvula sobredimensionada o subdimensionada y los documentos. El actuador usa el puerto "
    "reducido en el desbalance y la carga de asiento.</p>"
-   "<p>La relación de áreas suele dar un Cv algo menor que el real en puertos chicos: las aperturas estimadas "
-   "quedan del lado seguro (algo mayores que las reales). Cargue el Cv certificado de la hoja de datos del "
-   "fabricante en cuanto lo tenga. Si carga solo el Cv certificado, el puerto se estima con la raíz de la "
-   "relación de Cv.</p>",
-   formula="Cv reducido = Cv típico × (d reducido / d típico)²",
-   tipicos="Globo 1½\" (puerto ≈ 1 5/16\", Cv ≈ 31) con puerto de ½\": Cv ≈ 31 × (0,5/1,3125)² ≈ 4,5",
-   relacionadas=["trim_size", "carrera_nominal", "Kv_nominal"])
+   "<p>Hasta v0.11.0 el programa escalaba el Cv con la relación de áreas, que subestima mucho los puertos "
+   "chicos (un 3\" con puerto 2 5/16\" daba Cv 49). Con la tabla de capacidad el Cv del reducido se calcula "
+   "con su puerto y su carrera. Aun así, el Cv de un trim reducido varía mucho entre fabricantes (en jaulas, "
+   "de la mitad a 1,5 veces el típico): cargue el Cv certificado de la hoja de datos en cuanto lo tenga. Si "
+   "carga solo el Cv certificado, el puerto se estima con la tabla.</p>",
+   formula="1/Cv² = 1/(Kp·d²)² + 1/(Kh·π·d·h)²   (d puerto y h carrera en pulgadas; Kp, Kh por familia)",
+   tipicos="Jaula, cuerpo de 3\" con puerto 2 5/16\" y carrera 1 1/8\": Cv típico ≈ 67 lineal (fabricantes: "
+   "≈ 40 a 102)",
+   relacionadas=["trim_size", "carrera_nominal", "Kv_nominal", "capacidad_trim"])
 
 _e("carrera_nominal", "Carrera nominal y carrera de operación del vástago",
    "<p>La <b>carrera nominal</b> (rated travel) es el recorrido total del vástago entre la válvula "
    "cerrada y abierta del todo. La <b>carrera de operación</b> de cada caso es la apertura estimada × la "
    "carrera nominal, y se muestra en milímetros y en pulgadas.</p><p>En blanco el programa usa la carrera "
-   "normalizada habitual de un trim pleno del tamaño equivalente al puerto (3/4, 1 1/8, 1 1/2, 2, 3, 4 in…); "
-   "los trims de orificios y multietapa llevan la medida siguiente porque reparten el paso a lo largo de "
-   "la jaula.</p><p>En válvulas rotativas la carrera es la rotación del eje (60°, 70° o 90° según el "
+   "normalizada habitual de un trim pleno del tamaño equivalente al puerto, de la tabla de capacidad de "
+   "cada familia (contorneado, jaula, orificios, multietapa); un puerto reducido lleva la carrera del pleno "
+   "del tamaño cuyo puerto es ese.</p><p>En válvulas rotativas la carrera es la rotación del eje (60°, 70° o 90° según el "
    "estilo).</p><p>La carrera define la carrera del actuador y la calibración del posicionador: confirme "
    "la certificada con el fabricante.</p>",
-   tipicos="Globo pleno: 2\" 1 1/8 in (28,6 mm); 4\" 2 in (50,8 mm); 8\" 3 in (76,2 mm)",
-   relacionadas=["trim_size", "apertura"])
+   tipicos="Contorneado pleno: 2\" 0,8 in (20 mm); 4\" 1 1/2 in (38 mm); 8\" 2 1/2 in (64 mm). Jaula: 4\" "
+   "2 in (51 mm); 8\" 2 1/2 in",
+   relacionadas=["trim_size", "apertura", "capacidad_trim"])
 
 _e("D1", "Diámetro interior de la tubería",
    "<p>Diámetro interior de la tubería aguas arriba (D1) y aguas abajo (D2). Si son mayores que la "
@@ -342,10 +346,12 @@ _e("D1", "Diámetro interior de la tubería",
 
 _e("Kv_nominal", "Capacidad nominal de la válvula",
    "<p>Kv (o Cv) de la válvula completamente abierta. Si se deja en blanco el programa usa un "
-   "valor <b>típico</b> del estilo (Cv ≈ Cd·d², con d en pulgadas), suficiente para "
-   "preseleccionar el tamaño. Para verificar una válvula ofertada, ingrese su valor "
-   "certificado y fije el diámetro.</p>",
-   relacionadas=["apertura", "kv_cv"])
+   "valor <b>típico</b> del estilo, suficiente para preseleccionar el tamaño. En globo y ángulo (contorneado, "
+   "jaula, jaula de orificios y multietapa) el típico sale de la <b>tabla de capacidad</b> de N25: la mediana, "
+   "por tamaño, de los Cv publicados por varios fabricantes, con la característica elegida (ver «Tabla de "
+   "capacidad: Cv, puerto y carrera»). En rotativas se usa Cv ≈ Cd·d² (d en pulgadas). Para verificar una "
+   "válvula ofertada, ingrese su valor certificado y fije el diámetro.</p>",
+   relacionadas=["apertura", "kv_cv", "capacidad_trim"])
 
 _e("caracteristica", "Característica inherente",
    "<p>Relación entre la carrera y la capacidad a caída de presión constante.</p><ul>"
@@ -354,11 +360,15 @@ _e("caracteristica", "Característica inherente",
    "el caudal.</li><li><b>Lineal</b>: capacidad proporcional a la carrera. Apta cuando la "
    "válvula toma casi toda la pérdida del sistema (control de nivel, by-pass).</li>"
    "<li><b>Apertura rápida</b>: para servicios todo-nada.</li></ul>"
-   "<p><b>Diferencia con el «Tipo de trim»</b>: el tipo de trim carga los factores FL, xT, Fd y Kc del "
-   "obturador; la característica define la curva con que se calcula la apertura. En los trims contorneados "
-   "lineal e isoporcentual la curva la fija el perfil del obturador, por eso N25 la toma del trim y bloquea "
-   "esta lista. En jaulas, doble guía superior, ángulo y rotativas el fabricante puede ofrecer distintas "
-   "curvas con los mismos internos, y aquí se elige la que corresponda.</p>",
+   "<p><b>Tres datos independientes</b> (desde v0.12.0): el <b>estilo de trim</b> es la geometría de los "
+   "internos (contorneado, jaula, orificios, multietapa); el <b>sentido de flujo</b> dice si el fluido tiende "
+   "a abrir o a cerrar el obturador; la <b>característica</b> es la curva de capacidad frente a la carrera. "
+   "En válvulas de vástago se elige lineal, isoporcentual o apertura rápida para cualquier estilo; en "
+   "rotativas la fija la forma del disco, la bola o el segmento.</p><p>La característica también cambia el "
+   "Cv a carrera nominal según la familia (datos de fabricantes, mismo puerto): en contorneados el lineal y "
+   "el isoporcentual tienen el mismo Cv; en jaulas el isoporcentual tiene ≈ 0,89 veces el del lineal y la "
+   "apertura rápida ≈ 1,09 veces; en jaulas de orificios el isoporcentual ≈ 0,75 veces. En contorneados "
+   "cambia además xT (0,72 lineal, 0,75 isoporcentual con flujo que tiende a abrir; IEC 60534-2-1).</p>",
    formula="Isoporcentual: φ = R^(h−1);   Lineal: φ = 1/R + (1 − 1/R)·h",
    relacionadas=["apertura", "rangeabilidad"])
 
@@ -423,8 +433,22 @@ _e("xTP", "xT combinado con reductores xTP",
    relacionadas=["xT", "FP"], categoria="Resultados")
 
 _e("Fgamma", "Factor de calores específicos Fγ",
-   "<p>Ajusta xT, que se determina con aire, al gas real.</p>", formula="Fγ = γ/1,40",
-   relacionadas=["gamma"], categoria="Resultados")
+   "<p>El factor de caída de presión crítica xT de una válvula se mide en el banco de ensayo con aire, cuyo "
+   "γ = cp/cv vale 1,40. Un gas con otro γ se expande de otra manera en la vena contracta y llega a "
+   "velocidad sónica con otra caída relativa. Fγ corrige ese efecto: es el cociente entre el γ del gas real "
+   "y el del aire.</p><p>Dónde interviene:</p><ul>"
+   "<li><b>Límite de flujo estrangulado</b>: xchoked = Fγ·xTP. Con Fγ &lt; 1 (vapor, hidrocarburos) el gas "
+   "bloquea con menos caída que el aire; con Fγ &gt; 1 (helio, argón) con más.</li>"
+   "<li><b>ΔP choked del gas</b>: ΔPchoked = Fγ·xTP·P1.</li>"
+   "<li><b>Factor de expansión</b>: Y = 1 − x/(3·Fγ·xTP), y el x de cálculo se limita a Fγ·xTP.</li></ul>"
+   "<p>El programa toma γ de la biblioteca de propiedades a P1 y T1 (o el valor cargado) y calcula Fγ en cada "
+   "caso. Use γ a las condiciones de entrada: a alta presión γ real puede diferir bastante del de gas "
+   "ideal.</p>",
+   formula="Fγ = γ/1,40;   xchoked = Fγ·xTP;   Y = 1 − x/(3·Fγ·xTP)",
+   tipicos="Aire, N₂, H₂ ≈ 1,00; metano ≈ 0,94; gas natural ≈ 0,93; vapor de agua ≈ 0,93–0,95; "
+   "CO₂ ≈ 0,92; propano ≈ 0,81; helio ≈ 1,19",
+   referencia="IEC 60534-2-1 ec. (13) a (15)",
+   relacionadas=["gamma", "xT", "xchoked", "Y", "dPchoked"], categoria="Resultados")
 
 _e("Y", "Factor de expansión Y",
    "<p>Tiene en cuenta el cambio de densidad del gas desde la entrada hasta la vena contracta. "
@@ -812,17 +836,18 @@ _e("SG", "Gravedad específica",
    "la lista se calcula sola a P1 y T1.</p>",
    formula="SG = ρ1 / ρ0, ρ0 = 999,1 kg/m³", tipicos="Agua 15 °C: 1,000. Agua 90 °C: 0,967. "
    "Gasolina: 0,72–0,76. Crudo: 0,80–0,95.", relacionadas=["rho"])
-_e("trim", "Tipo de trim hidrodinámico",
-   "<p>Internos de la válvula (obturador, asiento y jaula). Cada opción trae sus factores típicos "
-   "de IEC 60534-2-1 (FL, Fd), su Kc y su característica, que se cargan en las entradas y se pueden "
-   "reemplazar por los certificados del fabricante.</p><ul><li><b>Contorneado</b>: obturador "
+_e("trim", "Estilo de trim",
+   "<p>Geometría de los internos de la válvula (obturador, asiento y jaula). Desde v0.12.0 el sentido del "
+   "flujo y la característica se eligen aparte, en sus propias filas. Cada combinación trae sus factores "
+   "típicos de IEC 60534-2-1 (FL, xT, Fd), su Kc y su capacidad típica (tabla de capacidad), que se cargan "
+   "en las entradas y se pueden reemplazar por los certificados del fabricante.</p><ul><li><b>Contorneado</b>: obturador "
    "perfilado, estándar.</li><li><b>Doble guía de vástago - superior</b>: diseño de válvula de globo en el "
    "que el obturador o el vástago se apoya y se alinea en dos puntos de guiado separados, ubicados en la parte "
    "superior del conjunto (por encima de la corriente del fluido). Usa los factores del obturador contorneado; "
    "la característica la define el perfil del obturador.</li><li><b>Jaula caracterizada de 4 ventanas</b>: guiado estable.</li>"
    "<li><b>Jaula de orificios</b> (60 o 120): anticavitación de etapa simple; bajo Fd retrasa la "
    "cavitación.</li><li><b>Multietapa</b>: divide la caída de presión, para cavitación severa.</li><li><b>Bola</b>: paso completo o reducido a 70° (rango de control recomendado) o 90° (máxima capacidad, FL y xT muy bajos); segmentada con V de 90°, 60° o 30° (menos capacidad y más rangeabilidad cuanto más cerrada la V). Solo la bola de paso total a 70° y la segmentada de 90° tienen factores en IEC 60534-2-1; el resto son estimaciones a confirmar con el fabricante.</li><li><b>Tapón excéntrico</b>: flujo que tiende a abrir (FL 0,85) o a cerrar (FL 0,68).</li></ul>"
-   "<p><b>Sentido de flujo</b> (lo que más confunde):</p><ul>"
+   "<p><b>Sentido de flujo</b> (fila propia debajo del estilo; lo que más confunde):</p><ul>"
    "<li><b>Flujo tiende a abrir</b> (flujo bajo el obturador, «flow up»): el fluido entra por debajo del "
    "asiento y empuja el obturador hacia arriba, en el sentido de apertura. Es la dirección habitual.</li>"
    "<li><b>Flujo tiende a cerrar</b> (flujo sobre el obturador, «flow down»): el fluido entra por arriba "
@@ -835,11 +860,58 @@ _e("trim", "Tipo de trim hidrodinámico",
    "por las ventanas y baja por el asiento. Equivale a tiende a cerrar. FL ≈ 0,85.</li></ul>",
    referencia="IEC 60534-2-1, Anexo A (tabla de factores típicos)",
    relacionadas=["Kc", "FL", "Fd", "balance"])
-from .estilos import ESTILOS as _ESTILOS, NOMBRE_CORTO as _NOMBRE_CORTO  # noqa: E402
+_e("sentido_flujo", "Sentido de flujo",
+   "<p>Dice hacia dónde empuja el fluido al obturador. Es un dato propio, independiente del estilo de trim y de "
+   "la característica, y es el único lugar donde se elige: la fila «Flow» de la solapa 4 (actuador) lo toma de "
+   "aquí.</p><ul><li><b>Flujo tiende a abrir (Up)</b>: el fluido entra por debajo del asiento y empuja el "
+   "obturador hacia arriba. En una jaula, de adentro hacia afuera. Es la dirección habitual; FL ≈ 0,90.</li>"
+   "<li><b>Flujo tiende a cerrar (Down)</b>: el fluido entra por arriba y empuja el obturador contra el asiento. "
+   "En una jaula, de afuera hacia adentro. Se usa con flashing y en trims anticavitación para que las burbujas "
+   "colapsen lejos del asiento y de las paredes; FL menor (≈ 0,80–0,85) y puede dar golpe al cerrar.</li></ul>"
+   "<p>Cambia FL, xT y Fd (IEC 60534-2-1, Tabla 2) y el sentido de la fuerza del fluido sobre el obturador en "
+   "el cálculo del actuador. En los datos de los fabricantes el Cv nominal es el mismo en los dos sentidos. "
+   "En válvulas rotativas que no tienen sentido preferente la fila muestra «No aplica».</p>",
+   referencia="IEC 60534-2-1, Anexo A, Tabla 2",
+   relacionadas=["trim", "FL", "balance", "caracteristica"])
+
+_e("capacidad_trim", "Tabla de capacidad: Cv, puerto y carrera",
+   "<p>Desde v0.12.0 el Cv típico de las válvulas de globo y ángulo no sale de una constante por d², sino de una "
+   "tabla por familia de trim y tamaño, armada con unas 1 200 filas de tablas de «Cv y FL según la carrera» "
+   "publicadas por tres fabricantes. El programa no guarda las tablas de ningún fabricante: guarda la "
+   "<b>mediana</b> por tamaño y la <b>dispersión</b> entre ellos.</p><ul>"
+   "<li><b>Trim pleno</b>: puerto, carrera y Cv lineal por diámetro nominal; entre tamaños se interpola en "
+   "escala logarítmica.</li>"
+   "<li><b>Característica</b>: factor sobre el Cv lineal medido en el mismo puerto (contorneado: iso 1,00; "
+   "jaula: iso 0,89, apertura rápida 1,09; orificios: iso 0,75).</li>"
+   "<li><b>Puerto o carrera distintos</b> (trim reducido o datos certificados): el asiento y el paso lateral "
+   "del obturador se tratan como dos restricciones en serie, con coeficientes ajustados por familia; el "
+   "resultado no supera el Cv del pleno del cuerpo.</li>"
+   "<li><b>Jaulas de capacidad reducida</b>: los fabricantes ofrecen también jaulas de menor Cv con el mismo "
+   "puerto y la misma carrera (por ejemplo, Cv 30, 40 y 55 en un puerto de 2 1/2\"). La geometría no las distingue: "
+   "el modelo da la de mayor capacidad y el Cv de las otras se carga como certificado.</li>"
+   "<li><b>Trims especiales</b>: el multietapa se corrige por el número de etapas; la rangeabilidad de los trims "
+   "de orificios (≈ 15) y multietapa (≈ 33) sale del Cv mínimo controlable publicado.</li></ul>"
+   "<p><b>Coherencia</b>: si el puerto, la carrera o el Cv cargados se apartan más de ±10 % del típico, el "
+   "programa lo informa; si además el Cv cae fuera de la dispersión entre fabricantes, la alerta es una "
+   "advertencia: puerto, carrera y Cv deben ser del mismo juego de trim.</p>"
+   "<p>Cv lineal del trim pleno (mediana):</p><ul>"
+   "<li>Contorneado: 1\" 12; 2\" 46; 3\" 110; 4\" 195; 6\" 400; 8\" 640.</li>"
+   "<li>Jaula: 3\" 142; 4\" 218; 6\" 394; 8\" 585; 10\" 860.</li>"
+   "<li>Jaula de orificios: 3\" 95; 4\" 168; 6\" 230; 8\" 410; 12\" 915.</li>"
+   "<li>Multietapa (≈ 3 etapas): 3\" 70; 4\" 105; 6\" 150; 8\" 250; 12\" 620.</li></ul>"
+   "<p>Comparado con la versión anterior (Cv ≈ Cd·d²), la jaula de 6\" y 8\" bajó de 504 y 896 a 394 y 585, y "
+   "el multietapa de 3\" subió de 31 a 70.</p>",
+   formula="1/Cv² = 1/(Kp·d²)² + 1/(Kh·π·d·h)²",
+   referencia="Mediana de datos publicados de fabricantes (v0.12.0); IEC 60534-2-3 para el ensayo de Cv",
+   relacionadas=["Kv_nominal", "trim_size", "carrera_nominal", "Cv_reducido", "caracteristica"])
+
+from .estilos import ESTILOS as _ESTILOS, NOMBRE_CORTO as _NOMBRE_CORTO, CUERPOS as _CUERPOS  # noqa: E402
+
+_EN_USO = {k for c in _CUERPOS.values() for k in c.trims}
 
 A["trim"].texto += ("<p><b>Opciones de la lista</b> (nombre corto y descripción completa):</p><ul>"
                     + "".join(f"<li><b>{_NOMBRE_CORTO[k]}</b>: {e.nombre}.</li>" for k, e in _ESTILOS.items()
-                              if k in _NOMBRE_CORTO) + "</ul>")
+                              if k in _NOMBRE_CORTO and k in _EN_USO) + "</ul>")
 _e("balance", "Obturador balanceado o desbalanceado",
    "<p><b>Desbalanceado</b>: la ΔP actúa sobre toda el área del puerto; el actuador debe vencer una "
    "fuerza F ≈ ΔP·π·d²/4. Es simple y cierra mejor (clase V o VI con asiento adecuado).</p>"

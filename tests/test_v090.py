@@ -147,7 +147,12 @@ def test_trim_reducido_por_puerto_y_cv_certificado():
     d = base.nps_valvula
     red = calcular(ident, inst, replace(dim, nps_valvula=d, puerto_mm=base.geometria.puerto_mm * 0.5))
     assert red.trim_reducido is not None and not red.trim_reducido.Cv_certificado
-    assert red.Cv_nominal == pytest.approx(base.Cv_nominal * 0.25, rel=0.02)
+    # v0.12.0: puerto y carrera ligados (restricciones en serie), no la relación de áreas
+    from dimensionador import capacidad
+    g = red.geometria
+    assert red.Cv_nominal == pytest.approx(capacidad.cv_geometria("contorneado", 6, g.puerto_in, g.carrera_in,
+                                                                  "lineal"), rel=0.02)
+    assert base.Cv_nominal * 0.25 < red.Cv_nominal < base.Cv_nominal * 0.4
     assert max(s["apertura"] for s in red.salidas) > max(s["apertura"] for s in base.salidas)
     cert = calcular(ident, inst, replace(dim, nps_valvula=d, puerto_mm=base.geometria.puerto_mm * 0.5,
                                          Cv_reducido_cert=base.Cv_nominal * 0.4))

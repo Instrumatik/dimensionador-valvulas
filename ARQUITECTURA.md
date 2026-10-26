@@ -35,6 +35,7 @@ dimensionador/
                     servicio agrio (ISO 15156 / ISO 17945), modo manual y alertas
   juegos_trim.py    Juegos de internos estándar (N25-T01…T17): asiento, jaula y obturador compatibles
   geometria.py      Tamaño del trim (puerto) y carrera del vástago, estimados o certificados
+  capacidad.py      Tabla de capacidad por familia de trim: Cv, puerto y carrera típicos (v0.12.0)
   anticavitacion.py Trims anticavitación por etapas (líquidos): reparto de igual Kapp por etapa,
                     factores equivalentes FL, Kc y xFz, y etapas recomendadas
   empaquetaduras.py Empaquetadura del vástago y tipo de bonete: temperatura, presión, química,
@@ -72,6 +73,7 @@ tests/              Validación contra ejemplos de las normas
 | 7. Materiales (v0.7.0): selección por componente, galling, NACE, dureza por cavitación, biblioteca y ayuda | Hecho, en validación |
 | 8. Actuador, posicionador y accesorios (v0.9.0): fuerza/par, resorte, aire, vástago, señales y solenoide | Hecho, en validación |
 | 9. Gas natural como mezcla (v0.11.0): composición molar editable, propiedades HEOS de CoolProp, T2 y Z2 isoentálpicos | Hecho |
+| 10. Tabla de capacidad (v0.12.0): Cv, puerto y carrera por familia de trim (mediana de datos de fabricantes), trim reducido por restricciones en serie, coherencia ±10 %, estilo / sentido / característica independientes | Hecho |
 | 6. Versión 2 (solo líquidos): flujo 1-Sistema → 2-Cálculos Válvula, tuberías por cédula, Kc/Kapp, entregables Word e impresión, marca N25 Valves Sizing | Hecho, en validación |
 
 ## Próximos pasos sugeridos
@@ -85,15 +87,16 @@ tests/              Validación contra ejemplos de las normas
 
 ## Neutralidad de marca
 
-No se usa ningún dato de fabricante. FL, xT y Fd son los valores típicos
-publicados en la Tabla 2 de IEC 60534-2-1:2011. La capacidad nominal por
-tamaño (Cv/d²) es un valor representativo del estilo, rotulado como "típico"
-en el programa, y el usuario puede reemplazar cualquier factor por los datos
+No se copia ninguna tabla de fabricante ni se nombra ninguna marca. FL, xT y Fd son los valores típicos
+publicados en la Tabla 2 de IEC 60534-2-1:2011. Desde v0.12.0 la capacidad nominal de globo y ángulo
+es la mediana, por familia de trim y tamaño, de datos publicados por varios fabricantes (solo se
+guardan medianas, dispersión y coeficientes ajustados); en rotativas sigue siendo Cv/d² representativo
+del estilo. Todo se rotula como "típico" y el usuario puede reemplazar cualquier factor por los datos
 certificados de la válvula ofertada.
 
 ## Validación actual
 
-`python -m pytest tests` (35 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
+`python -m pytest tests` (171 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
 IEC 60534-2-1:2011 reproducidos:
 
 | Ejemplo | Norma | Programa |

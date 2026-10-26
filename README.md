@@ -19,13 +19,17 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    agua de mar, que corrige SG, μ y Pv por salinidad) y agua libre, que también usa la selección de materiales; tipo de trim con sus factores
    típicos FL, Fd y Kc (editables), diámetro de válvula y Cv nominal. **Gas natural** (v0.11.0) con composición
    molar editable: M, μ, κ, Z1, T2 y Z2 salen de la ecuación de estado multicomponente. Trim «Doble guía de vástago
-   - superior». En los trims contorneados lineal e isoporcentual la característica inherente la fija el trim. Los diámetros y cédulas
+   - superior». Desde v0.12.0 el trim se elige en tres datos independientes: **estilo de trim** (geometría),
+   **sentido de flujo** (tiende a abrir o a cerrar; la fila Flow del actuador lo toma de aquí) y **característica**.
+   El Cv típico, el puerto y la carrera de globo y ángulo salen de una **tabla de capacidad** por familia
+   (contorneado, jaula, jaula de orificios, multietapa), mediana de datos publicados de fabricantes, y van ligados
+   entre sí; el programa avisa si el puerto, la carrera o el Cv cargados se apartan más de ±10 % del típico. Los diámetros y cédulas
    de tubería se copian desde 1-Sistema. El programa informa el tamaño del trim (diámetro del puerto) en
    pulgadas y milímetros, la carrera nominal del vástago y la carrera de operación de cada caso (en las
    rotativas, la rotación del eje); si se cargan el puerto y la carrera certificados, reemplazan a los estimados.
    Un puerto certificado menor que el del trim completo se trata como **trim reducido**: el programa muestra el
    puerto y el Cv típicos del trim completo, el puerto reducido y el Cv con el puerto reducido (el certificado o,
-   en blanco, el estimado por la relación de áreas), y usa ese Cv en la apertura, la carrera, la curva y el actuador.
+   en blanco, el típico de ese puerto y esa carrera según la tabla de capacidad), y usa ese Cv en la apertura, la carrera, la curva y el actuador.
 3. **3-Materiales**: el fluido llega definido desde la solapa 2 (tipo, fluido, calidad / variante y agua
    libre); aquí solo se agregan los datos complementarios: industria, agentes químicos con su
    concentración, sólidos, pH y norma de servicio agrio. El programa recomienda el material de cuerpo, bonete, asiento, jaula, guía,

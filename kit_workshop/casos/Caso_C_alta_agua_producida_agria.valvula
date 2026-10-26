@@ -1,5 +1,5 @@
 {
- "version": "0.8.1",
+ "version": "0.12.0",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -9,7 +9,7 @@
   "id_documento": "WS-03",
   "id_revision": "0",
   "id_preparado": "INSTRUMATIK S.A.S.",
-  "id_fecha": "24/10/2026",
+  "id_fecha": "26/10/2026",
   "cuerpo": "Globo",
   "rating": "CL600",
   "nps_entrada": "4\"",
@@ -21,14 +21,19 @@
   "cierre": "ANSI Clase V",
   "tipo_fluido": "Líquido",
   "fluido": "Agua / vapor de agua",
+  "composicion_gn": "Metano 90; Etano 5; Propano 2; n-Butano 0,5; Isobutano 0,5; Nitrógeno 1; Dióxido de carbono 1",
   "variante": "Agua producida (yacimiento)",
   "agua_libre": "Sí",
   "tipo_caudal": "Volumétrico",
   "tamano": "Automático",
-  "trim": "Globo, internos multietapa (anticavitación severa)",
+  "trim": "Multietapa (anticavitación severa)",
+  "sentido": "Flujo tiende a abrir (Up)",
   "balance": "Desbalanceado",
   "caracteristica": "Lineal",
+  "Cv_reducido": "",
+  "anticav": "Estándar (trim elegido, 1 etapa)",
   "trim_ruido": "Estándar (pasaje único)",
+  "carrera_salida": "mm",
   "visc_salida": "Dinámica",
   "mat_industria": "O&G Upstream",
   "mat_composicion": "Confirmada por análisis",
@@ -67,6 +72,7 @@
   "mat_ag5_unidad": "mg/L",
   "mat_ag5_conc": "",
   "mat_ag5_fase": "Desconocida",
+  "mat_juego": "Por componente (modo de cada pieza)",
   "mat_modo_cuerpo": "AUTOMÁTICO",
   "mat_sel_cuerpo": "ASTM A494 CW6MC — Inconel 625 fundido",
   "mat_modo_bonete": "AUTOMÁTICO",
@@ -82,7 +88,35 @@
   "mat_modo_vastago": "AUTOMÁTICO",
   "mat_sel_vastago": "Inconel 625 (N06625) barra",
   "mat_modo_empaquetadura": "AUTOMÁTICO",
-  "mat_sel_empaquetadura": "Bonete con fuelle metálico + empaquetadura de respaldo"
+  "mat_sel_empaquetadura": "Bonete con fuelle metálico + empaquetadura de respaldo",
+  "act_modo": "AUTOMÁTICO",
+  "act_tipo": "Diafragma y resorte",
+  "act_falla": "Cierra (FC)",
+  "act_volante": "No",
+  "act_flujo": "Up",
+  "act_rango": "AUTOMÁTICO (sugerido por N25)",
+  "pos_tag": "",
+  "pos_tipo": "Digital-HART",
+  "pos_senal": "4-20mA dc",
+  "pos_accion": "Configurable",
+  "pos_manometros": "Sí",
+  "pos_set": "Sí",
+  "pos_salida_set": "Ajustable 0-80 psi",
+  "acc_boosters": "",
+  "acc_quick_exhaust": "",
+  "acc_bloqueo": "",
+  "acc_cambio": "",
+  "acc_sol_accion": "No requerido",
+  "acc_sol_vias": "3 vías",
+  "acc_sol_material": "Acero Inoxidable",
+  "acc_sol_puerto": "1/4\"",
+  "acc_sol_voltaje": "24 Vdc",
+  "acc_sol_potencia": "",
+  "acc_lim_tipo": "No requerido",
+  "acc_lim_contactos": "SPDT",
+  "acc_lim_voltaje": "",
+  "acc_lim_corriente": "",
+  "acc_lim_frecuencia": "50/60Hz"
  },
  "filas": {
   "caudal": {
@@ -294,6 +328,94 @@
    "valores": [
     ""
    ]
+  },
+  "puerto": {
+   "unidad": "mm",
+   "valores": [
+    ""
+   ]
+  },
+  "carrera": {
+   "unidad": "mm",
+   "valores": [
+    ""
+   ]
+  },
+  "aire_instrumentos": {
+   "unidad": "bar g",
+   "valores": [
+    "4,00000",
+    "7,00000"
+   ]
+  },
+  "d_vastago": {
+   "unidad": "mm",
+   "valores": [
+    ""
+   ]
+  },
+  "friccion_cert": {
+   "unidad": "N",
+   "valores": [
+    ""
+   ]
+  },
+  "rango_pa_pb": {
+   "unidad": "bar g",
+   "valores": [
+    "",
+    ""
+   ]
+  },
+  "cert_area_in2": {
+   "unidad": "mm²",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_banco_psig": {
+   "unidad": "bar g",
+   "valores": [
+    "",
+    ""
+   ]
+  },
+  "cert_carrera_in": {
+   "unidad": "mm",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_pmax_psig": {
+   "unidad": "bar g",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_par_aire_lbfin": {
+   "unidad": "N·m",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_p_par_psig": {
+   "unidad": "bar g",
+   "valores": [
+    ""
+   ]
+  },
+  "cert_par_resorte_lbfin": {
+   "unidad": "N·m",
+   "valores": [
+    "",
+    ""
+   ]
+  },
+  "cert_nominal": {
+   "unidad": "N",
+   "valores": [
+    ""
+   ]
   }
  },
  "materiales": {
@@ -383,6 +505,37 @@
   "empaquetadura": {
    "modo": "AUTOMÁTICO",
    "clave": "fuelle"
-  }
+  },
+  "juego_trim": ""
+ },
+ "equipo": {
+  "act_modo": "AUTOMÁTICO",
+  "act_tipo": "Diafragma y resorte",
+  "act_falla": "Cierra (FC)",
+  "act_volante": "No",
+  "act_flujo": "Up",
+  "act_rango": "AUTOMÁTICO (sugerido por N25)",
+  "pos_tag": "",
+  "pos_tipo": "Digital-HART",
+  "pos_senal": "4-20mA dc",
+  "pos_accion": "Configurable",
+  "pos_manometros": "Sí",
+  "pos_set": "Sí",
+  "pos_salida_set": "Ajustable 0-80 psi",
+  "acc_boosters": "",
+  "acc_quick_exhaust": "",
+  "acc_bloqueo": "",
+  "acc_cambio": "",
+  "acc_sol_accion": "No requerido",
+  "acc_sol_vias": "3 vías",
+  "acc_sol_material": "Acero Inoxidable",
+  "acc_sol_puerto": "1/4\"",
+  "acc_sol_voltaje": "24 Vdc",
+  "acc_sol_potencia": "",
+  "acc_lim_tipo": "No requerido",
+  "acc_lim_contactos": "SPDT",
+  "acc_lim_voltaje": "",
+  "acc_lim_corriente": "",
+  "acc_lim_frecuencia": "50/60Hz"
  }
 }

@@ -433,7 +433,12 @@ class SolapaEquipo:
             if c.rotativa:
                 flujo.setCurrentText("Unidireccional")
             else:
-                self._act_flujo_desde_trim(self.cb_trim.currentData() or "")
+                self._act_flujo_desde_trim(self.trim_clave())
+        if not c.rotativa:   # en vástago ascendente el sentido se elige una sola vez, en la solapa 2
+            self._act_flujo_desde_trim(self.trim_clave())
+        flujo.setEnabled(c.rotativa)
+        flujo.setToolTip("Unidireccional o bidireccional según el cierre de la válvula rotativa." if c.rotativa else
+                         "Se toma de «Sentido de flujo» de la solapa 2 (Up: tiende a abrir; Down: tiende a cerrar).")
         self._act_cert_visibles()
 
     # -------------------------------------------------------------- 6-Accesorios
@@ -509,7 +514,8 @@ class SolapaEquipo:
 
     def _act_flujo_desde_trim(self, trim: str):
         if hasattr(self, "eq_w") and "act_flujo" in self.eq_w and trim and not ESTILOS[trim].familia == "rotativa":
-            self.eq_w["act_flujo"].setCurrentText("Down" if ("cierra" in trim or "dentro" in trim) else "Up")
+            from ..estilos import geometria_sentido
+            self.eq_w["act_flujo"].setCurrentText("Down" if geometria_sentido(trim)[1] == "cierra" else "Up")
 
     def _eq_aire_inicial(self):
         """Aire de instrumentos típico de planta (4 a 7 bar g) para que el primer cálculo tenga resultado."""

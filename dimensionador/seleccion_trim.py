@@ -192,5 +192,58 @@ def seleccionar(res) -> SeleccionTrim:
     else:
         materiales = "Internos estándar de acero inoxidable (316 o 410/416) son adecuados."
     complementos = list(dict.fromkeys(peor.avisos))
+    cap_pasos, cap_avisos = _capacidad(res, peor, etapas)
+    pasos += cap_pasos
+    complementos += cap_avisos
     trim = peor.trim + (f", al menos {etapas} etapas" if etapas >= 2 else "")
     return SeleccionTrim(dim.compresible, casos, trim, etapas, materiales, complementos, pasos)
+
+
+def _familia_recomendada(res, peor: EvaluacionCaso) -> str | None:
+    """Familia de capacidad del trim recomendado (None si es el elegido o no es de vástago ascendente)."""
+    if res.cuerpo.rotativa or peor.grado == 0 or peor.grado == 5:
+        return None
+    if peor.grado >= 4:
+        return "multietapa"
+    if res.dim.compresible:
+        return "orificios"
+    return ESTILOS[ESCALERA[peor.grado - 1]].familia_cv
+
+
+def _capacidad(res, peor: EvaluacionCaso, etapas: int) -> tuple[list[str], list[str]]:
+    """Capacidad del trim recomendado en el cuerpo calculado: los trims de bajo ruido y anticavitación tienen
+    menos Cv que el estándar del mismo tamaño (tabla de capacidad, mediana de datos de fabricantes), así que
+    pueden pedir un cuerpo mayor; y su rangeabilidad es menor."""
+    from . import capacidad as CAP
+    from .estilos import CUERPOS, TAMANOS, apertura_requerida
+    fam = _familia_recomendada(res, peor)
+    if fam is None:
+        return [], []
+    f = CAP.FACTOR_ETAPAS.get(etapas, CAP.FACTOR_ETAPAS[max(CAP.FACTOR_ETAPAS)] if etapas > 6 else 1.0) \
+        if fam == "multietapa" else 1.0
+    R = CAP.RANGEABILIDAD.get(fam, 50.0)
+    nps = res.nps_valvula
+    Cv_max = max(s["Cv"] for s in res.salidas)
+    Cv_min = min(s["Cv"] for s in res.salidas if s["Cv"] > 0) if any(s["Cv"] > 0 for s in res.salidas) else 0
+    cv = CAP.pleno(fam, nps, "lineal").Cv * f
+    h = apertura_requerida(Cv_max / cv, "lineal", R)
+    pasos = [f"Capacidad del trim recomendado ({CAP.FAMILIAS[fam].lower()}) en el cuerpo de {_n(nps, 1)}\": Cv "
+             f"típico {_n(cv, 0)} (lineal, tabla de capacidad de N25); el caso de mayor caudal pide Cv "
+             f"{_n(Cv_max, 1)}, apertura ≈ {_n(min(h, 9.99) * 100, 0)} %."]
+    avisos = []
+    if Cv_max > 0.9 * cv:
+        c = CUERPOS[res.inst.cuerpo]
+        mayor = next((p for p, _, _ in TAMANOS if c.nps_min <= p <= c.nps_max and p > nps
+                      and Cv_max <= 0.9 * CAP.pleno(fam, p, "lineal").Cv * f), None)
+        avisos.append(f"Con el trim recomendado el cuerpo de {_n(nps, 1)}\" queda chico: su Cv típico es "
+                      f"{_n(cv, 0)} y el caso máximo pide {_n(Cv_max, 1)} (más de 90 % de apertura). "
+                      + (f"Recalcule con el cuerpo de {_n(mayor, 1)}\" (Cv típico "
+                         f"{_n(CAP.pleno(fam, mayor, 'lineal').Cv * f, 0)})." if mayor else
+                         "Ningún tamaño del cuerpo alcanza: reparta la caída en dos válvulas o consulte al "
+                         "fabricante."))
+    if Cv_min and Cv_min < cv / R:
+        avisos.append(f"El caso de menor caudal pide Cv {_n(Cv_min, 2)}, por debajo del Cv mínimo controlable del "
+                      f"trim recomendado (≈ Cv/{_n(R, 0)} = {_n(cv / R, 1)}; la rangeabilidad de los trims de "
+                      "bajo ruido y anticavitación es menor que la del estándar). Considere una válvula chica en "
+                      "paralelo para el caudal bajo o un trim de menor capacidad.")
+    return pasos, avisos

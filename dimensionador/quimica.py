@@ -169,13 +169,14 @@ NIQ = ["a20", "in825", "monel", "ni600", "ni_c", "ni_b"]
 
 # Reglas con agua presente (o fase del agente acuosa)
 REGLAS: dict[str, dict[str, list]] = {
-    "cloruros": {  # agua neutra aireada; los límites bajan con pH ácido u oxidantes
+    "cloruros": {  # agua neutra aireada; los límites bajan con pH ácido u oxidantes. Austeníticos: por encima de
+        # 100 °C, aun con ≤ 50 mg/L, B (los cloruros se concentran por evaporación: Cl-SCC)
         **_todos(ACERO, r((200, 200, "B"), (1000, 100, "B"), (INF, 100, "C"))),
-        "ss304": r((50, 200, "A"), (200, 60, "A"), (200, 100, "B"), (1000, 40, "B"), (1000, 60, "C"),
+        "ss304": r((50, 100, "A"), (200, 60, "A"), (50, 200, "B"), (200, 100, "B"), (1000, 40, "B"), (1000, 60, "C"),
                    (200, 150, "C"), (3000, 25, "C")),
-        "ss316": r((50, 200, "A"), (1000, 40, "A"), (200, 100, "B"), (1000, 60, "B"), (3000, 30, "B"),
+        "ss316": r((50, 100, "A"), (1000, 40, "A"), (50, 200, "B"), (200, 100, "B"), (1000, 60, "B"), (3000, 30, "B"),
                    (1000, 120, "C"), (25000, 25, "C")),
-        "ss317": r((50, 200, "A"), (2000, 40, "A"), (500, 100, "B"), (2000, 60, "B"), (5000, 30, "B"),
+        "ss317": r((50, 100, "A"), (2000, 40, "A"), (50, 200, "B"), (500, 100, "B"), (2000, 60, "B"), (5000, 30, "B"),
                    (2000, 120, "C"), (25000, 30, "C")),
         "duplex": r((1000, 150, "A"), (3600, 80, "A"), (5000, 100, "B"), (10000, 40, "B"), (25000, 60, "C")),
         **_todos(["sduplex", "superaus"], r((5000, 150, "A"), (25000, 30, "A"), (25000, 60, "B"), (60000, 40, "B"),

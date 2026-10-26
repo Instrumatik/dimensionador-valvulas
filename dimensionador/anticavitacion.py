@@ -40,22 +40,29 @@ class TrimAnticavitacion:
     Fd: float
     Kc: float
     xFz: float | None    # inicio de cavitación incipiente equivalente (None = típico de IEC 60534-8-4)
-    Cd: float | None     # Cv nominal / d² [d en pulgadas]; None = el del trim elegido
+    familia: str | None  # familia de capacidad (capacidad.PLENO); None = la del trim elegido
+    factor: float = 1.0  # multiplicador del Cv de la familia
+    rangeabilidad: float = 30.0
 
 
-def _multietapa(n: int, Cd: float) -> TrimAnticavitacion:
+def _multietapa(n: int) -> TrimAnticavitacion:
+    from .capacidad import FACTOR_ETAPAS, RANGEABILIDAD
     FL = math.sqrt(min(1 - (1 - FL_ETAPA ** 2) ** n, 0.995))
     return TrimAnticavitacion(f"etapas_{n}", f"Multietapa, {n} etapas", n, round(FL, 3), 0.07,
-                              round(1 - (1 - KC_ETAPA) ** n, 3), round(1 - (1 - XFZ_ETAPA) ** n, 3), Cd)
+                              round(1 - (1 - KC_ETAPA) ** n, 3), round(1 - (1 - XFZ_ETAPA) ** n, 3), "multietapa",
+                              FACTOR_ETAPAS[n], RANGEABILIDAD["multietapa"])
 
 
+# Capacidad: el multietapa usa la tabla de multietapas de ``capacidad`` (≈ 3 etapas) corregida por el
+# número de etapas; la jaula de orificios chicos, la de orificios de una etapa.
 TRIMS: dict[str, TrimAnticavitacion] = {t.clave: t for t in [
     TrimAnticavitacion("estandar", "Estándar (trim elegido, 1 etapa)", 1, 0, 0, 0, None, None),
-    TrimAnticavitacion("jaula_1", "Jaula de orificios chicos, 1 etapa", 1, 0.93, 0.10, 0.85, None, 7.0),
-    _multietapa(2, 5.0),
-    _multietapa(3, 4.0),
-    _multietapa(4, 3.5),
-    _multietapa(6, 2.8),
+    TrimAnticavitacion("jaula_1", "Jaula de orificios chicos, 1 etapa", 1, 0.93, 0.10, 0.85, None, "orificios",
+                       1.0, 15.0),
+    _multietapa(2),
+    _multietapa(3),
+    _multietapa(4),
+    _multietapa(6),
 ]}
 ETAPAS_DISPONIBLES = sorted({t.etapas for t in TRIMS.values() if t.clave.startswith("etapas_")})
 
