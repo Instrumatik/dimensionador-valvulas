@@ -12,7 +12,8 @@ Todas las magnitudes en unidades base: kPa abs, K, kg/h, Nm³/h, kg/m³, Pa·s, 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import NamedTuple
 
 from . import propiedades, ruido
 from .iec60534_2_1 import P_N, R_UNIV, T_N, Gas
@@ -26,14 +27,62 @@ REF_SIZ = "IEC 60534-2-1:2011"
 # Trims para ruido aerodinámico. Para una jaula de No orificios iguales IEC 60534-2-1
 # (Anexo A) da Fd = dH/do = 1/√No; con ese Fd, IEC 60534-8-3 reduce el diámetro del
 # chorro y desplaza el ruido a frecuencias altas, que la tubería atenúa más.
-TRIMS_RUIDO = {
-    "estandar": ("Estándar (pasaje único)", None),
-    "multiorificio_1": ("Jaula multiorificio, nivel 1 (≈ 50 orificios)", 1 / math.sqrt(50)),
-    "multiorificio_2": ("Jaula multiorificio, nivel 2 (≈ 200 orificios)", 1 / math.sqrt(200)),
-    "multiorificio_3": ("Jaula multiorificio, nivel 3 (≈ 800 orificios)", 1 / math.sqrt(800)),
+# Multietapa (v0.13.0): N etapas iguales en serie con igual relación de presión por etapa,
+# P_salida/P_entrada = (P2/P1)^(1/N). El ruido lo define la última etapa, que descarga a la
+# tubería (las anteriores quedan atenuadas dentro del trim), con su caída de presión y el Fd de
+# sus orificios. El flujo se estrangula cuando se estrangula la última etapa:
+#     xT_eq = [1 − (1 − Fγ·xT_e)^N]/Fγ
+# Atenuación: rangos típicos de la literatura de válvulas (mismo caudal, P1 y P2, frente al trim
+# estándar); el programa calcula el valor de cada caso con IEC 60534-8-3.
+XT_ETAPA_GAS = 0.68            # etapa de orificios (jaula de orificios de IEC 60534-2-1, Tabla 2)
+FL_ETAPA_GAS = 0.90
+
+
+class TrimRuido(NamedTuple):
+    nombre: str
+    Fd: float | None           # None = el del trim elegido
+    etapas: int = 1
+    familia: str | None = None  # familia de capacidad (capacidad.PLENO)
+    atenuacion: str = ""        # rango típico frente al trim estándar
+
+
+def _etapas_gas(clave: str, nombre: str, n: int, Fd: float, aten: str) -> tuple[str, TrimRuido]:
+    return f"{clave}_{n}", TrimRuido(f"{nombre}, {n} etapas", Fd, n, "multietapa", aten)
+
+
+TRIMS_RUIDO: dict[str, TrimRuido] = {
+    "estandar": TrimRuido("Estándar (pasaje único)", None),
+    "multiorificio_1": TrimRuido("Jaula multiorificio, nivel 1 (≈ 50 orificios)", 1 / math.sqrt(50), 1,
+                                 "orificios", "5 a 10 dB(A)"),
+    "multiorificio_2": TrimRuido("Jaula multiorificio, nivel 2 (≈ 200 orificios)", 1 / math.sqrt(200), 1,
+                                 "orificios", "10 a 15 dB(A)"),
+    "multiorificio_3": TrimRuido("Jaula multiorificio, nivel 3 (≈ 800 orificios)", 1 / math.sqrt(800), 1,
+                                 "orificios", "15 a 20 dB(A)"),
+    **dict([_etapas_gas("multietapa", "Multietapa multiorificio", 2, 0.07, "15 a 25 dB(A)"),
+            _etapas_gas("multietapa", "Multietapa multiorificio", 3, 0.07, "20 a 30 dB(A)"),
+            _etapas_gas("multietapa", "Multietapa multiorificio", 4, 0.07, "25 a 35 dB(A)")]),
+    **dict(_etapas_gas("discos", "Discos apilados", n, 0.05, "25 a 35 dB(A)" if n < 8 else "30 a 40 dB(A)")
+           for n in (4, 6, 8, 10)),
 }
 NIVEL_CORTO = {"estandar": "No requerido", "multiorificio_1": "Nivel 1", "multiorificio_2": "Nivel 2",
-               "multiorificio_3": "Nivel 3"}
+               "multiorificio_3": "Nivel 3", "multietapa_2": "Multietapa, 2 etapas",
+               "multietapa_3": "Multietapa, 3 etapas", "multietapa_4": "Multietapa, 4 etapas",
+               **{f"discos_{n}": f"Discos apilados, {n} etapas" for n in (4, 6, 8, 10)}}
+
+
+def xT_etapas(n: int, gamma: float = 1.4) -> float:
+    """xT equivalente de N etapas de orificios en serie (se estrangula la última)."""
+    Fg = gamma / 1.4
+    return min((1 - (1 - Fg * XT_ETAPA_GAS) ** n) / Fg, 0.98) if n > 1 else XT_ETAPA_GAS
+
+
+def texto_nivel(clave: str) -> str:
+    """Nombre corto del nivel con su atenuación típica, para el desplegable de nivel o etapas."""
+    t = TRIMS_RUIDO[clave]
+    base = t.nombre.split(", ")[-1] if t.etapas > 1 else t.nombre.split(", ")[-1].replace("nivel", "Nivel")
+    return f"{base} – atenuación típica {t.atenuacion}" if t.atenuacion else base
+
+
 MACH_SALIDA_VALVULA = 0.3      # límite habitual de diseño en la salida de la válvula (ruido)
 MACH_TUBERIA = 0.3
 
@@ -224,6 +273,25 @@ def ruido_caso(W_kgh, c: CasoGas, e: Estado, Kv, FL_eff, Fd, d_salida_mm, D2_mm,
                         D2_mm / 1000, tp2_mm / 1000, Fd, FL_eff, T2=e.T2, rho2=e.rho2,
                         c2=sonido(e.gamma, c.P2, e.rho2))
     r["LpAe_Rn"] = r["LpAe1m"] + ruido.correccion_distancia(D2_mm / 1000, tp2_mm / 1000, Rn_m)
+    return r
+
+
+def ruido_etapas(W_kgh, c: CasoGas, e: Estado, n: int, Fd: float, d_salida_mm, D2_mm, tp2_mm, Rn_m) -> dict:
+    """Ruido de un trim de N etapas: el de la última etapa, con su caída de presión y su Kv.
+
+    La etapa final va de P1_f = P2·(P1/P2)^(1/N) a P2; su Kv sale de la ecuación de caudal de gas de
+    IEC 60534-2-1 con xT de una etapa de orificios (Y = 1 − x/(3·Fγ·xT), x ≤ Fγ·xT)."""
+    from .iec60534_2_1 import N6
+    P1f = c.P2 * (c.P1 / c.P2) ** (1 / n)
+    rho1f = e.rho1 * P1f / c.P1
+    Fg = e.gamma / 1.4
+    x = min((P1f - c.P2) / P1f, Fg * XT_ETAPA_GAS)
+    Y = 1 - x / (3 * Fg * XT_ETAPA_GAS)
+    Kv_f = W_kgh / (N6 * Y * math.sqrt(x * P1f * rho1f))
+    cf = replace(c, P1=P1f)
+    ef = replace(e, rho1=rho1f)
+    r = ruido_caso(W_kgh, cf, ef, Kv_f, FL_ETAPA_GAS, Fd, d_salida_mm, D2_mm, tp2_mm, Rn_m)
+    r["P1_etapa"] = P1f
     return r
 
 

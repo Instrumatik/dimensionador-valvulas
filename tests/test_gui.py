@@ -420,19 +420,20 @@ def test_trim_anticavitacion_por_etapas(app):
     w.calcular()
     assert w.salidas["etapas_txt"].celdas[0].text()
     assert w.salidas["k_etapa"].celdas[0].text() in ("", "—")
-    w.cb_anticav.setCurrentIndex(w.cb_anticav.findData("etapas_3"))
+    w.cb_tipo_trim.setCurrentIndex(w.cb_tipo_trim.findData("jaula"))
+    w.cb_trim.setCurrentIndex(w.cb_trim.findData("jaula_anticav"))
+    w.cb_nivel.setCurrentIndex(w.cb_nivel.findData("etapas_3"))
     assert w.filas["Kc"].edits[0].text() == "0,973"
     w.calcular()
     assert w.res.dim.anticav == "etapas_3"
     assert w.salidas["k_etapa"].celdas[0].text() not in ("", "—")
     assert "Multietapa, 3 etapas" in w.vistas["hoja_datos"].toPlainText()
     assert "Kapp por etapa" in w.vistas["memoria"].toPlainText()
-    w.cb_anticav.setCurrentIndex(0)
-    assert w.filas["Kc"].edits[0].text() != "0,973"
-    # En un cuerpo rotativo solo queda el estándar
+    w.cb_trim.setCurrentIndex(w.cb_trim.findData("jaula_4v"))
+    assert w.filas["Kc"].edits[0].text() != "0,973" and w.fila_nivel[0].isHidden()
+    # En un cuerpo rotativo no hay tipo de trim ni jaulas especiales
     w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("mariposa"))
-    it = w.cb_anticav.model().item(w.cb_anticav.findData("etapas_2"))
-    assert not it.isEnabled()
+    assert w.fila_tipo_trim[0].isHidden() and w.trim_especial() == ("estandar", "estandar")
 
 
 def test_actuador_certificado_en_pantalla(app):

@@ -1,5 +1,5 @@
 {
- "version": "0.12.0",
+ "version": "0.12.1",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -26,13 +26,14 @@
   "agua_libre": "Sí",
   "tipo_caudal": "Volumétrico",
   "tamano": "Automático",
-  "trim": "Multietapa (anticavitación severa)",
+  "tipo_trim": "Guiado por jaula",
+  "guia": "Superior reforzada (heavy top guided)",
+  "trim": "Jaula anticavitación",
+  "nivel": "1 etapa – Kc 0,85, FL 0,93",
   "sentido": "Flujo tiende a abrir (Up)",
   "balance": "Desbalanceado",
   "caracteristica": "Lineal",
   "Cv_reducido": "",
-  "anticav": "Estándar (trim elegido, 1 etapa)",
-  "trim_ruido": "Estándar (pasaje único)",
   "carrera_salida": "mm",
   "visc_salida": "Dinámica",
   "mat_industria": "O&G Upstream",
@@ -232,41 +233,41 @@
   "xT": {
    "unidad": "-",
    "valores": [
-    "0,81",
-    "0,81",
-    "0,81",
+    "0,7",
+    "0,7",
+    "0,7",
     "",
-    "0,81"
+    "0,7"
    ]
   },
   "FL": {
    "unidad": "-",
    "valores": [
-    "0,97",
-    "0,97",
-    "0,97",
+    "0,93",
+    "0,93",
+    "0,93",
     "",
-    "0,97"
+    "0,93"
    ]
   },
   "Fd": {
    "unidad": "-",
    "valores": [
-    "0,07",
-    "0,07",
-    "0,07",
+    "0,1",
+    "0,1",
+    "0,1",
     "",
-    "0,07"
+    "0,1"
    ]
   },
   "Kc": {
    "unidad": "-",
    "valores": [
-    "0,95",
-    "0,95",
-    "0,95",
+    "0,85",
+    "0,85",
+    "0,85",
     "",
-    "0,95"
+    "0,85"
    ]
   },
   "T2": {

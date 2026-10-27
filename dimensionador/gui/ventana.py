@@ -13,9 +13,10 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QSplitter, QTabWidget, QTextBrowser, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
-from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, propiedades, tuberias, unidades as U
+from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, propiedades, trims as T, tuberias, unidades as U
 from ..estilos import (CLAVES_ANTERIORES, CUERPOS, ESTILOS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES, SENTIDOS,
-                       TAMANOS, clave_trim, factores, geometria_sentido, geometrias, nombre_geometria, sentidos)
+                       NOMBRE_GEOMETRIA, TAMANOS, clave_de_geometria, clave_trim, factores, geometria_sentido,
+                       geometrias, nombre_geometria, sentidos)
 from ..geometria import fraccion_in
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
@@ -993,9 +994,19 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             self._fila(grid, r, f"Schedule de tubería de {lado}", ed, "cedula", QLabel("desde 1-Sistema")); r += 1
         self.cb_tamano = self._registrar("tamano", Combo())
         self._fila(grid, r, "Diámetro de válvula", self.cb_tamano, "tamano"); r += 1
+        # v0.13.0: tipo de trim → guía y obturador, o jaula → nivel o etapas (dependientes en ese orden)
+        self.cb_tipo_trim = self._registrar("tipo_trim", Combo())
+        self.cb_tipo_trim.currentIndexChanged.connect(self._cambio_tipo_trim)
+        self.fila_tipo_trim = self._fila(grid, r, "Tipo de trim", self.cb_tipo_trim, "tipo_trim"); r += 1
+        self.cb_guia = self._registrar("guia", Combo())
+        self.cb_guia.currentIndexChanged.connect(self._cambio_guia)
+        self.fila_guia = self._fila(grid, r, "Guía del obturador", self.cb_guia, "guia_obturador"); r += 1
         self.cb_trim = self._registrar("trim", Combo())
         self.cb_trim.currentIndexChanged.connect(self._cambio_trim)
         self.lbl_trim = self._fila(grid, r, "Estilo de trim", self.cb_trim, "trim")[0]; r += 1
+        self.cb_nivel = self._registrar("nivel", Combo())
+        self.cb_nivel.currentIndexChanged.connect(self._cambio_estilo)
+        self.fila_nivel = self._fila(grid, r, "Nivel o etapas", self.cb_nivel, "nivel_etapas", ancho=420); r += 1
         self.cb_sentido = self._registrar("sentido", Combo())
         self.cb_sentido.currentIndexChanged.connect(self._cambio_estilo)
         self.fila_sentido = self._fila(grid, r, "Sentido de flujo", self.cb_sentido, "sentido_flujo"); r += 1
@@ -1039,24 +1050,10 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.lbl_geo.setTextFormat(Qt.RichText)
         grid.addWidget(self.lbl_geo, r, 2, 1, 3)
         r += 1
-        # Datos para cavitación hidrodinámica (líquidos)
-        sub = QLabel("<b>Datos para cavitación hidrodinámica (IEC 60534-8-4)</b>")
-        grid.addWidget(sub, r, 0, 1, 4)
-        self.vis_g1.append(([sub], "L")); r += 1
-        self.cb_anticav = self._registrar("anticav", Combo())
-        for k, t in AC.TRIMS.items():
-            self.cb_anticav.addItem(t.nombre, k)
-        self.cb_anticav.currentIndexChanged.connect(self._cambio_anticav)
-        self.vis_g1.append((self._fila(grid, r, "Trim anticavitación", self.cb_anticav, "anticav"), "L")); r += 1
-        # Datos de ruido aerodinámico (compresibles)
+        # Datos de ruido aerodinámico (compresibles); el trim de bajo ruido se elige arriba (jaula y nivel)
         sub = QLabel("<b>Datos para ruido aerodinámico (IEC 60534-8-3)</b>")
         grid.addWidget(sub, r, 0, 1, 4)
         self.vis_g1.append(([sub], "GVS")); r += 1
-        self.cb_trim_ruido = self._registrar("trim_ruido", Combo())
-        for k, (t, _) in CG.TRIMS_RUIDO.items():
-            self.cb_trim_ruido.addItem(t, k)
-        self.vis_g1.append((self._fila(grid, r, "Trim para ruido aerodinámico", self.cb_trim_ruido, "trim_ruido",
-                                       ancho=420), "GVS")); r += 1
         self.f_Rn = FilaUnidad("Rn", "Distancia para ruido Rn", ("distancia",), grid, r, self.abrir_ayuda, 1, "Rn")
         self.f_Rn.edits[0].setText("1")
         nota_rn = QLabel("Para todas las condiciones")
@@ -1265,13 +1262,18 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
 
     def _cambio_cuerpo(self):
         c = self.cuerpo()
-        self.cb_trim.blockSignals(True)
-        self.cb_trim.clear()
-        for g in geometrias(c.clave):
-            self.cb_trim.addItem(nombre_geometria(g), g)
-            k = clave_trim(c.clave, g, "abre")
-            self.cb_trim.setItemData(self.cb_trim.count() - 1, ESTILOS[k].nombre, Qt.ToolTipRole)
-        self.cb_trim.blockSignals(False)
+        desl = T.deslizante(c.clave)
+        for w in self.fila_tipo_trim:
+            w.setVisible(desl)
+        self.cb_tipo_trim.blockSignals(True)
+        previo = self.cb_tipo_trim.currentData()
+        self.cb_tipo_trim.clear()
+        for t in T.tipos(c.clave):
+            self.cb_tipo_trim.addItem(T.TIPOS[t], t)
+        self.cb_tipo_trim.setCurrentIndex(max(0, self.cb_tipo_trim.findData(previo)))
+        self.cb_tipo_trim.setEnabled(self.cb_tipo_trim.count() > 1)
+        self.cb_tipo_trim.blockSignals(False)
+        self._cambio_tipo_trim(recalcular=False)
         for w in self.fila_balance:
             w.setVisible(not c.rotativa)
         actual = self.cb_tamano.currentData()
@@ -1284,23 +1286,100 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_tamano.setCurrentIndex(max(0, i))
         self._cambio_trim()
         self._act_concordancia()
-        if hasattr(self, "cb_anticav"):
-            self._anticav_concordancia()
 
-    def trim_clave(self) -> str:
-        """Clave de ESTILOS del estilo de trim y el sentido de flujo elegidos en la solapa 2."""
-        g = self.cb_trim.currentData()
-        if not g or self.cb_cuerpo.currentData() is None:
-            return ""
-        return clave_trim(self.cuerpo().clave, g, self.cb_sentido.currentData() or "")
+    def _llenar(self, cb: QComboBox, items: list[tuple[str, str]]):
+        """Reemplaza las opciones del desplegable conservando la elegida si sigue disponible."""
+        previo = cb.currentData()
+        cb.blockSignals(True)
+        cb.clear()
+        for texto, dato in items:
+            cb.addItem(texto, dato)
+        cb.setCurrentIndex(max(0, cb.findData(previo)))
+        cb.blockSignals(False)
 
-    def _cambio_trim(self):
-        """Cambió el estilo de trim: sentidos de flujo que admite y característica habitual."""
-        g = self.cb_trim.currentData()
+    def _cambio_tipo_trim(self, *_, recalcular=True):
+        """Guiado por obturador: muestra la guía y los obturadores; guiado por jaula: las jaulas del fluido."""
+        c = self.cuerpo().clave
+        desl = T.deslizante(c)
+        tipo = self.cb_tipo_trim.currentData() if desl else None
+        por_obt = tipo == "obturador"
+        for w in self.fila_guia:
+            w.setVisible(por_obt)
+        if por_obt:
+            self._llenar(self.cb_guia, [(T.GUIAS[g].nombre, g) for g in T.guias(c)])
+            for i in range(self.cb_guia.count()):
+                self.cb_guia.setItemData(i, T.GUIAS[self.cb_guia.itemData(i)].nota, Qt.ToolTipRole)
+            self._cambio_guia(recalcular=recalcular)
+            return
+        self.lbl_trim.setText("Jaula" if desl else "Estilo de trim")
+        if desl:
+            items = [(T.ELEMENTOS[e].nombre, e) for e in T.elementos(c, "jaula", self.tipo() == "liquido")]
+        else:
+            items = [(nombre_geometria(g), g) for g in geometrias(c)]
+        self._llenar(self.cb_trim, items)
+        for i in range(self.cb_trim.count()):
+            d = self.cb_trim.itemData(i)
+            k = (T.clave_estilo(c, d, T.sentidos(c, d)[0], (T.niveles(d, self.tipo() == "liquido") or [""])[0])
+                 if desl else clave_trim(c, d, "abre"))
+            self.cb_trim.setItemData(i, ESTILOS[k].nombre, Qt.ToolTipRole)
+        if recalcular:
+            self._cambio_trim()
+
+    def _cambio_guia(self, *_, recalcular=True):
+        c = self.cuerpo().clave
+        g = self.cb_guia.currentData()
         if not g:
             return
+        self.lbl_trim.setText("Obturador")
+        self._llenar(self.cb_trim, [(T.ELEMENTOS[e].nombre, e) for e in T.obturadores(c, g)])
+        for i in range(self.cb_trim.count()):
+            k = T.clave_estilo(c, self.cb_trim.itemData(i), "abre")
+            self.cb_trim.setItemData(i, ESTILOS[k].nombre, Qt.ToolTipRole)
+        self.cb_guia.setToolTip(T.GUIAS[g].nota)
+        if recalcular:
+            self._cambio_trim()
+
+    def eleccion(self) -> T.Eleccion | None:
+        """Tipo, guía, obturador o jaula, sentido y nivel elegidos (None en cuerpos rotativos)."""
+        c = self.cb_cuerpo.currentData()
+        if c is None or not T.deslizante(c) or not self.cb_trim.currentData():
+            return None
+        tipo = self.cb_tipo_trim.currentData() or "obturador"
+        return T.Eleccion(tipo, self.cb_guia.currentData() if tipo == "obturador" else "",
+                          self.cb_trim.currentData(), self.cb_sentido.currentData() or "abre",
+                          self.cb_nivel.currentData() or "")
+
+    def trim_clave(self) -> str:
+        """Clave de ESTILOS del trim, el sentido de flujo y el nivel elegidos en la solapa 2."""
+        d = self.cb_trim.currentData()
+        if not d or self.cb_cuerpo.currentData() is None:
+            return ""
+        el = self.eleccion()
+        if el is None:
+            return clave_trim(self.cuerpo().clave, d, self.cb_sentido.currentData() or "")
+        return T.clave_estilo(self.cuerpo().clave, el.elemento, el.sentido, el.nivel)
+
+    def trim_especial(self) -> tuple[str, str]:
+        """(nivel anticavitación, nivel de bajo ruido) del trim elegido."""
+        el = self.eleccion()
+        if el is None:
+            return "estandar", "estandar"
+        return T.especial(el.elemento, el.nivel, self.tipo() == "liquido")
+
+    def _cambio_trim(self):
+        """Cambió el obturador o la jaula: niveles, sentidos de flujo que admite y característica habitual."""
+        d = self.cb_trim.currentData()
+        if not d:
+            return
+        c = self.cuerpo().clave
+        desl = T.deslizante(c)
+        liq = self.tipo() == "liquido"
+        nv = T.niveles(d, liq) if desl else []
+        self._llenar(self.cb_nivel, [(T.texto_nivel(k, liq), k) for k in nv])
+        for w in self.fila_nivel:
+            w.setVisible(bool(nv))
         previo = self.cb_sentido.currentData()
-        ops = sentidos(self.cuerpo().clave, g)
+        ops = T.sentidos(c, d) if desl else sentidos(c, d)
         self.cb_sentido.blockSignals(True)
         self.cb_sentido.clear()
         for sd in ops:
@@ -1318,6 +1397,20 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_caract.blockSignals(False)
         self._cambio_estilo()
 
+    def _aplicar_nivel(self):
+        """El nivel o las etapas de la jaula especial reemplazan FL, xT, Fd y Kc de las condiciones de operación."""
+        ac, ru = self.trim_especial()
+        vals = {}
+        if ac != "estandar":
+            t = AC.TRIMS[ac]
+            vals = {"FL": t.FL, "Fd": t.Fd, "Kc": t.Kc}
+        elif ru != "estandar":
+            t = CG.TRIMS_RUIDO[ru]
+            vals = {"Fd": t.Fd, "xT": CG.xT_etapas(t.etapas)} if t.etapas > 1 else {"Fd": t.Fd}
+        for j in FLUYEN:
+            for clave, val in vals.items():
+                self.filas[clave].edits[j].setText(f"{val:.3g}".replace(".", ","))
+
     def _cambio_estilo(self):
         """Factores típicos del trim con el sentido y la característica elegidos."""
         k = self.trim_clave()
@@ -1330,8 +1423,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                 self.filas[clave].edits[j].setText(f"{val:g}".replace(".", ","))
             kc = KC_TIPICO.get(k)
             self.filas["Kc"].edits[j].setText(f"{kc:g}".replace(".", ",") if kc else "")
-        if getattr(self, "cb_anticav", None) is not None and self.cb_anticav.currentData() not in (None, "estandar"):
-            self._cambio_anticav()
+        self._aplicar_nivel()
         self._caract_concordancia()
         self.cb_trim.setToolTip(e.nombre + (f"\n\n{e.nota}" if e.nota else ""))
         self._act_flujo_desde_trim(k)
@@ -1348,43 +1440,27 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         if not k:
             return
         rot = self.cuerpo().rotativa
-        if rot:
+        el = self.eleccion()
+        admite = T.ELEMENTOS[el.elemento].caracteristicas if el else (ESTILOS[k].caracteristica,)
+        _bloquear_items(self.cb_caract, {t: "el trim elegido no la ofrece" for c, t in E.CARACTERISTICA.items()
+                                         if c not in admite})
+        if rot or self.cb_caract.currentData() not in admite:
             self.cb_caract.blockSignals(True)
-            self.cb_caract.setCurrentIndex(self.cb_caract.findData(ESTILOS[k].caracteristica))
+            self.cb_caract.setCurrentIndex(self.cb_caract.findData(
+                ESTILOS[k].caracteristica if ESTILOS[k].caracteristica in admite else admite[0]))
             self.cb_caract.blockSignals(False)
-        self.cb_caract.setEnabled(not rot)
+        self.cb_caract.setEnabled(not rot and len(admite) > 1)
         self.cb_caract.setToolTip(
             "En una válvula rotativa la característica la da la forma del disco, la bola o el segmento." if rot else
             "Curva de capacidad frente a la carrera: la define el perfil del obturador o las ventanas de la jaula. "
             "Elija la que ofrezca el fabricante para el estilo de trim elegido.")
 
-    def _cambio_anticav(self):
-        """El trim anticavitación reemplaza FL, Fd y Kc de las condiciones de operación (o los restituye)."""
-        k = self.cb_anticav.currentData()
-        if not k:
-            return
-        if k == "estandar":
-            self._cambio_estilo()
-            return
-        t = AC.TRIMS[k]
-        for j in FLUYEN:
-            for clave, val in (("FL", t.FL), ("Fd", t.Fd), ("Kc", t.Kc)):
-                self.filas[clave].edits[j].setText(f"{val:g}".replace(".", ","))
-
-    def _anticav_concordancia(self):
-        """Los trims anticavitación son de globo o angular: en cuerpos rotativos queda solo el estándar."""
-        c = self.cuerpo()
-        bloq = {t.nombre: "solo para cuerpos globo y angular" for k, t in AC.TRIMS.items()
-                if k != "estandar"} if c.rotativa else {}
-        _bloquear_items(self.cb_anticav, bloq)
-        if c.rotativa and self.cb_anticav.currentData() != "estandar":
-            self.cb_anticav.setCurrentIndex(0)
-
     def _cambio_tipo_fluido(self):
         """Muestra solo las entradas y resultados del tipo de fluido elegido."""
         t, L = self.tipo(), self.letra()
         self.lbl_titulo_dim.setText(f"DATOS DE ENTRADA — {TITULO_TIPO[t]}")
-        self.lbl_trim.setText("Tipo de trim" if t != "liquido" else "Tipo de trim hidrodinámico")
+        if hasattr(self, "cb_tipo_trim") and self.cb_cuerpo.currentData() is not None:
+            self._cambio_tipo_trim()       # las jaulas de bajo ruido o anticavitación dependen del fluido
         for k, f in self.filas.items():
             ver = L in self.tipos_fila[k]
             for w in f.widgets():
@@ -1751,15 +1827,19 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             return ident, inst, Dimensionamiento(casos, Pc, self.trim_clave(), self.cb_tamano.currentData(),
                                                  self.cb_caract.currentData(), fluido, cierre,
                                                  balanceado=self._balanceado(), **self._geo_cert(),
-                                                 anticav=self.cb_anticav.currentData() or "estandar",
+                                                 anticav=self.trim_especial()[0], guia=self._guia(),
                                                  **self._datos_fluido())
-        ruido_g = RuidoAerodinamico(self.cb_trim_ruido.currentData(), self.f_Rn.valor_base(0) or 1.0,
+        ruido_g = RuidoAerodinamico(self.trim_especial()[1], self.f_Rn.valor_base(0) or 1.0,
                                     self.f_area.valor_base(0))
         dim = Dimensionamiento(casos, None, self.trim_clave(), self.cb_tamano.currentData(),
                                self.cb_caract.currentData(), "Agua / vapor de agua" if t == "steam" else fluido,
                                cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado(), **self._geo_cert(),
-                               composicion=self._composicion(), **self._datos_fluido())
+                               composicion=self._composicion(), guia=self._guia(), **self._datos_fluido())
         return ident, inst, dim
+
+    def _guia(self) -> str:
+        el = self.eleccion()
+        return el.guia if el else ""
 
     def _geo_cert(self) -> dict:
         """Puerto y carrera certificados (en blanco = estimados por el programa)."""
@@ -2068,12 +2148,14 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                 if i < 0 and v in NOMBRES_ANTERIORES:
                     i = w.findData(NOMBRES_ANTERIORES[v])
                 if i < 0 and w is self.cb_trim:   # proyectos de v0.11.0 y anteriores: el trim incluía el sentido
-                    if self._migrar_trim(v):
+                    if self._migrar_trim(s["campos"]):
                         continue
                 if i >= 0:
                     w.setCurrentIndex(i)
             elif w is not None:
                 w.setText(v)
+        if "tipo_trim" not in s.get("campos", {}) and T.deslizante(self.cuerpo().clave):
+            self._migrar_trim(s["campos"])     # proyectos de v0.12 y anteriores: trim especial aparte
         filas = {f.clave: f for f in self._todas_las_filas()}
         for k, d in s.get("filas", {}).items():
             f = filas.get(k)
@@ -2098,26 +2180,48 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.res = None
         self._actualizar_vistas()
 
-    def _migrar_trim(self, v: str) -> bool:
-        """Trim guardado por una versión anterior (nombre corto o completo de la clave vieja): elige el estilo
-        de trim, el sentido y, si la clave la llevaba, la característica."""
-        k = NOMBRES_ANTERIORES.get(v)
+    def _migrar_trim(self, campos: dict) -> bool:
+        """Trim guardado por una versión anterior: nombre de la clave vieja (v0.11) o estilo de trim, sentido,
+        trim anticavitación y trim para ruido elegidos aparte (v0.12). Elige tipo, guía, obturador o jaula,
+        nivel, sentido y, si la clave la llevaba, la característica."""
+        c = self.cuerpo().clave
+        v = campos.get("trim", "")
+        sd = next((k for k, t in SENTIDOS.items() if t == campos.get("sentido")), "abre")
+        k = NOMBRES_ANTERIORES.get(v) or next((c2 for c2, e in ESTILOS.items()
+                                               if v in (e.nombre, NOMBRE_CORTO.get(c2))), None)
         if k is None:
-            k = next((c for c, e in ESTILOS.items() if v in (e.nombre, NOMBRE_CORTO.get(c))), None)
+            g = next((g for g, n in NOMBRE_GEOMETRIA.items() if n == v), None)
+            k = clave_de_geometria(c, g, sd) if g else None
         if k is None:
             return False
-        nueva, car = CLAVES_ANTERIORES.get(k, (k, None))
-        g, sd = geometria_sentido(nueva)
-        i = self.cb_trim.findData(g)
-        if i < 0:
-            return False
-        self.cb_trim.setCurrentIndex(i)
-        j = self.cb_sentido.findData(sd)
-        if j >= 0:
-            self.cb_sentido.setCurrentIndex(j)
+        k, car = CLAVES_ANTERIORES.get(k, (k, None))
+        if T.deslizante(c):
+            ac = next((x for x, t in AC.TRIMS.items() if t.nombre == campos.get("anticav")), "estandar")
+            ru = next((x for x, t in CG.TRIMS_RUIDO.items() if t.nombre == campos.get("trim_ruido")), "estandar")
+            el = T.desde_claves(c, k, "", ac, ru, self.tipo() == "liquido")
+            if el is None:
+                return False
+            self.aplicar_eleccion(el)
+        else:
+            g, sd = geometria_sentido(k)
+            i = self.cb_trim.findData(g)
+            if i < 0:
+                return False
+            self.cb_trim.setCurrentIndex(i)
+            j = self.cb_sentido.findData(sd)
+            if j >= 0:
+                self.cb_sentido.setCurrentIndex(j)
         if car:
             self.cb_caract.setCurrentIndex(self.cb_caract.findData(car))
         return True
+
+    def aplicar_eleccion(self, el: T.Eleccion):
+        """Elige en los desplegables de la solapa 2 el tipo, la guía, el obturador o la jaula, el nivel y el sentido."""
+        for cb, dato in ((self.cb_tipo_trim, el.tipo), (self.cb_guia, el.guia), (self.cb_trim, el.elemento),
+                         (self.cb_nivel, el.nivel), (self.cb_sentido, el.sentido)):
+            i = cb.findData(dato)
+            if dato and i >= 0:
+                cb.setCurrentIndex(i)
 
     def nuevo(self):
         for f in self._todas_las_filas():
@@ -2132,7 +2236,6 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.ed_cv_red.clear()
         self._mat_nuevo()
         self._eq_nuevo()
-        self.cb_anticav.setCurrentIndex(0)
         self._cambio_trim()
         self.res = None
         self.ruta = None

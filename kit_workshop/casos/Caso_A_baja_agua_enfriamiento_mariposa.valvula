@@ -1,5 +1,5 @@
 {
- "version": "0.12.0",
+ "version": "0.12.1",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -26,13 +26,14 @@
   "agua_libre": "Sí",
   "tipo_caudal": "Volumétrico",
   "tamano": "Automático",
+  "tipo_trim": "",
+  "guia": "Superior reforzada (heavy top guided)",
   "trim": "Triple excéntrica · 90°",
+  "nivel": "",
   "sentido": "No aplica",
   "balance": "Desbalanceado",
   "caracteristica": "Isoporcentual",
   "Cv_reducido": "",
-  "anticav": "Estándar (trim elegido, 1 etapa)",
-  "trim_ruido": "Estándar (pasaje único)",
   "carrera_salida": "mm",
   "visc_salida": "Dinámica",
   "mat_industria": "Química",

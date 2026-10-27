@@ -45,12 +45,13 @@ class TrimAnticavitacion:
     rangeabilidad: float = 30.0
 
 
-def _multietapa(n: int) -> TrimAnticavitacion:
-    from .capacidad import FACTOR_ETAPAS, RANGEABILIDAD
+def _multietapa(n: int, clave: str = "etapas", nombre: str = "Multietapa", Fd: float = 0.07,
+                R: float | None = None) -> TrimAnticavitacion:
+    from .capacidad import RANGEABILIDAD, factor_etapas
     FL = math.sqrt(min(1 - (1 - FL_ETAPA ** 2) ** n, 0.995))
-    return TrimAnticavitacion(f"etapas_{n}", f"Multietapa, {n} etapas", n, round(FL, 3), 0.07,
+    return TrimAnticavitacion(f"{clave}_{n}", f"{nombre}, {n} etapas", n, round(FL, 3), Fd,
                               round(1 - (1 - KC_ETAPA) ** n, 3), round(1 - (1 - XFZ_ETAPA) ** n, 3), "multietapa",
-                              FACTOR_ETAPAS[n], RANGEABILIDAD["multietapa"])
+                              factor_etapas(n), R or RANGEABILIDAD["multietapa"])
 
 
 # Capacidad: el multietapa usa la tabla de multietapas de ``capacidad`` (≈ 3 etapas) corregida por el
@@ -63,8 +64,19 @@ TRIMS: dict[str, TrimAnticavitacion] = {t.clave: t for t in [
     _multietapa(3),
     _multietapa(4),
     _multietapa(6),
+    # v0.13.0: discos apilados (cada giro del laberinto es una etapa) y pasajes grandes para sólidos.
+    # Se usa el mismo elemento de etapa; cambian el Fd (tamaño del pasaje) y la cantidad de etapas.
+    *[_multietapa(n, "discos", "Discos apilados", 0.05) for n in (4, 6, 8, 10)],
+    *[_multietapa(n, "pasajes", "Pasajes grandes", 0.25, 30.0) for n in (2, 3, 4)],
 ]}
 ETAPAS_DISPONIBLES = sorted({t.etapas for t in TRIMS.values() if t.clave.startswith("etapas_")})
+
+
+def texto_nivel(t: TrimAnticavitacion) -> str:
+    """Nombre corto del nivel con lo que mitiga, para el desplegable de nivel o etapas."""
+    if t.etapas == 1:
+        return f"1 etapa – Kc {t.Kc:.2f}, FL {t.FL:.2f}".replace(".", ",")
+    return f"{t.etapas} etapas – sin cavitación hasta Kapp {t.xFz:.3f}".replace(".", ",")
 
 
 def k_etapa(P1: float, P2: float, Pv: float, n: int) -> float:

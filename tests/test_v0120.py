@@ -49,6 +49,7 @@ def test_kv_nominal_usa_la_tabla():
 def test_claves_anteriores_se_migran():
     for vieja, (nueva, car) in CLAVES_ANTERIORES.items():
         d = Dimensionamiento([], 22120, vieja, caracteristica="apertura_rapida")
+        nueva = nueva.replace("doble_guia", "contorneado")      # v0.13.0: la doble guía es una guía
         assert d.trim == nueva and (car is None or d.caracteristica == car)
     assert geometria_sentido("globo_jaula_4v_dentro") == ("jaula_4v", "cierra")
     assert Dimensionamiento([], 22120, "globo_jaula_4v_fuera").sentido == "abre"
@@ -113,6 +114,7 @@ def test_gui_sentido_y_flow(app):
     from dimensionador.gui.ventana import VentanaPrincipal
     w = VentanaPrincipal()
     w.show()
+    w.cb_tipo_trim.setCurrentIndex(w.cb_tipo_trim.findData("jaula"))
     w.cb_trim.setCurrentIndex(w.cb_trim.findData("jaula_4v"))
     w.cb_sentido.setCurrentIndex(w.cb_sentido.findData("cierra"))
     assert w.trim_clave() == "globo_jaula_4v_dentro"

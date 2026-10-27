@@ -21,7 +21,7 @@ def test_sin_cavitacion_conserva_el_trim():
 
 def test_cavitacion_moderada_elige_jaula():
     sel = _sel(3100, 1100)          # Kapp ≈ 0,69 → Kc ≥ 0,77
-    assert sel.etapas == 1 and "60 orificios" in sel.trim
+    assert sel.etapas == 1 and "anticavitación de 1 etapa" in sel.trim     # v0.13.0: antes jaula de 60 orificios
 
 
 def test_bloqueado_pide_multietapa_con_etapas():

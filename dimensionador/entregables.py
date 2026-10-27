@@ -27,7 +27,8 @@ NOMBRE_SEV = {Severidad.INFO: "Información", Severidad.ADVERTENCIA: "Advertenci
               Severidad.CRITICA: "Crítica", Severidad.ERROR: "Error de datos"}
 COLOR_SEV = {Severidad.INFO: "2F6FB0", Severidad.ADVERTENCIA: "B07A00",
              Severidad.CRITICA: "C0392B", Severidad.ERROR: "7D1F9E"}
-CARACTERISTICA = {"isoporcentual": "Isoporcentual", "lineal": "Lineal", "apertura_rapida": "Apertura rápida"}
+CARACTERISTICA = {"isoporcentual": "Isoporcentual", "lineal": "Lineal", "parabolica": "Parabólica modificada",
+                  "apertura_rapida": "Apertura rápida"}
 
 
 def fmt(v, cifras: int = 4) -> str:
@@ -192,6 +193,26 @@ def _nombre_anticav(res: Resultado) -> str:
     if res.cuerpo.rotativa:
         t = AC.TRIMS["estandar"]
     return t.nombre
+
+
+def _filas_trim(res: Resultado) -> list:
+    """Trim en el orden de la solapa 2: tipo, guía y obturador o jaula, nivel o etapas (v0.13.0)."""
+    from . import trims as T
+    d = res.dim
+    filas = [["Trim", res.trim.nombre]]
+    el = T.desde_claves(res.inst.cuerpo, d.trim, d.guia, d.anticav, d.ruido.trim, not d.compresible)
+    if el is None:
+        return filas
+    filas.append(["Tipo de trim", T.TIPOS[el.tipo]])
+    if el.tipo == "obturador":
+        filas += [["Guía del obturador", T.GUIAS[el.guia].nombre], ["Obturador", T.ELEMENTOS[el.elemento].nombre]]
+    else:
+        filas.append(["Jaula", T.ELEMENTOS[el.elemento].nombre])
+    if el.nivel:
+        liq = not d.compresible
+        nombre = AC.TRIMS[el.nivel].nombre if liq else CG.TRIMS_RUIDO[el.nivel].nombre
+        filas.append(["Nivel o etapas", f"{nombre} ({T.texto_nivel(el.nivel, liq).split(' – ', 1)[-1]})"])
+    return filas
 
 
 def _filas_etapas(res: Resultado) -> list:
@@ -397,10 +418,9 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
     doc.h2("Internos")
     rec = dict(res.recomendaciones)
     doc.tabla([
-        ["Tipo de trim", res.trim.nombre],
+        *_filas_trim(res),
         ["Sentido de flujo", _SENTIDOS[d.sentido]],
-        ["Trim anticavitación", _nombre_anticav(res)],
-        ["Obturador", BALANCE[d.balanceado]],
+        ["Balance del obturador", BALANCE[d.balanceado]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
         *_filas_cv(res),
         *_filas_geometria(res, pr),
@@ -587,7 +607,7 @@ def _tabla_entradas_compresible(res: Resultado, pr: Presentacion):
 
 def _datos_ruido(doc: Documento, res: Resultado, pr: Presentacion):
     r, s = res.dim.ruido, res.salidas
-    doc.tabla([["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[r.trim][0]],
+    doc.tabla([["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[r.trim].nombre],
                ["Distancia Rn desde la pared de la tubería", pr.vu(r.Rn, "distancia", 3)],
                ["Área de salida de la válvula", pr.vu(s[0]["A_salida"], "area") +
                 ("" if r.area_salida else " (área del diámetro nominal)")],
@@ -771,10 +791,9 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
     doc.h2("Internos")
     rec = dict(res.recomendaciones)
     doc.tabla([
-        ["Tipo de trim", res.trim.nombre],
+        *_filas_trim(res),
         ["Sentido de flujo", _SENTIDOS[d.sentido]],
-        ["Obturador", BALANCE[d.balanceado]],
-        ["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[d.ruido.trim][0]],
+        ["Balance del obturador", BALANCE[d.balanceado]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
         *_filas_cv(res),
         *_filas_geometria(res, pr),

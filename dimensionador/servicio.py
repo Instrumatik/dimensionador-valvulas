@@ -179,7 +179,7 @@ def _apertura(r: Resultado, Kv_nom: float, sel: Seleccion, caso: Caso, datos: di
     características lineal e isoporcentual), la marca para que no se lea como «0 %» de apertura."""
     car, R = sel.estilo.caracteristica, sel.estilo.rangeabilidad
     h = apertura_requerida(r.Kv / Kv_nom, car, R)
-    Kv_min = Kv_nom / R if car in ("lineal", "isoporcentual") else 0.0
+    Kv_min = Kv_nom / R if car in ("lineal", "isoporcentual", "parabolica") else 0.0
     bajo = r.Kv > 0 and r.Kv < Kv_min
     datos["bajo_cv_minimo"] = bajo
     datos["Cv_minimo"] = kv_a_cv(Kv_min) if Kv_min else None

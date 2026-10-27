@@ -29,7 +29,7 @@ DP_ENDURECIDO_SIEMPRE = 2000.0  # kPa: internos endurecidos aunque no haya cavit
 RELACION_GAS_ETAPAS = 4.0       # P1/P2 a partir de la cual conviene reducir en etapas
 
 # Escalera de trims de etapa simple, de menor a mayor capacidad anticavitación, y el multietapa
-ESCALERA = ["globo_jaula_4v_fuera", "globo_jaula_60_orificios", "globo_jaula_120_orificios"]
+ESCALERA = ["globo_jaula_4v_fuera", "globo_jaula_anticav_cierra"]
 MULTIETAPA = "globo_multietapa"
 
 

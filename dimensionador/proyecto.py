@@ -126,8 +126,13 @@ class Dimensionamiento:
     Cv_reducido_cert: float | None = None   # Cv certificado del trim reducido (None = estimado por el puerto)
     anticav: str = "estandar"          # clave de anticavitacion.TRIMS (solo líquidos)
     composicion: dict | None = None    # % molar del gas natural (None = típica, propiedades.GN_TIPICO)
+    guia: str = ""                     # guía del obturador (trims.GUIAS); "" = la habitual del obturador
 
     def __post_init__(self):
+        # v0.12: la doble guía superior era un estilo de trim; desde v0.13.0 es una guía del obturador
+        if self.trim in ("globo_doble_guia_abre", "globo_doble_guia_cierra", "globo_doble_guia_superior"):
+            self.guia = self.guia or "doble_superior"
+            self.trim = "globo_contorneado_cierra" if self.trim.endswith("cierra") else "globo_contorneado_abre"
         # Claves de trim de v0.11.0 y anteriores: la característica iba en la clave
         if self.trim in CLAVES_ANTERIORES:
             self.trim, car = CLAVES_ANTERIORES[self.trim]
@@ -145,14 +150,28 @@ class Dimensionamiento:
 
 
 def estilo_efectivo(dim: Dimensionamiento, rotativa: bool):
-    """Estilo con la característica elegida y, en líquidos, el trim anticavitación aplicado."""
+    """Estilo con la característica elegida y el nivel del trim especial aplicado: anticavitación en
+    líquidos, bajo ruido en gases (los multietapa cambian también xT y la capacidad)."""
+    from .capacidad import RANGEABILIDAD, factor_etapas
     estilo = estilo_con(dim.trim, dim.caracteristica)
+    if rotativa:
+        return estilo
     tac = AC.TRIMS.get(dim.anticav, AC.TRIMS["estandar"])
-    if tac.clave != "estandar" and not rotativa:
+    if tac.clave != "estandar" and not dim.compresible:
         estilo = replace(estilo, FL=tac.FL, Fd=tac.Fd, familia_cv=tac.familia or estilo.familia_cv,
                          factor_cv=tac.factor if tac.familia else estilo.factor_cv,
                          rangeabilidad=tac.rangeabilidad)
+    tr = CG.TRIMS_RUIDO.get(dim.ruido.trim)
+    if dim.compresible and tr and tr.familia and estilo.familia_cv in ("orificios", "multietapa"):
+        estilo = replace(estilo, Fd=tr.Fd, familia_cv=tr.familia, factor_cv=factor_etapas(tr.etapas),
+                         xT=CG.xT_etapas(tr.etapas), rangeabilidad=RANGEABILIDAD[tr.familia])
     return estilo
+
+
+def _tamanos(cuerpo, estilo) -> tuple:
+    """Diámetros del cuerpo en que se ofrece el trim (el microcaudal, por ejemplo, solo hasta 2")."""
+    tope = min(cuerpo.nps_max, estilo.nps_max or cuerpo.nps_max)
+    return tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= tope)
 
 
 @dataclass
@@ -216,6 +235,8 @@ def caudal_relativo(h: float, caracteristica: str, R: float) -> float:
         return 1 / R + (1 - 1 / R) * h
     if caracteristica == "isoporcentual":
         return R ** (h - 1)
+    if caracteristica == "parabolica":
+        return 1 / R + (1 - 1 / R) * h ** 2
     return math.sqrt(h)
 
 
@@ -450,7 +471,7 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
     if aviso_rotativa:
         tac = AC.TRIMS["estandar"]
     estilo = estilo_efectivo(dim, cuerpo.rotativa)
-    tamanos = tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= cuerpo.nps_max)
+    tamanos = _tamanos(cuerpo, estilo)
     sel = Seleccion(estilo, d_pulg=dim.nps_valvula,
                     Kv_nominal=dim.Cv_nominal * 0.865 if dim.Cv_nominal else None,
                     D1_mm=D1, D2_mm=D2, FL=dim.casos[0].FL, Fd=dim.casos[0].Fd, xT=estilo.xT,
@@ -713,6 +734,11 @@ def _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2, mres=None
         al.append(Alerta("tamano_estilo", Severidad.ADVERTENCIA, "Diámetro poco habitual para el estilo",
                          f"Las válvulas {cuerpo.nombre.lower()} se fabrican habitualmente entre "
                          f"{_n(cuerpo.nps_min)}\" y {_n(cuerpo.nps_max)}\"."))
+    tope = ESTILOS[dim.trim].nps_max if dim.trim in ESTILOS else 0
+    if tope and d > tope:
+        al.append(Alerta("tamano_estilo", Severidad.ADVERTENCIA, "Diámetro poco habitual para el trim",
+                         f"El trim elegido ({ESTILOS[dim.trim].nombre.lower()}) se ofrece habitualmente hasta "
+                         f"{_n(tope)}\"; la válvula es de {_n(d)}\"."))
 
     # Validez de las ecuaciones de IEC 60534-2-1 (C/d² < 0,04 con Kv y d en mm)
     rel = max(x["Kv"] for x in salidas) / (d * 25.4) ** 2
@@ -727,6 +753,8 @@ def _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2, mres=None
     # Clase de cierre y balanceo del obturador
     al += _verificar_cierre(inst, cuerpo, T_d)
     al += _verificar_balance(inst, cuerpo, dim, T_d, d)
+    if not cuerpo.rotativa:
+        al += _alertas_guia(dim, max([x["dP"] for x in salidas] or [0.0]), d)
 
     # Velocidad en tuberías (líquidos; en compresibles se evalúa el número de Mach)
     for donde, clave in (() if dim.compresible else (("entrada", "v1"), ("salida", "v2"))):
@@ -746,12 +774,14 @@ def _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2, mres=None
 def _guia_obturador(dim, dP_max, nps) -> str:
     """Texto de guía y balanceo del obturador para el informe (cuerpos de vástago deslizante)."""
     conviene = dP_max > DP_BALANCE and nps >= 3
+    from . import trims as T
     jaula = "jaula" in dim.trim or "multietapa" in dim.trim
     if jaula:
         base = "Obturador guiado por jaula"
-    elif dim.trim == "globo_doble_guia_superior":
-        base = ("Obturador contorneado con doble guía de vástago superior (dos puntos de guiado por encima "
-                "de la corriente del fluido)")
+    elif dim.guia in T.GUIAS:
+        el = T.desde_claves(_cuerpo_de(dim.trim), dim.trim, dim.guia)
+        nombre = T.ELEMENTOS[el.elemento].nombre if el else "Obturador"
+        base = f"{nombre}, guía {T.GUIAS[dim.guia].nombre.lower()}"
     else:
         base = "Obturador contorneado guiado superior (o superior y por puerto en diámetros grandes)"
     if dim.balanceado is None:
@@ -763,6 +793,36 @@ def _guia_obturador(dim, dP_max, nps) -> str:
                                        "imprescindible: un trim desbalanceado cierra mejor."))
     return (base + ", desbalanceado (elegido)." + (" Con esta ΔP y diámetro conviene balanceado para reducir "
                                                     "el empuje del actuador." if conviene else ""))
+
+
+def _cuerpo_de(trim: str) -> str:
+    if trim.startswith("angular"):
+        return "angulo"
+    return "globo_liner" if trim == "globo_liner_contorneado" else "globo"
+
+
+GUIA_PUERTO_DP = 1000.0     # kPa: por encima, el guiado por puerto tiende a vibrar
+GUIA_BONETE_NPS = 2.0       # in: el guiado por bonete se ofrece en válvulas chicas
+
+
+def _alertas_guia(dim, dP_max: float, d: float) -> list[Alerta]:
+    """Avisos de práctica sobre la guía elegida para el obturador (no son cláusulas de norma)."""
+    from . import trims as T
+    al = []
+    if dim.guia == "puerto" and (dP_max > GUIA_PUERTO_DP or d >= 6):
+        al.append(Alerta("guia_puerto", Severidad.ADVERTENCIA, "Guiado por puerto con ΔP alta o diámetro grande",
+                         f"El obturador guiado por el puerto (faldas o aletas en el asiento) se usa con ΔP bajas y "
+                         f"tamaños chicos y medianos. Con ΔP máxima {fP(dP_max)} y válvula de {_n(d)}\" puede "
+                         "vibrar y desgastar el asiento.",
+                         remedios=[f"Elegir guía {T.GUIAS['superior_inferior'].nombre.lower()} o un trim guiado "
+                                   "por jaula."]))
+    if dim.guia == "bonete" and d > GUIA_BONETE_NPS:
+        al.append(Alerta("guia_bonete", Severidad.ADVERTENCIA, "Guiado por bonete en una válvula grande",
+                         f"La guía por el bonete se ofrece en válvulas de hasta {_n(GUIA_BONETE_NPS)}\" y de "
+                         f"microcaudal. Con {_n(d)}\" el vástago queda largo y sin apoyo cerca del obturador.",
+                         remedios=[f"Elegir guía {T.GUIAS['superior_reforzada'].nombre.lower()} o "
+                                   f"{T.GUIAS['superior_inferior'].nombre.lower()}."]))
+    return al
 
 
 def fuerza_desbalance(dP_kPa: float, d_puerto_pulg: float) -> float:
@@ -1008,7 +1068,7 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
     if aviso_rotativa:
         tac = AC.TRIMS["estandar"]
     estilo = estilo_efectivo(dim, cuerpo.rotativa)
-    tamanos = tuple(p for p, _, _ in TAMANOS if cuerpo.nps_min <= p <= cuerpo.nps_max)
+    tamanos = _tamanos(cuerpo, estilo)
     c0 = dim.casos[0]
     sel = Seleccion(estilo, d_pulg=dim.nps_valvula,
                     Kv_nominal=dim.Cv_nominal * 0.865 if dim.Cv_nominal else None,
@@ -1073,15 +1133,20 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
         FL_eff = FLP / r.FP
         # Ruido con el trim elegido y nivel mínimo de trim de bajo ruido que cumple el límite
         niveles = {}
-        for k, (_, Fd_k) in CG.TRIMS_RUIDO.items():
+        escalera = [k for k in CG.NIVEL_CORTO if not cuerpo.rotativa or k == "estandar"]
+        for k in dict.fromkeys(escalera + [dim.ruido.trim]):
+            t = CG.TRIMS_RUIDO[k]
             try:
-                niveles[k] = CG.ruido_caso(W, c, e, r.Kv, FL_eff, Fd_k or c.Fd, d_out, D2, tp2, dim.ruido.Rn)
+                if t.etapas > 1:
+                    niveles[k] = CG.ruido_etapas(W, c, e, t.etapas, t.Fd, d_out, D2, tp2, dim.ruido.Rn)
+                else:
+                    niveles[k] = CG.ruido_caso(W, c, e, r.Kv, FL_eff, t.Fd or c.Fd, d_out, D2, tp2, dim.ruido.Rn)
             except (ValueError, ZeroDivisionError, OverflowError):
                 niveles[k] = None
         rr = niveles.get(dim.ruido.trim)
-        requerido = next((CG.NIVEL_CORTO[k] for k, n in niveles.items()
-                          if n is not None and n["LpAe1m"] <= inst.ruido_permitido),
-                         "Multietapa o silenciador")
+        requerido = next((CG.NIVEL_CORTO[k] for k in escalera
+                          if niveles[k] is not None and niveles[k]["LpAe1m"] <= inst.ruido_permitido),
+                         "Multietapa o silenciador" if cuerpo.rotativa else "Silenciador o difusor")
         al = [a for a in rc.alertas if a.codigo not in ("mach_salida", "ruido_no_calculado")]
         if rr is None:
             al.append(Alerta("ruido_no_calculado", Severidad.INFO, "Ruido no calculado",
@@ -1159,16 +1224,27 @@ def recomendaciones_compresible(res: Resultado) -> list[tuple[str, str]]:
     rec.append(("Estilo de cuerpo", txt))
     Lp = [x["Lp"] for x in s if x["Lp"] is not None]
     req = [x["nivel_trim"] for x in s]
-    orden = list(CG.NIVEL_CORTO.values()) + ["Multietapa o silenciador"]
+    orden = list(CG.NIVEL_CORTO.values()) + ["Multietapa o silenciador", "Silenciador o difusor"]
     peor = max(req, key=orden.index) if req else "No requerido"
     if peor == "No requerido":
         t = f"Internos estándar ({trim.nombre.lower()}): el ruido cumple el límite sin trim de bajo ruido."
     elif peor == "Multietapa o silenciador":
-        t = ("Ningún trim de una etapa cumple el límite de ruido: se requieren internos multietapa, "
-             "difusor o silenciador aguas abajo, o repartir la caída de presión.")
+        t = ("Con el cuerpo rotativo elegido ningún trim cumple el límite de ruido: cambie a cuerpo globo o "
+             "ángulo con jaula multietapa multiorificio, o agregue difusor o silenciador aguas abajo.")
+    elif peor == "Silenciador o difusor":
+        t = ("Ningún trim de la lista (hasta discos apilados de 10 etapas) cumple el límite de ruido: se requiere "
+             "difusor o silenciador aguas abajo, o repartir la caída de presión entre la válvula y una "
+             "restricción.")
     else:
-        t = (f"Se requiere trim de bajo ruido: jaula multiorificio {peor.lower()} "
-             f"({CG.TRIMS_RUIDO['multiorificio_' + peor[-1]][0].split('(')[-1].rstrip(')')}).")
+        k = next(k for k, v in CG.NIVEL_CORTO.items() if v == peor)
+        nombre = CG.TRIMS_RUIDO[k].nombre
+        minimo = f"{nombre[0].lower() + nombre[1:]} (atenuación típica {CG.TRIMS_RUIDO[k].atenuacion})"
+        if Lp and max(Lp) <= inst.ruido_permitido and dim.ruido.trim != "estandar":
+            t = (f"El trim elegido ({CG.TRIMS_RUIDO[dim.ruido.trim].nombre.lower()}) cumple el límite de ruido. "
+                 f"El primero de la lista que lo cumple es {minimo}.")
+        else:
+            t = (f"Se requiere trim de bajo ruido: como mínimo {minimo}. Elíjalo con la jaula y «Nivel o "
+                 "etapas» de la solapa 2.")
     rec.append(("Internos (trim) y ruido", t))
     if cuerpo.rotativa:
         guia = f"{cuerpo.guia}."

@@ -41,11 +41,13 @@ def test_rev_de_gas_usa_caudal_real():
 
 
 def test_doble_guia_superior_y_caracteristica_fija():
-    # v0.12.0: la doble guía tiene los dos sentidos de flujo y la clave de v0.11.0 se convierte
+    # v0.13.0: la doble guía superior es una guía del obturador contorneado; las claves viejas se convierten
     e = ESTILOS["globo_doble_guia_abre"]
-    assert e.FL == 0.90 and e.xT == 0.72 and "globo_doble_guia_cierra" in CUERPOS["globo"].trims
+    assert e.FL == 0.90 and e.xT == 0.72 and "globo_doble_guia_cierra" not in CUERPOS["globo"].trims
     assert "dos puntos de guiado" in e.nota
-    assert Dimensionamiento([], 22120, "globo_doble_guia_superior").trim == "globo_doble_guia_abre"
+    d = Dimensionamiento([], 22120, "globo_doble_guia_superior")
+    assert d.trim == "globo_contorneado_abre" and d.guia == "doble_superior"
+    assert Dimensionamiento([], 22120, "globo_doble_guia_cierra").trim == "globo_contorneado_cierra"
     d = Dimensionamiento([], 22120, "globo_contorneado_iso_abre", caracteristica="lineal")
     assert d.caracteristica == "isoporcentual"
     d = Dimensionamiento([], 22120, "globo_jaula_4v_fuera", caracteristica="lineal")
@@ -64,9 +66,9 @@ def test_gui_gas_natural_y_caracteristica(app):
     w.show()
     w.cb_trim.setCurrentIndex(w.cb_trim.findData("contorneado"))   # v0.12.0: característica libre
     assert w.cb_caract.isEnabled()
-    w.cb_trim.setCurrentIndex(w.cb_trim.findData("doble_guia"))
-    assert w.cb_caract.isEnabled() and w.trim_clave() == "globo_doble_guia_abre"
-    assert w.cb_trim.currentText() == "Doble guía de vástago - superior"
+    w.cb_guia.setCurrentIndex(w.cb_guia.findData("doble_superior"))   # v0.13.0: la doble guía es una guía
+    assert w.cb_caract.isEnabled() and w.trim_clave() == "globo_contorneado_abre" and w._guia() == "doble_superior"
+    assert w.cb_trim.currentText() == "Obturador contorneado"
     w.cb_tipo_fluido.setCurrentIndex(w.cb_tipo_fluido.findData("gas"))
     assert w.ed_comp_gn.isHidden()
     w.cb_fluido.setCurrentText("Gas natural")

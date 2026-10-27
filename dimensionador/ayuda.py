@@ -359,7 +359,11 @@ _e("caracteristica", "Característica inherente",
    "porcentaje. Es la más usada cuando la caída de presión de la válvula disminuye al aumentar "
    "el caudal.</li><li><b>Lineal</b>: capacidad proporcional a la carrera. Apta cuando la "
    "válvula toma casi toda la pérdida del sistema (control de nivel, by-pass).</li>"
+   "<li><b>Parabólica modificada</b>: intermedia entre lineal e isoporcentual; el programa la aproxima "
+   "con φ = 1/R + (1 − 1/R)·h². Solo obturadores contorneados.</li>"
    "<li><b>Apertura rápida</b>: para servicios todo-nada.</li></ul>"
+   "<p>Desde v0.13.0 la lista solo habilita las características que ofrece el obturador o la jaula elegidos "
+   "(por ejemplo, el disco plano solo apertura rápida y las jaulas multietapa solo lineal).</p>"
    "<p><b>Tres datos independientes</b> (desde v0.12.0): el <b>estilo de trim</b> es la geometría de los "
    "internos (contorneado, jaula, orificios, multietapa); el <b>sentido de flujo</b> dice si el fluido tiende "
    "a abrir o a cerrar el obturador; la <b>característica</b> es la curva de capacidad frente a la carrera. "
@@ -848,30 +852,73 @@ _e("SG", "Gravedad específica",
    "la lista se calcula sola a P1 y T1.</p>",
    formula="SG = ρ1 / ρ0, ρ0 = 999,1 kg/m³", tipicos="Agua 15 °C: 1,000. Agua 90 °C: 0,967. "
    "Gasolina: 0,72–0,76. Crudo: 0,80–0,95.", relacionadas=["rho"])
-_e("trim", "Estilo de trim",
-   "<p>Geometría de los internos de la válvula (obturador, asiento y jaula). Desde v0.12.0 el sentido del "
-   "flujo y la característica se eligen aparte, en sus propias filas. Cada combinación trae sus factores "
-   "típicos de IEC 60534-2-1 (FL, xT, Fd), su Kc y su capacidad típica (tabla de capacidad), que se cargan "
-   "en las entradas y se pueden reemplazar por los certificados del fabricante.</p><ul><li><b>Contorneado</b>: obturador "
-   "perfilado, estándar.</li><li><b>Doble guía de vástago - superior</b>: diseño de válvula de globo en el "
-   "que el obturador o el vástago se apoya y se alinea en dos puntos de guiado separados, ubicados en la parte "
-   "superior del conjunto (por encima de la corriente del fluido). Usa los factores del obturador contorneado; "
-   "la característica la define el perfil del obturador.</li><li><b>Jaula caracterizada de 4 ventanas</b>: guiado estable.</li>"
-   "<li><b>Jaula de orificios</b> (60 o 120): anticavitación de etapa simple; bajo Fd retrasa la "
-   "cavitación.</li><li><b>Multietapa</b>: divide la caída de presión, para cavitación severa.</li><li><b>Bola</b>: paso completo o reducido a 70° (rango de control recomendado) o 90° (máxima capacidad, FL y xT muy bajos); segmentada con V de 90°, 60° o 30° (menos capacidad y más rangeabilidad cuanto más cerrada la V). Solo la bola de paso total a 70° y la segmentada de 90° tienen factores en IEC 60534-2-1; el resto son estimaciones a confirmar con el fabricante.</li><li><b>Tapón excéntrico</b>: flujo que tiende a abrir (FL 0,85) o a cerrar (FL 0,68).</li></ul>"
-   "<p><b>Sentido de flujo</b> (fila propia debajo del estilo; lo que más confunde):</p><ul>"
-   "<li><b>Flujo tiende a abrir</b> (flujo bajo el obturador, «flow up»): el fluido entra por debajo del "
-   "asiento y empuja el obturador hacia arriba, en el sentido de apertura. Es la dirección habitual.</li>"
-   "<li><b>Flujo tiende a cerrar</b> (flujo sobre el obturador, «flow down»): el fluido entra por arriba "
-   "y empuja el obturador contra el asiento. Se usa con flashing o cavitación para alejar el colapso "
-   "del asiento; puede dar golpe al cerrar.</li>"
-   "<li><b>Jaula, flujo de adentro hacia afuera</b> (IEC: «outward flow»): el fluido sube por el asiento, "
-   "llena el interior de la jaula y sale por las ventanas hacia el cuerpo. Equivale a tiende a abrir. "
-   "FL ≈ 0,90.</li>"
-   "<li><b>Jaula, flujo de afuera hacia adentro</b> (IEC: «inward flow»): el fluido rodea la jaula, entra "
-   "por las ventanas y baja por el asiento. Equivale a tiende a cerrar. FL ≈ 0,85.</li></ul>",
+_e("trim", "Obturador o jaula (estilo de trim)",
+   "<p>Pieza de los internos que define los factores del trim. Desde v0.13.0 la lista depende del <b>tipo de "
+   "trim</b> elegido arriba:</p><ul>"
+   "<li><b>Guiado por obturador</b>: <b>contorneado</b> (perfilado, estándar), <b>en V</b> (V-port, guiado por "
+   "el puerto; factores de IEC 60534-2-1 para 3 ranuras), <b>microcaudal</b> (aguja o ranurado, Cv de 0,001 a "
+   "1, hasta 2\"), <b>disco plano</b> (apertura rápida) y, en ángulo, <b>salida Venturi</b>.</li>"
+   "<li><b>Guiado por jaula</b>: <b>jaula caracterizada de ventanas</b>; <b>jaula de retención de asiento</b> "
+   "con obturador contorneado (la jaula guía y sujeta el asiento, la característica la da el obturador); "
+   "<b>jaula multiorificio de bajo ruido</b> y <b>multietapa multiorificio</b> (solo gas, vapor y steam); "
+   "<b>jaula anticavitación</b> y <b>multietapa de pasajes grandes</b> para líquidos con sólidos (solo "
+   "líquidos); <b>discos apilados</b> (laberinto, líquido y gas).</li>"
+   "<li><b>Rotativas</b>: el elemento de cierre (bola, mariposa, segmento o tapón excéntrico) con su "
+   "característica propia.</li></ul>"
+   "<p>Las jaulas especiales se completan con el <b>nivel o las etapas</b> (fila siguiente). Cada "
+   "combinación trae sus factores típicos (FL, xT, Fd), su Kc y su capacidad típica (tabla de capacidad), que "
+   "se cargan en las entradas y se pueden reemplazar por los certificados del fabricante. Los trims que IEC "
+   "60534-2-1 no publica llevan valores estimados, indicados en la descripción de cada opción.</p>"
+   "<p>Proyectos de versiones anteriores: la doble guía superior pasa a ser una guía del obturador "
+   "contorneado; las jaulas de 60 y 120 orificios pasan a la jaula anticavitación de 1 etapa (líquidos) o a la "
+   "multiorificio nivel 1 (gases), y los multietapa a 3 etapas.</p>",
    referencia="IEC 60534-2-1, Anexo A (tabla de factores típicos)",
-   relacionadas=["Kc", "FL", "Fd", "balance"])
+   relacionadas=["tipo_trim", "guia_obturador", "nivel_etapas", "sentido_flujo", "Kc", "FL", "Fd", "balance"])
+_e("tipo_trim", "Tipo de trim",
+   "<p>Primera elección de los internos de globo y ángulo; las filas siguientes muestran solo las opciones "
+   "que corresponden.</p><ul><li><b>Guiado por obturador</b>: el obturador contorneado da la característica; "
+   "el asiento va roscado o sujeto por el bonete o la brida y la guía es un dato aparte (fila «Guía del "
+   "obturador»). Suelen ser desbalanceados.</li><li><b>Guiado por jaula</b>: la jaula guía al obturador "
+   "(cilíndrico, no contorneado), sujeta el asiento y da la característica con la forma de sus pasajes. "
+   "Puede ser balanceado o desbalanceado. Las jaulas de bajo ruido y anticavitación son de este tipo.</li></ul>"
+   "<p>En válvulas rotativas la fila no se muestra.</p>",
+   relacionadas=["guia_obturador", "trim", "nivel_etapas"])
+_e("guia_obturador", "Guía del obturador",
+   "<p>Cómo se guía el obturador en un trim guiado por obturador. No cambia los factores de IEC 60534-2-1; "
+   "cambia la estabilidad del obturador frente a la ΔP y las vibraciones, y los obturadores que se ofrecen:</p>"
+   "<ul><li><b>Superior reforzada</b> (heavy top guided): un buje largo por encima del obturador. Servicio "
+   "general, fluidos sucios o viscosos. Obturador contorneado, microcaudal o disco plano.</li>"
+   "<li><b>Doble guía de vástago superior</b> (double top stem guided): dos puntos de guiado separados, ambos "
+   "por encima de la corriente del fluido. Obturador contorneado.</li>"
+   "<li><b>Superior e inferior</b> (top and bottom guided): bujes por encima y por debajo del obturador. "
+   "Tamaños grandes, ΔP altas y doble asiento.</li>"
+   "<li><b>Por el puerto</b> (port guided): faldas o aletas del obturador dentro del asiento. ΔP bajas y bajo "
+   "costo; obturador en V o disco plano. Con ΔP mayor de 1 000 kPa o 6\" y más el programa avisa.</li>"
+   "<li><b>Por el bonete</b> (bonnet / stem guided): el buje del bonete guía al vástago. Válvulas chicas y de "
+   "microcaudal; por encima de 2\" el programa avisa.</li></ul>",
+   relacionadas=["tipo_trim", "trim", "balance"])
+_e("nivel_etapas", "Nivel o etapas del trim especial",
+   "<p>Cada nivel de una jaula especial se elige por separado, porque cada uno tiene su propia capacidad de "
+   "mitigar el fenómeno para el que está diseñado. Junto al nombre se muestra lo que mitiga:</p><ul>"
+   "<li><b>Jaula anticavitación</b> (líquidos): 1 etapa (Kc 0,85, FL 0,93) o 2, 3, 4 y 6 etapas, con el Kapp "
+   "máximo sin cavitación de cada una.</li><li><b>Pasajes grandes</b> (líquidos con sólidos): 2, 3 o 4 "
+   "etapas con pasajes del orden de 12 mm (Fd 0,25).</li><li><b>Discos apilados</b>: 4, 6, 8 o 10 etapas "
+   "(giros del laberinto).</li><li><b>Jaula multiorificio de bajo ruido</b> (gases): nivel 1 (≈ 50 "
+   "orificios), 2 (≈ 200) o 3 (≈ 800), con la atenuación típica.</li><li><b>Multietapa multiorificio</b> "
+   "(gases): 2, 3 o 4 etapas, con la atenuación típica.</li></ul>"
+   "<p>Al elegir el nivel, FL, xT, Fd y Kc de las condiciones de operación toman sus valores (se pueden "
+   "reemplazar por los certificados) y el Cv típico pasa a ser el de esa jaula: más etapas dan menos "
+   "capacidad por pulgada y el diámetro automático puede subir.</p>"
+   "<p><b>Multietapa en gases</b>: N etapas iguales con igual relación de presión, P_salida/P_entrada = "
+   "(P2/P1)^(1/N). El ruido IEC 60534-8-3 se calcula con la última etapa, que descarga a la tubería, con su caída "
+   "de presión y el Fd de sus orificios; el flujo se estrangula cuando se estrangula la última etapa, "
+   "xT = [1 − (1 − Fγ·0,68)^N]/Fγ.</p><p>Las atenuaciones son rangos típicos de la literatura de válvulas; el "
+   "programa calcula el ruido de cada caso. Ese cálculo no acredita la expansión de área entre etapas que "
+   "agregan muchos diseños, por eso suele dar menos atenuación que el rango típico (lado seguro). Son "
+   "valores genéricos, no de un fabricante.</p>",
+   formula="Líquido: Kc = 1 − (1 − 0,70)^N;  Gas: P1,última = P2·(P1/P2)^(1/N)",
+   referencia="IEC 60534-8-3:2010; IEC 60534-8-4:2015; ISA-RP75.23",
+   relacionadas=["anticav", "trim_ruido", "nivel_trim", "trim"])
 _e("sentido_flujo", "Sentido de flujo",
    "<p>Dice hacia dónde empuja el fluido al obturador. Es un dato propio, independiente del estilo de trim y de "
    "la característica, y es el único lugar donde se elige: la fila «Flow» de la solapa 4 (actuador) lo toma de "
@@ -919,11 +966,12 @@ _e("capacidad_trim", "Tabla de capacidad: Cv, puerto y carrera",
 
 from .estilos import ESTILOS as _ESTILOS, NOMBRE_CORTO as _NOMBRE_CORTO, CUERPOS as _CUERPOS  # noqa: E402
 
-_EN_USO = {k for c in _CUERPOS.values() for k in c.trims}
+from .trims import claves_en_uso as _claves_en_uso  # noqa: E402
 
-A["trim"].texto += ("<p><b>Opciones de la lista</b> (nombre corto y descripción completa):</p><ul>"
-                    + "".join(f"<li><b>{_NOMBRE_CORTO[k]}</b>: {e.nombre}.</li>" for k, e in _ESTILOS.items()
-                              if k in _NOMBRE_CORTO and k in _EN_USO) + "</ul>")
+_EN_USO = _claves_en_uso()
+
+A["trim"].texto += ("<p><b>Combinaciones que calcula el programa</b> (con su sentido de flujo):</p><ul>"
+                    + "".join(f"<li>{e.nombre}.</li>" for k, e in _ESTILOS.items() if k in _EN_USO) + "</ul>")
 _e("balance", "Obturador balanceado o desbalanceado",
    "<p><b>Desbalanceado</b>: la ΔP actúa sobre toda el área del puerto; el actuador debe vencer una "
    "fuerza F ≈ ΔP·π·d²/4. Es simple y cierra mejor (clase V o VI con asiento adecuado).</p>"
@@ -1045,9 +1093,11 @@ _e("rho2", "Densidad de salida ρ2",
    "blanco, ρ1·(P2/P1)·(T1/T2). Vapor de agua: IAPWS-95.</p>",
    referencia="IEC 60534-8-3:2010", relacionadas=["T2", "Z", "velocidad_sonido"])
 _e("anticav", "Trim anticavitación (por etapas)",
-   "<p>Solo líquidos, cuerpos globo y angular. Elige el trim con que se calcula la cavitación, el ruido "
-   "y el Cv por tamaño:</p><ul><li><b>Estándar</b>: el trim elegido arriba, una etapa, con sus FL, Fd y Kc."
-   "</li><li><b>Jaula de orificios chicos, 1 etapa</b>: FL 0,93, Fd 0,10, Kc 0,85.</li><li><b>Multietapa de "
+   "<p>Solo líquidos, cuerpos globo y angular. Desde v0.13.0 se elige en la solapa 2 con «Guiado por jaula», "
+   "la jaula anticavitación, de pasajes grandes o de discos apilados, y su «Nivel o etapas». Define con qué "
+   "se calcula la cavitación, el ruido y el Cv por tamaño:</p><ul><li><b>Sin jaula especial</b>: el trim "
+   "elegido, una etapa, con sus FL, Fd y Kc."
+   "</li><li><b>Jaula anticavitación, 1 etapa</b>: FL 0,93, Fd 0,10, Kc 0,85.</li><li><b>Multietapa de "
    "2, 3, 4 o 6 etapas</b>: la caída se reparte en etapas en serie con igual Kapp por etapa, "
    "k = 1 − ((P2 − Pv)/(P1 − Pv))^(1/N): las primeras etapas toman la mayor parte de la caída y la última "
    "la menor. Cada etapa es un elemento de orificios con inicio de cavitación incipiente 0,50, Kc 0,70 y "
@@ -1076,21 +1126,25 @@ _e("anticav_rotativa", "Trim anticavitación no aplicable",
    "<p>Los trims anticavitación de la lista son de globo o angular. Con un cuerpo rotativo el cálculo usa "
    "el trim estándar.</p>", relacionadas=["anticav"], categoria="Fenómenos")
 _e("trim_ruido", "Trim para ruido aerodinámico",
-   "<p>Tipo de internos que se usa para estimar el ruido. <b>Estándar</b> es un pasaje único (obturador "
+   "<p>Tipo de internos que se usa para estimar el ruido. Desde v0.13.0 se elige en la solapa 2 con «Guiado "
+   "por jaula», la jaula multiorificio, multietapa multiorificio o de discos apilados, y su «Nivel o "
+   "etapas». <b>Estándar</b> es un pasaje único (obturador "
    "contorneado, jaula de ventanas, bola o mariposa), con el Fd de cada caso.</p><p>Las <b>jaulas "
    "multiorificio</b> dividen el chorro en muchos chorros pequeños: según IEC 60534-2-1 (Anexo A) su "
    "modificador de estilo es Fd = 1/√No, con No el número de orificios iguales. Con ese Fd la norma "
    "IEC 60534-8-3 da un chorro de menor diámetro y un ruido de mayor frecuencia, que la pared de la "
    "tubería atenúa más.</p><ul><li>Nivel 1: unos 50 orificios (Fd ≈ 0,14).</li>"
    "<li>Nivel 2: unos 200 orificios (Fd ≈ 0,071).</li><li>Nivel 3: unos 800 orificios (Fd ≈ 0,035).</li>"
-   "</ul><p>Las jaulas de varias etapas no están cubiertas por el método de una etapa: si ningún nivel "
-   "cumple el límite el programa indica «Multietapa o silenciador».</p>",
+   "</ul><p><b>Multietapa multiorificio</b> (2, 3 o 4 etapas) y <b>discos apilados</b> (4 a 10 etapas): el "
+   "ruido se calcula con la última etapa (ver «Nivel o etapas del trim especial»).</p>",
    referencia="IEC 60534-8-3:2010; IEC 60534-2-1:2011 Anexo A",
    relacionadas=["nivel_trim", "ruido_componentes", "Fd"], categoria="Datos")
 _e("nivel_trim", "Nivel de trim de bajo ruido requerido",
-   "<p>El programa repite el cálculo de ruido con el trim estándar y con cada nivel de jaula "
-   "multiorificio, e informa el primero que deja el ruido de la válvula a 1 m por debajo del ruido "
-   "permitido (1-Sistema). «No requerido» significa que el trim estándar ya cumple.</p>",
+   "<p>El programa repite el cálculo de ruido con el trim estándar y con cada nivel, en orden: jaula "
+   "multiorificio niveles 1 a 3, multietapa multiorificio de 2 a 4 etapas y discos apilados de 4 a 10 etapas, "
+   "e informa el primero que deja el ruido de la válvula a 1 m por debajo del ruido permitido (1-Sistema). "
+   "«No requerido» significa que el trim estándar ya cumple; «Silenciador o difusor», que ninguno alcanza. En "
+   "cuerpos rotativos solo se evalúa el estándar.</p>",
    relacionadas=["trim_ruido", "limite_ruido"], categoria="Resultados")
 _e("ruido_componentes", "Ruido del trim y de la salida",
    "<p>IEC 60534-8-3 separa dos fuentes:</p><ul><li><b>Trim</b>: el chorro que sale de la vena "

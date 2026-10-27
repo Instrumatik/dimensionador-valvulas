@@ -81,12 +81,13 @@ PLENO: dict[str, tuple] = {
 }
 
 # Cv a carrera nominal relativo al lineal, mismo puerto (mediana de los datos; «apertura rápida» solo
-# medida en jaula y extendida a las demás familias)
+# medida en jaula y extendida a las demás familias; parabólica modificada: promedio de lineal e
+# isoporcentual, sin datos propios)
 FACTOR_CAR: dict[str, dict[str, float]] = {
-    "contorneado": {"lineal": 1.00, "isoporcentual": 1.00, "apertura_rapida": 1.09},
-    "jaula": {"lineal": 1.00, "isoporcentual": 0.89, "apertura_rapida": 1.09},
-    "orificios": {"lineal": 1.00, "isoporcentual": 0.75, "apertura_rapida": 1.09},
-    "multietapa": {"lineal": 1.00, "isoporcentual": 0.75, "apertura_rapida": 1.00},
+    "contorneado": {"lineal": 1.00, "isoporcentual": 1.00, "parabolica": 1.00, "apertura_rapida": 1.09},
+    "jaula": {"lineal": 1.00, "isoporcentual": 0.89, "parabolica": 0.95, "apertura_rapida": 1.09},
+    "orificios": {"lineal": 1.00, "isoporcentual": 0.75, "parabolica": 0.88, "apertura_rapida": 1.09},
+    "multietapa": {"lineal": 1.00, "isoporcentual": 0.75, "parabolica": 0.88, "apertura_rapida": 1.00},
 }
 
 # Restricciones en serie del puerto (Kp) y del paso lateral (Kh) de los puertos reducidos, y su dispersión
@@ -107,6 +108,11 @@ RANGEABILIDAD = {"orificios": 15.0, "multietapa": 33.0}
 
 # Factor de capacidad de un multietapa según el número de etapas (la tabla corresponde a ~3 etapas)
 FACTOR_ETAPAS = {1: 1.0, 2: 1.25, 3: 1.0, 4: 0.875, 6: 0.70}
+
+
+def factor_etapas(n: int) -> float:
+    """Factor de capacidad de N etapas; fuera de la tabla sigue √(3/N), que la tabla cumple con ±3 %."""
+    return FACTOR_ETAPAS.get(n, round(math.sqrt(3 / n), 3))
 
 TOLERANCIA = 0.10     # ±10 %: fuera de esto el dato del usuario se informa como no coherente
 

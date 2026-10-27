@@ -32,17 +32,88 @@ class EstiloValvula:
     xT: float
     Fd: float
     Cd: float               # Cv nominal / d² [d en pulgadas], valor típico
-    caracteristica: str     # «isoporcentual», «lineal», «apertura_rapida»
+    caracteristica: str     # «isoporcentual», «lineal», «parabolica», «apertura_rapida»
     rangeabilidad: float    # relación R para la característica inherente
     nota: str = ""
     familia_cv: str = ""    # familia de capacidad.PLENO (vástago ascendente); "" = Cv = Cd·d²
     factor_cv: float = 1.0  # multiplicador del Cv de la familia (p. ej. número de etapas)
+    nps_max: float = 0.0    # diámetro máximo en que se ofrece (0 = el del cuerpo)
 
 
 _NOTA_DOBLE_GUIA = ("Diseño de válvula de globo en el que el obturador o el vástago se apoya y se alinea en dos "
                     "puntos de guiado separados, ubicados en la parte superior del conjunto, por encima de la "
                     "corriente del fluido. Los factores son los del obturador contorneado de IEC 60534-2-1; la "
                     "característica la define el perfil del obturador.")
+
+# ---------------------------------------------------------------------------
+# v0.13.0: trims guiados por obturador (guía y obturador aparte) y por jaula (con niveles o etapas).
+# Factores de IEC 60534-2-1, Tabla 2, donde la tabla los publica (obturador en V de 3 ranuras); el
+# resto son estimaciones de referencia indicadas en cada nota.
+# ---------------------------------------------------------------------------
+_EST = "Valores estimados (IEC 60534-2-1 no publica este trim): reemplazar por los certificados."
+
+
+def _par(base: str, nombre: str, fam: str, abre: tuple, cierra: tuple, car: str, R: float, nota: str = "",
+         familia_cv: str = "", factor_cv: float = 1.0, Cd: float = 12.0, nps_max: float = 0.0):
+    """Estilos «_abre» y «_cierra» de un trim: abre/cierra = (FL, xT, Fd)."""
+    t = "Globo" if fam == "globo" else "Angular"
+    return [EstiloValvula(f"{base}_{sd}", f"{t}, {nombre}, flujo tiende a {'abrir' if sd == 'abre' else 'cerrar'}",
+                          fam, *f, Cd, car, R, nota, familia_cv, factor_cv, nps_max)
+            for sd, f in (("abre", abre), ("cierra", cierra))]
+
+
+def _jaulas_especiales(fam: str) -> list:
+    p = "globo" if fam == "globo" else "angular"
+    return [
+        *_par(f"{p}_jaula_multiorificio", "jaula multiorificio de bajo ruido", fam, (0.90, 0.68, 0.14),
+              (0.90, 0.68, 0.14), "lineal", 15,
+              "Jaula de una etapa con muchos orificios chicos: reparte el chorro y sube la frecuencia del ruido, "
+              "que la tubería atenúa más. El nivel fija la cantidad de orificios (Fd = 1/√N).",
+              "orificios", Cd=7.0),
+        *_par(f"{p}_jaula_multietapa_gas", "jaula multietapa multiorificio (bajo ruido)", fam, (0.97, 0.90, 0.07),
+              (0.97, 0.90, 0.07), "lineal", 33,
+              "Dos o más jaulas perforadas concéntricas en serie: la caída de presión se reparte entre las etapas "
+              "y el ruido lo define la última, que descarga con menor caída y chorros chicos.",
+              "multietapa", Cd=3.5),
+        *_par(f"{p}_jaula_anticav", "jaula anticavitación de 1 etapa", fam, (0.93, 0.70, 0.10),
+              (0.93, 0.70, 0.10), "lineal", 15,
+              "Orificios chicos; con flujo de afuera hacia adentro los chorros colapsan en el centro, lejos del "
+              "metal (disposición habitual anticavitación).", "orificios", Cd=7.0),
+        *_par(f"{p}_jaula_discos", "discos apilados (laberinto)", fam, (0.99, 0.95, 0.05), (0.99, 0.95, 0.05),
+              "lineal", 33,
+              "Discos con canales de muchos giros: cada giro es una etapa y la velocidad queda controlada en todo "
+              "el recorrido. Servicio crítico (antisurge, recirculación de bombas). " + _EST,
+              "multietapa", Cd=3.0),
+        *_par(f"{p}_jaula_pasajes", "multietapa de pasajes grandes (sólidos)", fam, (0.97, 0.85, 0.25),
+              (0.97, 0.85, 0.25), "lineal", 30,
+              "Etapas con pasajes amplios (del orden de 12 mm) para líquidos con partículas que taparían una "
+              "jaula de orificios chicos. " + _EST, "multietapa", Cd=3.5),
+    ]
+
+
+_ESTILOS_V013 = [
+    *_par("globo_vport", "obturador en V (V-port)", "globo", (0.90, 0.75, 0.29), (0.85, 0.70, 0.29),
+          "isoporcentual", 50,
+          "Obturador guiado por el puerto con ranuras en V: FL, xT y Fd de IEC 60534-2-1, Tabla 2 (3 ranuras, "
+          "flujo tiende a abrir); con flujo que tiende a cerrar, valores estimados.", "contorneado", 0.85),
+    *_par("globo_microcaudal", "obturador de microcaudal (aguja o ranurado)", "globo", (0.95, 0.80, 0.30),
+          (0.90, 0.75, 0.30), "isoporcentual", 50,
+          "Obturador de aguja o con ranuras finas, guiado por el bonete, para Cv de 0,001 a 1 aproximadamente. "
+          "Se ofrece hasta 2\". " + _EST, Cd=1.0, nps_max=2.0),
+    *_par("globo_disco_plano", "obturador de disco plano", "globo", (0.90, 0.72, 0.46), (0.80, 0.55, 1.00),
+          "apertura_rapida", 10,
+          "Disco plano sobre el asiento: característica de apertura rápida, para todo o nada o control "
+          "con poca carrera. Se adoptan los factores del obturador contorneado.", "contorneado"),
+    *_par("globo_jaula_retencion", "jaula de retención de asiento, obturador contorneado", "globo",
+          (0.90, 0.72, 0.46), (0.80, 0.55, 1.00), "isoporcentual", 50,
+          "La jaula guía al obturador y sujeta el asiento; la característica la da el perfil del obturador. "
+          "Se adoptan los factores del obturador contorneado.", "contorneado"),
+    *_jaulas_especiales("globo"),
+    *_par("angular_multietapa", "jaula anticavitación multietapa", "angular", (0.97, 0.81, 0.07),
+          (0.97, 0.81, 0.07), "lineal", 33, "Divide la caída de presión en varias etapas.", "multietapa", Cd=3.5),
+    *_jaulas_especiales("angular"),
+]
+
 
 ESTILOS: dict[str, EstiloValvula] = {e.clave: e for e in [
     # --- claves de v0.11.0 y anteriores (característica en la clave): se conservan para abrir proyectos
@@ -95,11 +166,10 @@ ESTILOS: dict[str, EstiloValvula] = {e.clave: e for e in [
                   "tiende a abrir", "globo", 0.90, 0.68, 0.09, 7.0, "lineal", 15, familia_cv="orificios"),
     EstiloValvula("globo_jaula_120_orificios_cierra", "Globo, jaula de 120 orificios (baja cavitación / bajo ruido), "
                   "flujo tiende a cerrar", "globo", 0.90, 0.68, 0.09, 7.0, "lineal", 15, familia_cv="orificios"),
-    EstiloValvula("globo_multietapa", "Globo, internos multietapa (anticavitación severa), flujo tiende a abrir",
+    EstiloValvula("globo_multietapa", "Globo, jaula anticavitación multietapa, flujo tiende a abrir",
                   "globo", 0.97, 0.81, 0.07, 3.5, "lineal", 33,
                   "Divide la caída de presión en varias etapas.", familia_cv="multietapa"),
-    EstiloValvula("globo_multietapa_cierra", "Globo, internos multietapa (anticavitación severa), flujo tiende a "
-                  "cerrar", "globo", 0.97, 0.81, 0.07, 3.5, "lineal", 33,
+    EstiloValvula("globo_multietapa_cierra", "Globo, jaula anticavitación multietapa, flujo tiende a cerrar", "globo", 0.97, 0.81, 0.07, 3.5, "lineal", 33,
                   "Divide la caída de presión en varias etapas; con flujo hacia adentro la última etapa "
                   "descarga en el centro del trim (disposición habitual anticavitación).", familia_cv="multietapa"),
     EstiloValvula("angular_contorneado_abre", "Angular, obturador contorneado, flujo tiende a abrir",
@@ -158,6 +228,7 @@ ESTILOS: dict[str, EstiloValvula] = {e.clave: e for e in [
                   "rotativa", 0.67, 0.35, 0.57, 30.0, "isoporcentual", 30,
                   "IEC no publica factores propios de la triple excéntrica: se adoptan los del disco "
                   "excéntrico (doble excéntrica)."),
+    *_ESTILOS_V013,
 ]}
 
 
@@ -178,16 +249,18 @@ class Cuerpo:
 
 
 CUERPOS: dict[str, Cuerpo] = {c.clave: c for c in [
-    Cuerpo("globo", "Globo", ("globo_contorneado_abre", "globo_contorneado_cierra", "globo_doble_guia_abre",
-                              "globo_doble_guia_cierra", "globo_jaula_4v_fuera", "globo_jaula_4v_dentro",
-                              "globo_jaula_60_orificios", "globo_jaula_60_orificios_cierra",
-                              "globo_jaula_120_orificios", "globo_jaula_120_orificios_cierra",
-                              "globo_multietapa", "globo_multietapa_cierra"),
+    Cuerpo("globo", "Globo", tuple(f"globo_{t}_{sd}" for t in (
+        "contorneado", "vport", "microcaudal", "disco_plano", "jaula_retencion", "jaula_multiorificio",
+        "jaula_multietapa_gas", "jaula_anticav", "jaula_discos", "jaula_pasajes") for sd in ("abre", "cierra"))
+           + ("globo_jaula_4v_fuera", "globo_jaula_4v_dentro", "globo_multietapa", "globo_multietapa_cierra"),
            0.5, 24, False, "Guiado superior / por jaula", -4.6),
     Cuerpo("globo_liner", "Globo con liner", ("globo_liner_contorneado",), 0.5, 12, False,
            "Guiado superior (vástago con fuelle o empaquetadura PTFE)", -4.6),
-    Cuerpo("angulo", "Ángulo", ("angular_contorneado_abre", "angular_contorneado_cierra",
-                                "angular_jaula_abre", "angular_jaula_cierra", "angular_venturi"),
+    Cuerpo("angulo", "Ángulo", ("angular_contorneado_abre", "angular_contorneado_cierra", "angular_venturi",
+                                "angular_jaula_abre", "angular_jaula_cierra")
+           + tuple(f"angular_{t}_{sd}" for t in ("jaula_multiorificio", "jaula_multietapa_gas", "jaula_anticav",
+                                                  "multietapa", "jaula_discos", "jaula_pasajes")
+                   for sd in ("abre", "cierra")),
            0.5, 16, False, "Guiado superior / por jaula", -4.6),
     Cuerpo("bola_paso_completo", "Bola de paso completo (flotante)", ("bola_paso_total_70", "bola_paso_completo_90"),
            0.5, 8, True, "Bola flotante apoyada en los asientos; eje guiado por buje", -4.3),
@@ -245,6 +318,7 @@ def apertura_requerida(phi: float, caracteristica: str, R: float) -> float:
     Característica inherente ideal:
       lineal:          φ = 1/R + (1 − 1/R)·h
       isoporcentual:   φ = R^(h − 1)
+      parabólica mod.: φ = 1/R + (1 − 1/R)·h²   (aproximación: entre lineal e isoporcentual)
       apertura rápida: φ = √h
     """
     if phi <= 0:
@@ -253,6 +327,8 @@ def apertura_requerida(phi: float, caracteristica: str, R: float) -> float:
         h = (phi - 1 / R) / (1 - 1 / R)
     elif caracteristica == "isoporcentual":
         h = 1 + math.log(phi) / math.log(R)
+    elif caracteristica == "parabolica":
+        h = math.sqrt(max(phi - 1 / R, 0.0) / (1 - 1 / R))
     else:
         h = phi ** 2
     return max(h, 0.0)
@@ -297,6 +373,14 @@ KC_TIPICO = {
     "mariposa_concentrica_60": 0.35, "mariposa_concentrica_70": 0.30,
     "mariposa_alto_rendimiento_90": 0.35, "mariposa_triple_90": 0.35,
     "rotativa_obturador_excentrico_abre": 0.50, "rotativa_obturador_excentrico_cierra": 0.35,
+    # v0.13.0
+    "globo_vport_abre": 0.65, "globo_vport_cierra": 0.55, "globo_microcaudal_abre": 0.70,
+    "globo_microcaudal_cierra": 0.60, "globo_disco_plano_abre": 0.60, "globo_disco_plano_cierra": 0.50,
+    "globo_jaula_retencion_abre": 0.65, "globo_jaula_retencion_cierra": 0.55,
+    **{f"{p}_{t}_{sd}": kc for p in ("globo", "angular") for sd in ("abre", "cierra") for t, kc in (
+        ("jaula_multiorificio", 0.80), ("jaula_multietapa_gas", 0.95), ("jaula_anticav", 0.85),
+        ("jaula_discos", 0.99), ("jaula_pasajes", 0.95))},
+    "angular_multietapa_abre": 0.95, "angular_multietapa_cierra": 0.95,
 }
 
 # Claves de versiones anteriores que llevaban la característica en el nombre: (clave nueva, característica)
@@ -363,7 +447,12 @@ NOMBRE_GEOMETRIA = {
 def geometria_sentido(clave: str) -> tuple[str, str]:
     """(estilo de trim, sentido) de una clave; las rotativas sin sentido devuelven (clave, "")."""
     clave = CLAVES_ANTERIORES.get(clave, (clave,))[0]
-    return GEOMETRIA.get(clave, (clave, ""))
+    if clave in GEOMETRIA:
+        return GEOMETRIA[clave]
+    for sd in ("abre", "cierra"):        # trims de v0.13.0: el sentido va al final de la clave
+        if clave.endswith("_" + sd) and not clave.startswith(("rotativa", "bola", "mariposa")):
+            return clave[: -len(sd) - 1], sd
+    return clave, ""
 
 
 def geometrias(cuerpo: str) -> list[str]:
@@ -385,6 +474,14 @@ def clave_trim(cuerpo: str, geometria: str, sentido: str) -> str:
     """Clave de ESTILOS para el estilo de trim y el sentido elegidos (el primero disponible si no está)."""
     ks = [k for k in CUERPOS[cuerpo].trims if geometria_sentido(k)[0] == geometria]
     return next((k for k in ks if geometria_sentido(k)[1] == sentido), ks[0] if ks else CUERPOS[cuerpo].trims[0])
+
+
+def clave_de_geometria(cuerpo: str, geometria: str, sentido: str) -> str | None:
+    """Clave de ESTILOS de un estilo de trim y sentido de v0.12 (incluye los que ya no se ofrecen)."""
+    pref = {"globo": "globo_", "angulo": "angular_", "globo_liner": "globo_liner"}.get(cuerpo, "")
+    ks = [k for k, (g, _) in GEOMETRIA.items() if g == geometria and k.startswith(pref)
+          and (cuerpo != "globo" or not k.startswith("globo_liner"))]
+    return next((k for k in ks if GEOMETRIA[k][1] == sentido), ks[0] if ks else None)
 
 
 def nombre_geometria(g: str) -> str:

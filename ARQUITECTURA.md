@@ -35,6 +35,7 @@ dimensionador/
                     servicio agrio (ISO 15156 / ISO 17945), modo manual y alertas
   juegos_trim.py    Juegos de internos estándar (N25-T01…T17): asiento, jaula y obturador compatibles
   geometria.py      Tamaño del trim (puerto) y carrera del vástago, estimados o certificados
+  trims.py          Clasificación de trims (v0.13.0): tipo, guía, obturador o jaula, niveles y migración
   capacidad.py      Tabla de capacidad por familia de trim: Cv, puerto y carrera típicos (v0.12.0)
   anticavitacion.py Trims anticavitación por etapas (líquidos): reparto de igual Kapp por etapa,
                     factores equivalentes FL, Kc y xFz, y etapas recomendadas
@@ -74,6 +75,7 @@ tests/              Validación contra ejemplos de las normas
 | 8. Actuador, posicionador y accesorios (v0.9.0): fuerza/par, resorte, aire, vástago, señales y solenoide | Hecho, en validación |
 | 9. Gas natural como mezcla (v0.11.0): composición molar editable, propiedades HEOS de CoolProp, T2 y Z2 isoentálpicos | Hecho |
 | 10. Tabla de capacidad (v0.12.0): Cv, puerto y carrera por familia de trim (mediana de datos de fabricantes), trim reducido por restricciones en serie, coherencia ±10 %, estilo / sentido / característica independientes | Hecho |
+| 11. Clasificación de trims (v0.13.0): tipo de trim, guía, obturador o jaula según fluido, niveles individuales con su mitigación, multietapa multiorificio para gas (2 a 4 etapas) | Hecho |
 | 6. Versión 2 (solo líquidos): flujo 1-Sistema → 2-Cálculos Válvula, tuberías por cédula, Kc/Kapp, entregables Word e impresión, marca N25 Valves Sizing | Hecho, en validación |
 
 ## Próximos pasos sugeridos
@@ -96,7 +98,7 @@ certificados de la válvula ofertada.
 
 ## Validación actual
 
-`python -m pytest tests` (177 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
+`python -m pytest tests` (186 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
 IEC 60534-2-1:2011 reproducidos:
 
 | Ejemplo | Norma | Programa |
