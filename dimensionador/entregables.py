@@ -214,7 +214,7 @@ def _filas_trim(res: Resultado) -> list:
         filas.append(["Jaula", T.CLASES_JAULA["estandar"]])
         return filas
     filas += [["Jaula", T.CLASES_JAULA["anticav" if liq else "antiruido"]],
-              ["Config dinámica de la jaula", T.texto_config(el.elemento, el.nivel, liq)]]
+              ["Config dinámica de la jaula", T.texto_config(el.elemento, el.nivel, liq, completo=True)]]
     return filas
 
 

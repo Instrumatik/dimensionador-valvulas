@@ -76,7 +76,7 @@ def texto_nivel(t: TrimAnticavitacion) -> str:
     """Nombre corto del nivel con lo que mitiga, para el desplegable de nivel o etapas."""
     if t.etapas == 1:
         return f"1 etapa – Kc {t.Kc:.2f}, FL {t.FL:.2f}".replace(".", ",")
-    return f"{t.etapas} etapas – sin cavitación hasta Kapp {t.xFz:.3f}".replace(".", ",")
+    return f"{t.etapas} etapas – s/cav hasta Kapp {t.xFz:.3f}".replace(".", ",")
 
 
 def k_etapa(P1: float, P2: float, Pv: float, n: int) -> float:

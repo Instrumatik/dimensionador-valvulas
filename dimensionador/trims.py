@@ -101,7 +101,7 @@ NIVELES: dict[str, tuple[tuple, tuple]] = {
 # Complejidad de construcción para ordenar la config dinámica (a igual número de etapas, la más simple primero)
 _COMPLEJIDAD = {"jaula_multiorificio": 1, "jaula_anticav": 1, "jaula_multietapa_gas": 2, "jaula_pasajes": 2,
                 "jaula_discos": 3}
-_NOMBRE_CONFIG = {"jaula_anticav": "Jaula perforada", "jaula_pasajes": "Pasajes grandes (sólidos)",
+_NOMBRE_CONFIG = {"jaula_anticav": "Jaula perforada", "jaula_pasajes": "Pasajes grandes",
                   "jaula_discos": "Discos apilados", "jaula_multiorificio": "Multiorificio",
                   "jaula_multietapa_gas": "Multietapa multiorificio"}
 
@@ -155,9 +155,38 @@ def configuraciones(cuerpo: str, clase: str, liquido: bool) -> list[tuple[str, s
     return [x for _, x in sorted(out)]
 
 
-def texto_config(elemento: str, nivel: str, liquido: bool) -> str:
+def texto_config(elemento: str, nivel: str, liquido: bool, completo: bool = False) -> str:
+    """Construcción y nivel con lo que mitiga. Corto para el desplegable (en gases sin la cantidad de orificios
+    ni la palabra «atenuación»); completo para la descripción emergente."""
     t = texto_nivel(nivel, liquido)
+    if not liquido and not completo:
+        t = t.replace("atenuación ", "")
+        if " (≈" in t:
+            t = t[:t.index(" (≈")] + t[t.index(")") + 1:]
+    elif liquido and completo:
+        t = t.replace("s/cav hasta", "sin cavitación hasta")
     return f"{_NOMBRE_CONFIG.get(elemento, ELEMENTOS[elemento].nombre)}, {t[:1].lower() + t[1:]}"
+
+
+def _normal(texto: str) -> str:
+    """Texto de nivel sin las variantes de redacción de v0.13.0 y v0.13.1, para reconocer proyectos guardados."""
+    t = texto.replace("sin cavitación hasta", "s/cav hasta").replace("atenuación típica ", "")
+    t = t.replace("atenuación ", "").replace("Pasajes grandes (sólidos)", "Pasajes grandes")
+    if " (≈" in t:
+        t = t[:t.index(" (≈")] + t[t.index(")") + 1:]
+    return t.lower()
+
+
+def config_desde_texto(cuerpo: str, liquido: bool, texto: str, elemento: str = "") -> tuple[str, str] | None:
+    """(jaula, nivel) cuyo texto guardado (de esta versión o de una anterior) coincide con ``texto``."""
+    clase = "anticav" if liquido else "antiruido"
+    buscado = _normal(texto)
+    for e, n in configuraciones(cuerpo, clase, liquido):
+        if elemento and e != elemento:
+            continue
+        if buscado in (_normal(texto_config(e, n, liquido)), _normal(texto_nivel(n, liquido))):
+            return e, n
+    return None
 
 
 def niveles(elemento: str, liquido: bool) -> list[str]:

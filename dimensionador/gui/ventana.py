@@ -730,7 +730,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             widget.setProperty("ayuda", clave_ayuda)
         return widget
 
-    def _fila(self, grid, r, etiqueta, widget, clave, unidad: QWidget | None = None, ancho=300):
+    def _fila(self, grid, r, etiqueta, widget, clave, unidad: QWidget | None = None, ancho=330):
         lbl = QLabel(etiqueta)
         grid.addWidget(lbl, r, 0)
         btn = boton_ir(self.abrir_ayuda, clave)
@@ -1009,8 +1009,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.fila_jaula = self._fila(grid, r, "Jaula", self.cb_jaula, "clase_jaula"); r += 1
         self.cb_nivel = self._registrar("nivel", Combo())
         self.cb_nivel.currentIndexChanged.connect(self._cambio_trim)
-        self.fila_nivel = self._fila(grid, r, "Config dinámica de la jaula", self.cb_nivel, "nivel_etapas",
-                                     ancho=460); r += 1
+        self.fila_nivel = self._fila(grid, r, "Config dinámica de la jaula", self.cb_nivel, "nivel_etapas"); r += 1
         self.cb_sentido = self._registrar("sentido", Combo())
         self.cb_sentido.currentIndexChanged.connect(self._cambio_estilo)
         self.fila_sentido = self._fila(grid, r, "Sentido de flujo", self.cb_sentido, "sentido_flujo"); r += 1
@@ -1343,6 +1342,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         cfg = T.configuraciones(c, cl, liq)
         if cfg:
             self._llenar(self.cb_nivel, [(T.texto_config(e, n, liq), f"{e}|{n}") for e, n in cfg])
+            for i, (e, n) in enumerate(cfg):
+                self.cb_nivel.setItemData(i, T.texto_config(e, n, liq, completo=True), Qt.ToolTipRole)
+            self.cb_nivel.view().setMinimumWidth(self.cb_nivel.view().sizeHintForColumn(0) + 24)
         else:
             self._llenar(self.cb_nivel, [("No aplica (jaula estándar)", "")])
         self.cb_nivel.setEnabled(bool(cfg))
@@ -2174,6 +2176,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                 i = w.findText(v)
                 if i < 0 and v in NOMBRES_ANTERIORES:
                     i = w.findData(NOMBRES_ANTERIORES[v])
+                if i < 0 and w is self.cb_nivel and self.cb_nivel.count() > 1:   # redacción de v0.13.1
+                    cfg = T.config_desde_texto(self.cuerpo().clave, self.tipo() == "liquido", v)
+                    i = w.findData(f"{cfg[0]}|{cfg[1]}") if cfg else -1
                 if i < 0 and w is self.cb_trim:   # proyectos de v0.11.0 y anteriores: el trim incluía el sentido
                     if self._migrar_trim(s["campos"]):
                         continue
@@ -2249,6 +2254,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         jaula, jaula estándar, anticavitación o antiruido y su config dinámica. El disco plano y la jaula de
         retención de asiento pasan a obturador contorneado."""
         liq = self.tipo() == "liquido"
+        c = self.cuerpo().clave
         sd = next((k for k, t in SENTIDOS.items() if t == campos.get("sentido")), "abre")
         e = next((k for k, x in T.ELEMENTOS.items() if x.nombre == viejo["trim"]), "")
         if viejo["trim"] in ("Obturador de disco plano", "Jaula de retención de asiento, obturador contorneado"):
@@ -2260,7 +2266,8 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             g = g if g and e in T.GUIAS[g].obturadores else T.guia_por_defecto(e)
             el = T.Eleccion("obturador", g, e, sd)
         else:
-            nv = next((n for n in T.niveles(e, liq) if T.texto_nivel(n, liq) == viejo["nivel"]), "")
+            cfg = T.config_desde_texto(c, liq, viejo["nivel"], e)
+            nv = cfg[1] if cfg else ""
             el = T.Eleccion("jaula", "", e, sd, nv or (T.niveles(e, liq) or [""])[0])
         self.aplicar_eleccion(el)
         i = self.cb_caract.findText(campos.get("caracteristica", ""))
