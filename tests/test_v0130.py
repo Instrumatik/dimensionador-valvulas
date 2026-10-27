@@ -174,7 +174,7 @@ def test_textos_cortos_de_config_dinamica(app):
     w.cb_jaula.setCurrentIndex(w.cb_jaula.findData("anticav"))
     assert w.cb_nivel.width() == w.cb_sentido.width()
     fm = w.cb_nivel.fontMetrics()
-    assert all(fm.horizontalAdvance(w.cb_nivel.itemText(i)) < w.cb_nivel.width() - 25 for i in range(w.cb_nivel.count()))
+    assert all(fm.horizontalAdvance(w.cb_nivel.itemText(i)) <= w.cb_nivel.width() - 40 for i in range(w.cb_nivel.count()))
     # Proyecto guardado con la redacción de v0.13.1
     assert T.config_desde_texto("globo", True, "Pasajes grandes (sólidos), 4 etapas – sin cavitación hasta Kapp 0,938") \
         == ("jaula_pasajes", "pasajes_4")

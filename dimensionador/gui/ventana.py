@@ -730,7 +730,18 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             widget.setProperty("ayuda", clave_ayuda)
         return widget
 
-    def _fila(self, grid, r, etiqueta, widget, clave, unidad: QWidget | None = None, ancho=330):
+    def _ancho_celda(self) -> int:
+        """Ancho común de las celdas: 330 px o lo que necesite el texto más largo de la config dinámica de la jaula
+        con la fuente del sistema, para que todas queden alineadas y ninguna corte el texto."""
+        if not hasattr(self, "_ancho_cache"):
+            fm = self.fontMetrics()
+            textos = [T.texto_config(e, n, liq) for liq in (True, False) for cl in ("anticav", "antiruido")
+                      for c in T.POR_CUERPO for e, n in T.configuraciones(c, cl, liq)]
+            self._ancho_cache = max([330] + [fm.horizontalAdvance(t) + 40 for t in textos])
+        return self._ancho_cache
+
+    def _fila(self, grid, r, etiqueta, widget, clave, unidad: QWidget | None = None, ancho=None):
+        ancho = self._ancho_celda() if ancho is None else ancho
         lbl = QLabel(etiqueta)
         grid.addWidget(lbl, r, 0)
         btn = boton_ir(self.abrir_ayuda, clave)
