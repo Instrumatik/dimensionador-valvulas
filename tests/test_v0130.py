@@ -161,3 +161,22 @@ def test_gui_proyecto_v0130_se_migra(app):
     c.update(tipo_trim="Guiado por obturador", guia="Por el puerto (port guided)", trim="Obturador de disco plano")
     w._cargar(s)
     assert w.cb_tipo_trim.currentText() == "Sin jaula" and w.cb_trim.currentData() == "contorneado"
+
+
+def test_textos_cortos_de_config_dinamica(app):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    assert T.texto_config("jaula_anticav", "etapas_3", True) == "Jaula perforada, 3 etapas – s/cav hasta Kapp 0,875"
+    assert T.texto_config("jaula_multietapa_gas", "multietapa_3", False) == \
+        "Multietapa multiorificio, 3 etapas – at 20 a 30 dB(A)"
+    assert "atenuación típica" in T.texto_config("jaula_multiorificio", "multiorificio_2", False, completo=True)
+    w = VentanaPrincipal()
+    w.cb_tipo_trim.setCurrentIndex(w.cb_tipo_trim.findData("jaula"))
+    w.cb_jaula.setCurrentIndex(w.cb_jaula.findData("anticav"))
+    assert w.cb_nivel.width() == w.cb_sentido.width()
+    fm = w.cb_nivel.fontMetrics()
+    assert all(fm.horizontalAdvance(w.cb_nivel.itemText(i)) < w.cb_nivel.width() - 25 for i in range(w.cb_nivel.count()))
+    # Proyecto guardado con la redacción de v0.13.1
+    assert T.config_desde_texto("globo", True, "Pasajes grandes (sólidos), 4 etapas – sin cavitación hasta Kapp 0,938") \
+        == ("jaula_pasajes", "pasajes_4")
+    assert T.config_desde_texto("globo", False, "Multiorificio, nivel 2 (≈ 200 orificios) – atenuación típica 10 a "
+                                "15 dB(A)") == ("jaula_multiorificio", "multiorificio_2")

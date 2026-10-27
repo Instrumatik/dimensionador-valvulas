@@ -80,7 +80,7 @@ def texto_nivel(clave: str) -> str:
     """Nombre corto del nivel con su atenuación típica, para el desplegable de nivel o etapas."""
     t = TRIMS_RUIDO[clave]
     base = t.nombre.split(", ")[-1] if t.etapas > 1 else t.nombre.split(", ")[-1].replace("nivel", "Nivel")
-    return f"{base} – atenuación {t.atenuacion}" if t.atenuacion else base
+    return f"{base} – at {t.atenuacion}" if t.atenuacion else base
 
 
 MACH_SALIDA_VALVULA = 0.3      # límite habitual de diseño en la salida de la válvula (ruido)

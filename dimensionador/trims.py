@@ -156,22 +156,20 @@ def configuraciones(cuerpo: str, clase: str, liquido: bool) -> list[tuple[str, s
 
 
 def texto_config(elemento: str, nivel: str, liquido: bool, completo: bool = False) -> str:
-    """Construcción y nivel con lo que mitiga. Corto para el desplegable (en gases sin la cantidad de orificios
-    ni la palabra «atenuación»); completo para la descripción emergente."""
+    """Construcción y nivel con lo que mitiga. Corto para el desplegable («s/cav hasta», «at», sin la cantidad
+    de orificios); completo para los documentos y la descripción emergente."""
     t = texto_nivel(nivel, liquido)
-    if not liquido and not completo:
-        t = t.replace("atenuación ", "")
-        if " (≈" in t:
-            t = t[:t.index(" (≈")] + t[t.index(")") + 1:]
-    elif liquido and completo:
-        t = t.replace("s/cav hasta", "sin cavitación hasta")
+    if completo:
+        t = t.replace("s/cav hasta", "sin cavitación hasta").replace(" – at ", " – atenuación típica ")
+    elif " (≈" in t:                     # la cantidad de orificios queda en la descripción emergente
+        t = t[:t.index(" (≈")] + t[t.index(")") + 1:]
     return f"{_NOMBRE_CONFIG.get(elemento, ELEMENTOS[elemento].nombre)}, {t[:1].lower() + t[1:]}"
 
 
 def _normal(texto: str) -> str:
     """Texto de nivel sin las variantes de redacción de v0.13.0 y v0.13.1, para reconocer proyectos guardados."""
     t = texto.replace("sin cavitación hasta", "s/cav hasta").replace("atenuación típica ", "")
-    t = t.replace("atenuación ", "").replace("Pasajes grandes (sólidos)", "Pasajes grandes")
+    t = t.replace("atenuación ", "").replace(" – at ", " – ").replace("Pasajes grandes (sólidos)", "Pasajes grandes")
     if " (≈" in t:
         t = t[:t.index(" (≈")] + t[t.index(")") + 1:]
     return t.lower()
