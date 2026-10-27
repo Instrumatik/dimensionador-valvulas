@@ -4281,24 +4281,40 @@ GUIA["bajo_cv_minimo"] = {
 
 
 GUIA["tipo_trim"] = {
-    'que_es': ('Es la primera elección de los internos de globo y ángulo: guiado por obturador o guiado por jaula.'),
-    'que_hace': ('Muestra en las filas siguientes solo las opciones de ese tipo: la guía y el obturador, o la jaula '
-                 'y su nivel.'),
-    'que_indica': ('Guiado por obturador: la característica la da el perfil del obturador. Guiado por jaula: la '
-                   'jaula guía al obturador, sujeta el asiento y da la característica.'),
-    'umbrales': 'Las jaulas de bajo ruido y anticavitación son siempre guiadas por jaula.',
+    'que_es': ('Es la primera elección de los internos de globo y ángulo: sin jaula o con jaula.'),
+    'que_hace': ('Muestra en las filas siguientes solo las opciones de ese tipo: la guía y el tipo de obturador, '
+                 'o el obturador cilíndrico, la jaula y su config dinámica.'),
+    'que_indica': ('Sin jaula: la característica la da el perfil del obturador. Con jaula: la jaula guía al '
+                   'obturador cilíndrico, sujeta el asiento y da la característica.'),
+    'umbrales': 'Las jaulas antiruido y anticavitación son siempre trims con jaula.',
     'por_debajo': 'No aplica.',
     'por_encima': 'No aplica.',
     'afecta': ['Opciones de obturador y jaula', 'Factores FL, xT, Fd y Kc', 'Capacidad típica'],
     'recomendaciones': [
-        'Use guiado por obturador en servicio general y tamaños chicos.',
-        'Use guiado por jaula con ΔP altas, cuando hace falta balancear el obturador o con trims especiales.',
+        'Use un trim sin jaula en servicio general y tamaños chicos.',
+        'Use un trim con jaula con ΔP altas, cuando hace falta balancear el obturador o mitigar cavitación o ruido.',
     ],
-    'ejemplo': ('Agua con cavitación severa: guiado por jaula, jaula anticavitación, 3 etapas.'),
+    'ejemplo': ('Agua con cavitación severa: con jaula, jaula anticavitación, jaula perforada de 3 etapas.'),
+}
+
+GUIA["clase_jaula"] = {
+    'que_es': ('Es la clase de jaula de un trim con jaula: estándar (caracterizada), anticavitación o antiruido.'),
+    'que_hace': ('Con jaula estándar bloquea la config dinámica. Con anticavitación o antiruido habilita la lista '
+                 'de construcciones y niveles de esa clase.'),
+    'que_indica': ('Qué fenómeno se busca mitigar: ninguno (estándar), la cavitación de un líquido o el ruido '
+                   'aerodinámico de un gas o vapor.'),
+    'umbrales': 'Anticavitación solo aparece con líquidos; antiruido solo con gas, vapor y steam.',
+    'por_debajo': 'No aplica.',
+    'por_encima': 'No aplica.',
+    'afecta': ['Config dinámica disponible', 'Factores FL, xT, Fd y Kc', 'Capacidad típica'],
+    'recomendaciones': [
+        'Empiece con la jaula estándar y pase a la especial si el programa avisa cavitación o ruido.',
+    ],
+    'ejemplo': ('Vapor con 102 dB(A) y límite 85: jaula antiruido.'),
 }
 
 GUIA["guia_obturador"] = {
-    'que_es': ('Es cómo se guía el obturador cuando el trim es guiado por obturador: superior reforzada, doble '
+    'que_es': ('Es cómo se guía el obturador cuando el trim es sin jaula: superior reforzada, doble '
                'guía superior, superior e inferior, por el puerto o por el bonete.'),
     'que_hace': ('Filtra los obturadores que se ofrecen y entra en el informe. No cambia los factores de cálculo.'),
     'que_indica': ('Cuánto apoyo tiene el obturador frente a la fuerza del fluido y a las vibraciones.'),
@@ -4316,8 +4332,8 @@ GUIA["guia_obturador"] = {
 }
 
 GUIA["nivel_etapas"] = {
-    'que_es': ('Es el nivel o la cantidad de etapas de una jaula especial: anticavitación, pasajes grandes, '
-               'discos apilados, multiorificio o multietapa multiorificio.'),
+    'que_es': ('Es la construcción y el nivel o la cantidad de etapas de una jaula anticavitación (perforada, '
+               'pasajes grandes, discos apilados) o antiruido (multiorificio, multietapa multiorificio, discos).'),
     'que_hace': ('Carga en las condiciones de operación los FL, xT, Fd y Kc de ese nivel, cambia el Cv típico y '
                  'define cómo se calcula el ruido.'),
     'que_indica': ('Junto al nombre se muestra cuánto mitiga: en líquidos, el Kapp máximo sin cavitación; en '
@@ -4328,9 +4344,10 @@ GUIA["nivel_etapas"] = {
     'por_encima': 'Un nivel de más reduce la capacidad por pulgada, encarece la válvula y se tapa con sólidos.',
     'afecta': ['FL, xT, Fd y Kc', 'Cv típico y diámetro automático', 'Ruido y cavitación'],
     'recomendaciones': [
-        'Elija el primer nivel que cumple; el programa lo indica en las recomendaciones.',
+        'La lista va de la opción más simple y de menos etapas a la más compleja: elija la primera que cumple; '
+        'el programa la indica en las recomendaciones.',
         'Reemplace los valores por los certificados del trim ofertado.',
     ],
-    'ejemplo': ('Vapor con 102 dB(A) y límite 85: la jaula multiorificio nivel 3 deja 88, la multietapa de 4 '
+    'ejemplo': ('Vapor con 102 dB(A) y límite 85: multiorificio nivel 3 deja 88, multietapa multiorificio de 4 '
                 'etapas deja 83: se elige la de 4 etapas.'),
 }

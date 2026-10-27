@@ -1,4 +1,4 @@
-"""v0.13.0: trims ordenados por tipo (obturador / jaula), guía, niveles individuales y multietapa para gas."""
+"""v0.13.0 y v0.13.1: trims sin jaula / con jaula, guía, config dinámica de la jaula y multietapa para gas."""
 import json
 import os
 from pathlib import Path
@@ -27,7 +27,8 @@ def test_jaulas_segun_fluido_y_niveles_individuales():
 
 
 def test_guia_filtra_obturadores():
-    assert T.obturadores("globo", "puerto") == ["vport", "disco_plano"]
+    assert T.obturadores("globo", "puerto") == ["vport"]
+    assert "disco_plano" not in T.ELEMENTOS and "jaula_retencion" not in T.ELEMENTOS
     assert T.obturadores("globo", "bonete") == ["microcaudal", "contorneado"]
     assert "puerto" not in T.guias("angulo")
     for c in T.POR_CUERPO:
@@ -74,7 +75,7 @@ def test_parabolica_modificada():
         assert caudal_relativo(h, "isoporcentual", R) < phi < caudal_relativo(h, "lineal", R)
         assert apertura_requerida(phi, "parabolica", R) == pytest.approx(h)
     assert "parabolica" in T.ELEMENTOS["contorneado"].caracteristicas
-    assert T.ELEMENTOS["disco_plano"].caracteristicas == ("apertura_rapida",)
+    assert "apertura_rapida" in T.ELEMENTOS["jaula_4v"].caracteristicas
 
 
 def test_microcaudal_limitado_a_2_pulgadas():
@@ -103,25 +104,31 @@ def test_gui_desplegables_dependientes(app):
     from dimensionador.gui.ventana import VentanaPrincipal
     w = VentanaPrincipal()
     w.show()
-    # Guiado por obturador: guía visible, jaulas especiales y nivel ocultos
-    assert w.cb_tipo_trim.currentData() == "obturador" and not w.fila_guia[0].isHidden()
-    assert w.fila_nivel[0].isHidden()
+    # Sin jaula: guía y tipo de obturador visibles, jaula y config dinámica ocultas
+    assert w.cb_tipo_trim.currentText() == "Sin jaula" and not w.fila_guia[0].isHidden()
+    assert w.fila_nivel[0].isHidden() and w.fila_jaula[0].isHidden() and w.lbl_trim.text() == "Tipo de obturador"
     w.cb_guia.setCurrentIndex(w.cb_guia.findData("puerto"))
-    assert [w.cb_trim.itemData(i) for i in range(w.cb_trim.count())] == ["vport", "disco_plano"]
-    w.cb_trim.setCurrentIndex(w.cb_trim.findData("disco_plano"))
-    assert w.cb_caract.currentData() == "apertura_rapida" and not w.cb_caract.isEnabled()
-    # Guiado por jaula con gas: jaulas de bajo ruido y niveles individuales
+    assert [w.cb_trim.itemData(i) for i in range(w.cb_trim.count())] == ["vport"]
+    # Con jaula: obturador cilíndrico fijo; con jaula estándar la config dinámica queda bloqueada
     w.cb_tipo_fluido.setCurrentIndex(w.cb_tipo_fluido.findData("gas"))
     w.cb_tipo_trim.setCurrentIndex(w.cb_tipo_trim.findData("jaula"))
-    assert w.fila_guia[0].isHidden() and w.cb_trim.findData("jaula_anticav") < 0
-    w.cb_trim.setCurrentIndex(w.cb_trim.findData("jaula_multietapa_gas"))
-    assert not w.fila_nivel[0].isHidden() and w.cb_nivel.count() == 3
-    w.cb_nivel.setCurrentIndex(w.cb_nivel.findData("multietapa_3"))
+    assert w.fila_guia[0].isHidden() and w.cb_trim.currentText() == "Cilíndrico" and not w.cb_trim.isEnabled()
+    assert [w.cb_jaula.itemData(i) for i in range(w.cb_jaula.count())] == ["estandar", "antiruido"]
+    assert not w.cb_nivel.isEnabled() and w.trim_clave() == "globo_jaula_4v_fuera"
+    # Antiruido: todas las construcciones y niveles, de la más simple a la más compleja
+    w.cb_jaula.setCurrentIndex(w.cb_jaula.findData("antiruido"))
+    datos = [w.cb_nivel.itemData(i) for i in range(w.cb_nivel.count())]
+    assert w.cb_nivel.isEnabled() and datos[0] == "jaula_multiorificio|multiorificio_1"
+    assert datos[-1] == "jaula_discos|discos_10" and len(datos) == 10
+    w.cb_nivel.setCurrentIndex(w.cb_nivel.findData("jaula_multietapa_gas|multietapa_3"))
     assert w.trim_especial() == ("estandar", "multietapa_3")
     assert w.filas["xT"].edits[0].text() == "0,967"
-    # Con líquido la misma jaula no está: pasa a las de anticavitación
+    # Con líquido: anticavitación en lugar de antiruido
     w.cb_tipo_fluido.setCurrentIndex(w.cb_tipo_fluido.findData("liquido"))
-    assert w.cb_trim.findData("jaula_multietapa_gas") < 0 and w.cb_trim.findData("jaula_anticav") >= 0
+    assert w.cb_jaula.findData("antiruido") < 0 and w.cb_jaula.findData("anticav") >= 0
+    w.cb_jaula.setCurrentIndex(w.cb_jaula.findData("anticav"))
+    datos = [w.cb_nivel.itemData(i) for i in range(w.cb_nivel.count())]
+    assert datos[:3] == ["jaula_anticav|jaula_1", "jaula_anticav|etapas_2", "jaula_pasajes|pasajes_2"]
 
 
 def test_gui_proyecto_v012_se_migra(app):
@@ -132,9 +139,25 @@ def test_gui_proyecto_v012_se_migra(app):
     s["campos"]["anticav"] = "Multietapa, 4 etapas"
     w = VentanaPrincipal()
     w._cargar(s)
-    assert w.cb_tipo_trim.currentData() == "jaula" and w.cb_trim.currentData() == "jaula_anticav"
-    assert w.cb_nivel.currentData() == "etapas_4" and w.trim_especial() == ("etapas_4", "estandar")
+    assert w.cb_tipo_trim.currentData() == "jaula" and w.cb_jaula.currentData() == "anticav"
+    assert w.cb_nivel.currentData() == "jaula_anticav|etapas_4" and w.trim_especial() == ("etapas_4", "estandar")
     est = w._estado()
     w2 = VentanaPrincipal()
     w2._cargar(est)
-    assert w2.trim_clave() == w.trim_clave() and w2.cb_nivel.currentData() == "etapas_4"
+    assert w2.trim_clave() == w.trim_clave() and w2.cb_nivel.currentData() == "jaula_anticav|etapas_4"
+
+
+def test_gui_proyecto_v0130_se_migra(app):
+    from dimensionador.gui.ventana import VentanaPrincipal
+    s = json.loads((KIT / "Caso_C_alta_agua_producida_agria.valvula").read_text(encoding="utf-8"))
+    c = s["campos"]
+    for k in ("jaula",):
+        c.pop(k, None)
+    c.update(tipo_trim="Guiado por jaula", trim="Jaula anticavitación",
+             nivel="3 etapas – sin cavitación hasta Kapp 0,875")
+    w = VentanaPrincipal()
+    w._cargar(s)
+    assert w.cb_tipo_trim.currentText() == "Con jaula" and w.cb_nivel.currentData() == "jaula_anticav|etapas_3"
+    c.update(tipo_trim="Guiado por obturador", guia="Por el puerto (port guided)", trim="Obturador de disco plano")
+    w._cargar(s)
+    assert w.cb_tipo_trim.currentText() == "Sin jaula" and w.cb_trim.currentData() == "contorneado"

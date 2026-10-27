@@ -363,7 +363,7 @@ _e("caracteristica", "Característica inherente",
    "con φ = 1/R + (1 − 1/R)·h². Solo obturadores contorneados.</li>"
    "<li><b>Apertura rápida</b>: para servicios todo-nada.</li></ul>"
    "<p>Desde v0.13.0 la lista solo habilita las características que ofrece el obturador o la jaula elegidos "
-   "(por ejemplo, el disco plano solo apertura rápida y las jaulas multietapa solo lineal).</p>"
+   "(por ejemplo, el obturador en V no ofrece apertura rápida y las jaulas multietapa solo lineal).</p>"
    "<p><b>Tres datos independientes</b> (desde v0.12.0): el <b>estilo de trim</b> es la geometría de los "
    "internos (contorneado, jaula, orificios, multietapa); el <b>sentido de flujo</b> dice si el fluido tiende "
    "a abrir o a cerrar el obturador; la <b>característica</b> es la curva de capacidad frente a la carrera. "
@@ -852,58 +852,66 @@ _e("SG", "Gravedad específica",
    "la lista se calcula sola a P1 y T1.</p>",
    formula="SG = ρ1 / ρ0, ρ0 = 999,1 kg/m³", tipicos="Agua 15 °C: 1,000. Agua 90 °C: 0,967. "
    "Gasolina: 0,72–0,76. Crudo: 0,80–0,95.", relacionadas=["rho"])
-_e("trim", "Obturador o jaula (estilo de trim)",
-   "<p>Pieza de los internos que define los factores del trim. Desde v0.13.0 la lista depende del <b>tipo de "
-   "trim</b> elegido arriba:</p><ul>"
-   "<li><b>Guiado por obturador</b>: <b>contorneado</b> (perfilado, estándar), <b>en V</b> (V-port, guiado por "
-   "el puerto; factores de IEC 60534-2-1 para 3 ranuras), <b>microcaudal</b> (aguja o ranurado, Cv de 0,001 a "
-   "1, hasta 2\"), <b>disco plano</b> (apertura rápida) y, en ángulo, <b>salida Venturi</b>.</li>"
-   "<li><b>Guiado por jaula</b>: <b>jaula caracterizada de ventanas</b>; <b>jaula de retención de asiento</b> "
-   "con obturador contorneado (la jaula guía y sujeta el asiento, la característica la da el obturador); "
-   "<b>jaula multiorificio de bajo ruido</b> y <b>multietapa multiorificio</b> (solo gas, vapor y steam); "
-   "<b>jaula anticavitación</b> y <b>multietapa de pasajes grandes</b> para líquidos con sólidos (solo "
-   "líquidos); <b>discos apilados</b> (laberinto, líquido y gas).</li>"
+_e("trim", "Tipo de obturador (estilo de trim)",
+   "<p>Pieza de los internos que define los factores del trim. Desde v0.13.1 depende del <b>tipo de trim</b> "
+   "elegido arriba:</p><ul>"
+   "<li><b>Sin jaula</b>: <b>contorneado</b> (perfilado, estándar), <b>en V</b> (V-port, guiado por el "
+   "puerto; factores de IEC 60534-2-1 para 3 ranuras), <b>microcaudal</b> (aguja o ranurado, Cv de 0,001 a "
+   "1, hasta 2\") y, en ángulo, <b>salida Venturi</b>. La lista depende de la guía elegida.</li>"
+   "<li><b>Con jaula</b>: <b>cilíndrico</b>, un cilindro hueco sin perfil que abre las ventanas u orificios "
+   "de la jaula; la característica la da la jaula. La fila queda fija.</li>"
    "<li><b>Rotativas</b>: el elemento de cierre (bola, mariposa, segmento o tapón excéntrico) con su "
    "característica propia.</li></ul>"
-   "<p>Las jaulas especiales se completan con el <b>nivel o las etapas</b> (fila siguiente). Cada "
-   "combinación trae sus factores típicos (FL, xT, Fd), su Kc y su capacidad típica (tabla de capacidad), que "
-   "se cargan en las entradas y se pueden reemplazar por los certificados del fabricante. Los trims que IEC "
-   "60534-2-1 no publica llevan valores estimados, indicados en la descripción de cada opción.</p>"
+   "<p>Cada combinación trae sus factores típicos (FL, xT, Fd), su Kc y su capacidad típica (tabla de "
+   "capacidad), que se cargan en las entradas y se pueden reemplazar por los certificados del fabricante. Los "
+   "trims que IEC 60534-2-1 no publica llevan valores estimados, indicados en la descripción de cada opción.</p>"
    "<p>Proyectos de versiones anteriores: la doble guía superior pasa a ser una guía del obturador "
-   "contorneado; las jaulas de 60 y 120 orificios pasan a la jaula anticavitación de 1 etapa (líquidos) o a la "
-   "multiorificio nivel 1 (gases), y los multietapa a 3 etapas.</p>",
+   "contorneado; el disco plano y la jaula de retención de asiento pasan a obturador contorneado; las jaulas "
+   "de 60 y 120 orificios pasan a la jaula anticavitación de 1 etapa (líquidos) o a la multiorificio nivel 1 "
+   "(gases), y los multietapa a 3 etapas.</p>",
    referencia="IEC 60534-2-1, Anexo A (tabla de factores típicos)",
-   relacionadas=["tipo_trim", "guia_obturador", "nivel_etapas", "sentido_flujo", "Kc", "FL", "Fd", "balance"])
+   relacionadas=["tipo_trim", "guia_obturador", "clase_jaula", "nivel_etapas", "sentido_flujo", "Kc", "FL",
+                 "Fd", "balance"])
 _e("tipo_trim", "Tipo de trim",
    "<p>Primera elección de los internos de globo y ángulo; las filas siguientes muestran solo las opciones "
-   "que corresponden.</p><ul><li><b>Guiado por obturador</b>: el obturador contorneado da la característica; "
-   "el asiento va roscado o sujeto por el bonete o la brida y la guía es un dato aparte (fila «Guía del "
-   "obturador»). Suelen ser desbalanceados.</li><li><b>Guiado por jaula</b>: la jaula guía al obturador "
-   "(cilíndrico, no contorneado), sujeta el asiento y da la característica con la forma de sus pasajes. "
-   "Puede ser balanceado o desbalanceado. Las jaulas de bajo ruido y anticavitación son de este tipo.</li></ul>"
-   "<p>En válvulas rotativas la fila no se muestra.</p>",
-   relacionadas=["guia_obturador", "trim", "nivel_etapas"])
+   "que corresponden.</p><ul><li><b>Sin jaula</b>: el obturador contorneado, en V o de microcaudal da la "
+   "característica; el asiento va roscado o sujeto por el bonete o la brida, y la guía es un dato aparte "
+   "(fila «Guía del obturador»). Suelen ser desbalanceados.</li><li><b>Con jaula</b>: la jaula guía al "
+   "obturador cilíndrico, sujeta el asiento y da la característica con la forma de sus pasajes. Puede ser "
+   "balanceado o desbalanceado. Se elige la jaula (estándar, anticavitación o antiruido) y, en las dos "
+   "últimas, su config dinámica.</li></ul><p>En válvulas rotativas la fila no se muestra.</p>",
+   relacionadas=["guia_obturador", "trim", "clase_jaula", "nivel_etapas"])
+_e("clase_jaula", "Jaula",
+   "<p>Solo con tipo de trim «Con jaula».</p><ul><li><b>Jaula estándar (caracterizada)</b>: ventanas "
+   "perfiladas que dan la característica lineal, isoporcentual o de apertura rápida. Una sola etapa; la config "
+   "dinámica queda bloqueada.</li><li><b>Jaula anticavitación</b>: solo con líquidos. Reparte la caída de "
+   "presión en etapas para que la presión no baje de la de vapor.</li><li><b>Jaula antiruido</b>: solo con "
+   "gas, vapor y steam. Divide el chorro en muchos chorros pequeños y, en las multietapa, reparte la caída "
+   "en etapas para bajar el ruido aerodinámico.</li></ul>",
+   relacionadas=["tipo_trim", "nivel_etapas", "anticav", "trim_ruido"])
 _e("guia_obturador", "Guía del obturador",
-   "<p>Cómo se guía el obturador en un trim guiado por obturador. No cambia los factores de IEC 60534-2-1; "
+   "<p>Cómo se guía el obturador en un trim sin jaula. No cambia los factores de IEC 60534-2-1; "
    "cambia la estabilidad del obturador frente a la ΔP y las vibraciones, y los obturadores que se ofrecen:</p>"
    "<ul><li><b>Superior reforzada</b> (heavy top guided): un buje largo por encima del obturador. Servicio "
-   "general, fluidos sucios o viscosos. Obturador contorneado, microcaudal o disco plano.</li>"
+   "general, fluidos sucios o viscosos. Obturador contorneado o microcaudal.</li>"
    "<li><b>Doble guía de vástago superior</b> (double top stem guided): dos puntos de guiado separados, ambos "
    "por encima de la corriente del fluido. Obturador contorneado.</li>"
    "<li><b>Superior e inferior</b> (top and bottom guided): bujes por encima y por debajo del obturador. "
    "Tamaños grandes, ΔP altas y doble asiento.</li>"
    "<li><b>Por el puerto</b> (port guided): faldas o aletas del obturador dentro del asiento. ΔP bajas y bajo "
-   "costo; obturador en V o disco plano. Con ΔP mayor de 1 000 kPa o 6\" y más el programa avisa.</li>"
+   "costo; obturador en V. Con ΔP mayor de 1 000 kPa o 6\" y más el programa avisa.</li>"
    "<li><b>Por el bonete</b> (bonnet / stem guided): el buje del bonete guía al vástago. Válvulas chicas y de "
    "microcaudal; por encima de 2\" el programa avisa.</li></ul>",
    relacionadas=["tipo_trim", "trim", "balance"])
-_e("nivel_etapas", "Nivel o etapas del trim especial",
-   "<p>Cada nivel de una jaula especial se elige por separado, porque cada uno tiene su propia capacidad de "
-   "mitigar el fenómeno para el que está diseñado. Junto al nombre se muestra lo que mitiga:</p><ul>"
-   "<li><b>Jaula anticavitación</b> (líquidos): 1 etapa (Kc 0,85, FL 0,93) o 2, 3, 4 y 6 etapas, con el Kapp "
+_e("nivel_etapas", "Config dinámica de la jaula",
+   "<p>Con jaula anticavitación o antiruido, cada construcción y nivel se elige por separado, porque cada uno "
+   "tiene su propia capacidad de mitigar el fenómeno para el que está diseñado. La lista va de la etapa más "
+   "baja y la construcción más simple a la etapa más alta y la construcción más compleja, y junto al nombre se "
+   "muestra lo que mitiga. Con jaula estándar queda bloqueada.</p><ul>"
+   "<li><b>Jaula perforada</b> (anticavitación, líquidos): 1 etapa (Kc 0,85, FL 0,93) o 2, 3, 4 y 6 etapas, con el Kapp "
    "máximo sin cavitación de cada una.</li><li><b>Pasajes grandes</b> (líquidos con sólidos): 2, 3 o 4 "
    "etapas con pasajes del orden de 12 mm (Fd 0,25).</li><li><b>Discos apilados</b>: 4, 6, 8 o 10 etapas "
-   "(giros del laberinto).</li><li><b>Jaula multiorificio de bajo ruido</b> (gases): nivel 1 (≈ 50 "
+   "(giros del laberinto).</li><li><b>Multiorificio</b> (antiruido, gases): nivel 1 (≈ 50 "
    "orificios), 2 (≈ 200) o 3 (≈ 800), con la atenuación típica.</li><li><b>Multietapa multiorificio</b> "
    "(gases): 2, 3 o 4 etapas, con la atenuación típica.</li></ul>"
    "<p>Al elegir el nivel, FL, xT, Fd y Kc de las condiciones de operación toman sus valores (se pueden "
@@ -1093,8 +1101,8 @@ _e("rho2", "Densidad de salida ρ2",
    "blanco, ρ1·(P2/P1)·(T1/T2). Vapor de agua: IAPWS-95.</p>",
    referencia="IEC 60534-8-3:2010", relacionadas=["T2", "Z", "velocidad_sonido"])
 _e("anticav", "Trim anticavitación (por etapas)",
-   "<p>Solo líquidos, cuerpos globo y angular. Desde v0.13.0 se elige en la solapa 2 con «Guiado por jaula», "
-   "la jaula anticavitación, de pasajes grandes o de discos apilados, y su «Nivel o etapas». Define con qué "
+   "<p>Solo líquidos, cuerpos globo y angular. Desde v0.13.1 se elige en la solapa 2 con «Con jaula», "
+   "«Jaula anticavitación» y su «Config dinámica de la jaula». Define con qué "
    "se calcula la cavitación, el ruido y el Cv por tamaño:</p><ul><li><b>Sin jaula especial</b>: el trim "
    "elegido, una etapa, con sus FL, Fd y Kc."
    "</li><li><b>Jaula anticavitación, 1 etapa</b>: FL 0,93, Fd 0,10, Kc 0,85.</li><li><b>Multietapa de "
@@ -1126,9 +1134,8 @@ _e("anticav_rotativa", "Trim anticavitación no aplicable",
    "<p>Los trims anticavitación de la lista son de globo o angular. Con un cuerpo rotativo el cálculo usa "
    "el trim estándar.</p>", relacionadas=["anticav"], categoria="Fenómenos")
 _e("trim_ruido", "Trim para ruido aerodinámico",
-   "<p>Tipo de internos que se usa para estimar el ruido. Desde v0.13.0 se elige en la solapa 2 con «Guiado "
-   "por jaula», la jaula multiorificio, multietapa multiorificio o de discos apilados, y su «Nivel o "
-   "etapas». <b>Estándar</b> es un pasaje único (obturador "
+   "<p>Tipo de internos que se usa para estimar el ruido. Desde v0.13.1 se elige en la solapa 2 con «Con "
+   "jaula», «Jaula antiruido» y su «Config dinámica de la jaula». <b>Estándar</b> es un pasaje único (obturador "
    "contorneado, jaula de ventanas, bola o mariposa), con el Fd de cada caso.</p><p>Las <b>jaulas "
    "multiorificio</b> dividen el chorro en muchos chorros pequeños: según IEC 60534-2-1 (Anexo A) su "
    "modificador de estilo es Fd = 1/√No, con No el número de orificios iguales. Con ese Fd la norma "
@@ -1136,7 +1143,7 @@ _e("trim_ruido", "Trim para ruido aerodinámico",
    "tubería atenúa más.</p><ul><li>Nivel 1: unos 50 orificios (Fd ≈ 0,14).</li>"
    "<li>Nivel 2: unos 200 orificios (Fd ≈ 0,071).</li><li>Nivel 3: unos 800 orificios (Fd ≈ 0,035).</li>"
    "</ul><p><b>Multietapa multiorificio</b> (2, 3 o 4 etapas) y <b>discos apilados</b> (4 a 10 etapas): el "
-   "ruido se calcula con la última etapa (ver «Nivel o etapas del trim especial»).</p>",
+   "ruido se calcula con la última etapa (ver «Config dinámica de la jaula»).</p>",
    referencia="IEC 60534-8-3:2010; IEC 60534-2-1:2011 Anexo A",
    relacionadas=["nivel_trim", "ruido_componentes", "Fd"], categoria="Datos")
 _e("nivel_trim", "Nivel de trim de bajo ruido requerido",

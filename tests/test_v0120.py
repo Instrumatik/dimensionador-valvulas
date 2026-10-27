@@ -115,7 +115,7 @@ def test_gui_sentido_y_flow(app):
     w = VentanaPrincipal()
     w.show()
     w.cb_tipo_trim.setCurrentIndex(w.cb_tipo_trim.findData("jaula"))
-    w.cb_trim.setCurrentIndex(w.cb_trim.findData("jaula_4v"))
+    w.cb_jaula.setCurrentIndex(w.cb_jaula.findData("estandar"))
     w.cb_sentido.setCurrentIndex(w.cb_sentido.findData("cierra"))
     assert w.trim_clave() == "globo_jaula_4v_dentro"
     w._act_concordancia()

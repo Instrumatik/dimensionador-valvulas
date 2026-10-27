@@ -196,22 +196,25 @@ def _nombre_anticav(res: Resultado) -> str:
 
 
 def _filas_trim(res: Resultado) -> list:
-    """Trim en el orden de la solapa 2: tipo, guía y obturador o jaula, nivel o etapas (v0.13.0)."""
+    """Trim en el orden de la solapa 2: tipo, guía y tipo de obturador, o jaula y config dinámica (v0.13.1)."""
     from . import trims as T
     d = res.dim
     filas = [["Trim", res.trim.nombre]]
-    el = T.desde_claves(res.inst.cuerpo, d.trim, d.guia, d.anticav, d.ruido.trim, not d.compresible)
+    liq = not d.compresible
+    el = T.desde_claves(res.inst.cuerpo, d.trim, d.guia, d.anticav, d.ruido.trim, liq)
     if el is None:
         return filas
     filas.append(["Tipo de trim", T.TIPOS[el.tipo]])
     if el.tipo == "obturador":
-        filas += [["Guía del obturador", T.GUIAS[el.guia].nombre], ["Obturador", T.ELEMENTOS[el.elemento].nombre]]
-    else:
-        filas.append(["Jaula", T.ELEMENTOS[el.elemento].nombre])
-    if el.nivel:
-        liq = not d.compresible
-        nombre = AC.TRIMS[el.nivel].nombre if liq else CG.TRIMS_RUIDO[el.nivel].nombre
-        filas.append(["Nivel o etapas", f"{nombre} ({T.texto_nivel(el.nivel, liq).split(' – ', 1)[-1]})"])
+        filas += [["Guía del obturador", T.GUIAS[el.guia].nombre],
+                  ["Tipo de obturador", T.ELEMENTOS[el.elemento].nombre]]
+        return filas
+    filas.append(["Tipo de obturador", T.OBTURADOR_JAULA])
+    if not el.nivel:
+        filas.append(["Jaula", T.CLASES_JAULA["estandar"]])
+        return filas
+    filas += [["Jaula", T.CLASES_JAULA["anticav" if liq else "antiruido"]],
+              ["Config dinámica de la jaula", T.texto_config(el.elemento, el.nivel, liq)]]
     return filas
 
 

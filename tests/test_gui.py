@@ -421,16 +421,16 @@ def test_trim_anticavitacion_por_etapas(app):
     assert w.salidas["etapas_txt"].celdas[0].text()
     assert w.salidas["k_etapa"].celdas[0].text() in ("", "—")
     w.cb_tipo_trim.setCurrentIndex(w.cb_tipo_trim.findData("jaula"))
-    w.cb_trim.setCurrentIndex(w.cb_trim.findData("jaula_anticav"))
-    w.cb_nivel.setCurrentIndex(w.cb_nivel.findData("etapas_3"))
+    w.cb_jaula.setCurrentIndex(w.cb_jaula.findData("anticav"))
+    w.cb_nivel.setCurrentIndex(w.cb_nivel.findData("jaula_anticav|etapas_3"))
     assert w.filas["Kc"].edits[0].text() == "0,973"
     w.calcular()
     assert w.res.dim.anticav == "etapas_3"
     assert w.salidas["k_etapa"].celdas[0].text() not in ("", "—")
-    assert "Multietapa, 3 etapas" in w.vistas["hoja_datos"].toPlainText()
+    assert "Jaula perforada, 3 etapas" in w.vistas["hoja_datos"].toPlainText()
     assert "Kapp por etapa" in w.vistas["memoria"].toPlainText()
-    w.cb_trim.setCurrentIndex(w.cb_trim.findData("jaula_4v"))
-    assert w.filas["Kc"].edits[0].text() != "0,973" and w.fila_nivel[0].isHidden()
+    w.cb_jaula.setCurrentIndex(w.cb_jaula.findData("estandar"))
+    assert w.filas["Kc"].edits[0].text() != "0,973" and not w.cb_nivel.isEnabled()
     # En un cuerpo rotativo no hay tipo de trim ni jaulas especiales
     w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("mariposa"))
     assert w.fila_tipo_trim[0].isHidden() and w.trim_especial() == ("estandar", "estandar")

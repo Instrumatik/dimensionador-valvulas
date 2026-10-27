@@ -777,7 +777,7 @@ def _guia_obturador(dim, dP_max, nps) -> str:
     from . import trims as T
     jaula = "jaula" in dim.trim or "multietapa" in dim.trim
     if jaula:
-        base = "Obturador guiado por jaula"
+        base = "Obturador cilíndrico guiado por jaula"
     elif dim.guia in T.GUIAS:
         el = T.desde_claves(_cuerpo_de(dim.trim), dim.trim, dim.guia)
         nombre = T.ELEMENTOS[el.elemento].nombre if el else "Obturador"

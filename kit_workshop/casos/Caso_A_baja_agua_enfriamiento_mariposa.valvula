@@ -1,5 +1,5 @@
 {
- "version": "0.12.1",
+ "version": "0.13.0",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -29,6 +29,7 @@
   "tipo_trim": "",
   "guia": "Superior reforzada (heavy top guided)",
   "trim": "Triple excéntrica · 90°",
+  "jaula": "",
   "nivel": "",
   "sentido": "No aplica",
   "balance": "Desbalanceado",

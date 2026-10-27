@@ -21,9 +21,9 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    molar editable: M, μ, κ, Z1, T2 y Z2 salen de la ecuación de estado multicomponente. Trim «Doble guía de vástago
    - superior». Desde v0.12.0 el trim se elige en tres datos independientes: **estilo de trim** (geometría),
    **sentido de flujo** (tiende a abrir o a cerrar; la fila Flow del actuador lo toma de aquí) y **característica**.
-   Desde v0.13.0 globo y ángulo se eligen en el orden **tipo de trim** (guiado por obturador o por jaula), **guía** y
-   **obturador**, o **jaula** (las de bajo ruido solo con gas, las anticavitación solo con líquido), **nivel o etapas**
-   (cada nivel con su mitigación), sentido, balance y característica (solo las que el trim admite, incluida parabólica
+   Desde v0.13.1 globo y ángulo se eligen en el orden **tipo de trim** (sin jaula o con jaula); sin jaula,
+   **guía** y **tipo de obturador**; con jaula, obturador cilíndrico, **jaula** (estándar, anticavitación solo con líquido,
+   antiruido solo con gas) y **config dinámica de la jaula** (cada construcción y nivel con su mitigación), sentido, balance y característica (solo las que el trim admite, incluida parabólica
    modificada); hay jaula multietapa multiorificio de 2 a 4 etapas para gas. El Cv típico, el puerto y la carrera de globo y ángulo salen de una **tabla de capacidad** por familia
    (contorneado, jaula, jaula de orificios, multietapa), mediana de datos publicados de fabricantes, y van ligados
    entre sí; el programa avisa si el puerto, la carrera o el Cv cargados se apartan más de ±10 % del típico. Los diámetros y cédulas

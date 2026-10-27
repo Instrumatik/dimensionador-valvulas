@@ -1,15 +1,16 @@
-"""Clasificación de los trims de la solapa 2 (v0.13.0).
+"""Clasificación de los trims de la solapa 2 (v0.13.1).
 
 Globo y ángulo (vástago deslizante), en el orden de los desplegables:
 
-1. Tipo de trim: guiado por obturador o guiado por jaula.
-2. Guiado por obturador: guía (superior reforzada, doble superior, superior e inferior, por el puerto,
-   por el bonete) y obturador (contorneado, en V, microcaudal, disco plano; en ángulo, Venturi). La
+1. Tipo de trim: sin jaula o con jaula.
+2. Sin jaula: guía del obturador (superior reforzada, doble superior, superior e inferior, por el puerto,
+   por el bonete) y tipo de obturador (contorneado, en V, microcaudal; en ángulo, Venturi). La
    característica la da el perfil del obturador.
-3. Guiado por jaula: la jaula guía al obturador, sujeta el asiento y da la característica. Las jaulas de
-   bajo ruido solo se ofrecen con gas o vapor y las de anticavitación solo con líquido.
-4. Nivel o etapas: cada nivel de una jaula especial se elige por separado, porque cada uno tiene su
-   propia capacidad de mitigar el ruido o la cavitación.
+3. Con jaula: el obturador es cilíndrico (un cilindro hueco que abre las ventanas de la jaula). La jaula es
+   estándar (caracterizada), anticavitación (solo con líquido) o antiruido (solo con gas o vapor).
+4. Config dinámica de la jaula: en las jaulas anticavitación y antiruido, cada construcción y nivel se elige
+   por separado, de la más simple y de menos etapas a la más compleja, porque cada uno tiene su propia
+   capacidad de mitigar la cavitación o el ruido.
 
 Rotativas: un solo desplegable con el elemento de cierre (característica fija).
 
@@ -24,7 +25,10 @@ from dataclasses import dataclass
 from . import anticavitacion as AC, compresible as CG
 from .estilos import CUERPOS, ESTILOS, geometria_sentido
 
-TIPOS = {"obturador": "Guiado por obturador", "jaula": "Guiado por jaula"}
+TIPOS = {"obturador": "Sin jaula", "jaula": "Con jaula"}
+OBTURADOR_JAULA = "Cilíndrico"
+CLASES_JAULA = {"estandar": "Jaula estándar (caracterizada)", "anticav": "Jaula anticavitación",
+                "antiruido": "Jaula antiruido"}
 
 CARACT_CONTORNEADO = ("isoporcentual", "lineal", "apertura_rapida", "parabolica")
 
@@ -38,17 +42,15 @@ class Guia:
 
 
 GUIAS: dict[str, Guia] = {g.clave: g for g in [
-    Guia("superior_reforzada", "Superior reforzada (heavy top guided)", ("contorneado", "microcaudal", "disco_plano",
-                                                                         "venturi"),
+    Guia("superior_reforzada", "Superior reforzada (heavy top guided)", ("contorneado", "microcaudal", "venturi"),
          "Un buje largo por encima del obturador. Servicio general, fluidos sucios o viscosos, tamaños chicos y "
          "medianos."),
     Guia("doble_superior", "Doble guía de vástago superior (double top stem guided)", ("contorneado",),
          "El obturador o el vástago se apoya en dos puntos de guiado separados, ambos por encima de la corriente "
          "del fluido."),
-    Guia("superior_inferior", "Superior e inferior (top and bottom guided)", ("contorneado", "disco_plano",
-                                                                              "venturi"),
+    Guia("superior_inferior", "Superior e inferior (top and bottom guided)", ("contorneado", "venturi"),
          "Bujes por encima y por debajo del obturador. Tamaños grandes, ΔP altas y cuerpos de doble asiento."),
-    Guia("puerto", "Por el puerto (port guided)", ("vport", "disco_plano"),
+    Guia("puerto", "Por el puerto (port guided)", ("vport",),
          "Faldas o aletas del obturador guiadas dentro del asiento. Servicio general con ΔP bajas; bajo costo."),
     Guia("bonete", "Por el bonete (bonnet / stem guided)", ("microcaudal", "contorneado"),
          "El buje del bonete guía al vástago. Válvulas chicas y de microcaudal."),
@@ -70,12 +72,9 @@ ELEMENTOS: dict[str, Elemento] = {e.clave: e for e in [
     Elemento("vport", "Obturador en V (V-port)", "obturador", "LG", ("isoporcentual", "lineal")),
     Elemento("microcaudal", "Obturador de microcaudal (aguja o ranurado)", "obturador", "LG",
              ("isoporcentual", "lineal")),
-    Elemento("disco_plano", "Obturador de disco plano", "obturador", "LG", ("apertura_rapida",)),
     Elemento("venturi", "Obturador contorneado con salida Venturi", "obturador", "LG", ("lineal",)),
     Elemento("jaula_4v", "Jaula caracterizada de ventanas", "jaula", "LG",
              ("isoporcentual", "lineal", "apertura_rapida")),
-    Elemento("jaula_retencion", "Jaula de retención de asiento, obturador contorneado", "jaula", "LG",
-             CARACT_CONTORNEADO),
     Elemento("jaula_multiorificio", "Jaula multiorificio de bajo ruido", "jaula", "G", ("lineal", "isoporcentual")),
     Elemento("jaula_multietapa_gas", "Jaula multietapa multiorificio (bajo ruido)", "jaula", "G", ("lineal",)),
     Elemento("jaula_anticav", "Jaula anticavitación", "jaula", "L", ("lineal",)),
@@ -83,8 +82,7 @@ ELEMENTOS: dict[str, Elemento] = {e.clave: e for e in [
     Elemento("jaula_pasajes", "Multietapa de pasajes grandes (sólidos)", "jaula", "L", ("lineal",)),
 ]}
 
-_GLOBO = ("contorneado", "vport", "microcaudal", "disco_plano", "jaula_4v", "jaula_retencion",
-          "jaula_multiorificio", "jaula_multietapa_gas", "jaula_anticav", "jaula_discos", "jaula_pasajes")
+_GLOBO = ("contorneado", "vport", "microcaudal", "jaula_4v", "jaula_multiorificio", "jaula_multietapa_gas", "jaula_anticav", "jaula_discos", "jaula_pasajes")
 _ANGULO = ("contorneado", "venturi", "jaula_4v", "jaula_multiorificio", "jaula_multietapa_gas", "jaula_anticav",
            "jaula_discos", "jaula_pasajes")
 POR_CUERPO = {"globo": _GLOBO, "angulo": _ANGULO, "globo_liner": ("contorneado",)}
@@ -98,6 +96,14 @@ NIVELES: dict[str, tuple[tuple, tuple]] = {
                                                                           "discos_10")),
     "jaula_pasajes": (("pasajes_2", "pasajes_3", "pasajes_4"), ()),
 }
+
+
+# Complejidad de construcción para ordenar la config dinámica (a igual número de etapas, la más simple primero)
+_COMPLEJIDAD = {"jaula_multiorificio": 1, "jaula_anticav": 1, "jaula_multietapa_gas": 2, "jaula_pasajes": 2,
+                "jaula_discos": 3}
+_NOMBRE_CONFIG = {"jaula_anticav": "Jaula perforada", "jaula_pasajes": "Pasajes grandes (sólidos)",
+                  "jaula_discos": "Discos apilados", "jaula_multiorificio": "Multiorificio",
+                  "jaula_multietapa_gas": "Multietapa multiorificio"}
 
 
 def deslizante(cuerpo: str) -> bool:
@@ -126,6 +132,32 @@ def obturadores(cuerpo: str, guia: str) -> list[str]:
 
 def guia_por_defecto(elemento: str) -> str:
     return next(g for g, d in GUIAS.items() if elemento in d.obturadores)
+
+
+def clases_jaula(cuerpo: str, liquido: bool) -> list[str]:
+    """Estándar siempre; anticavitación solo con líquido y antiruido solo con gas o vapor."""
+    return [k for k in CLASES_JAULA if k == "estandar" or configuraciones(cuerpo, k, liquido)]
+
+
+def _etapas(nivel: str, liquido: bool) -> int:
+    return AC.TRIMS[nivel].etapas if liquido else CG.TRIMS_RUIDO[nivel].etapas
+
+
+def configuraciones(cuerpo: str, clase: str, liquido: bool) -> list[tuple[str, str]]:
+    """(jaula, nivel) de la clase anticavitación o antiruido, de la etapa más baja y la construcción más simple
+    a la etapa más alta y la construcción más compleja."""
+    if clase not in ("anticav", "antiruido") or (clase == "anticav") != liquido:
+        return []
+    out = []
+    for i, e in enumerate(elementos(cuerpo, "jaula", liquido)):
+        for j, nv in enumerate(niveles(e, liquido)):
+            out.append(((_etapas(nv, liquido), _COMPLEJIDAD.get(e, 9), j), (e, nv)))
+    return [x for _, x in sorted(out)]
+
+
+def texto_config(elemento: str, nivel: str, liquido: bool) -> str:
+    t = texto_nivel(nivel, liquido)
+    return f"{_NOMBRE_CONFIG.get(elemento, ELEMENTOS[elemento].nombre)}, {t[:1].lower() + t[1:]}"
 
 
 def niveles(elemento: str, liquido: bool) -> list[str]:
@@ -204,7 +236,7 @@ def desde_claves(cuerpo: str, trim: str, guia: str = "", anticav: str = "estanda
     for sfx in ("_abre", "_cierra", "_fuera", "_dentro"):
         if nombre.endswith(sfx):
             nombre = nombre[: -len(sfx)]
-    mapa = {"contorneado": "contorneado", "doble_guia": "contorneado", "doble_guia_superior": "contorneado",
+    mapa = {"disco_plano": "contorneado", "jaula_retencion": "contorneado", "contorneado": "contorneado", "doble_guia": "contorneado", "doble_guia_superior": "contorneado",
             "liner_contorneado": "contorneado", "venturi": "venturi", "jaula": "jaula_4v", "jaula_4v": "jaula_4v",
             "jaula_60_orificios": "orificios", "jaula_120_orificios": "orificios", "multietapa": "multietapa",
             "contorneado_lineal": "contorneado", "contorneado_iso": "contorneado"}
@@ -236,11 +268,11 @@ def nombre_eleccion(cuerpo: str, el: Eleccion, liquido: bool) -> str:
     e = ELEMENTOS[el.elemento]
     if el.tipo == "obturador":
         return f"{TIPOS['obturador']}: {e.nombre.lower()}, guía {GUIAS[el.guia].nombre.split(' (')[0].lower()}"
-    txt = f"{TIPOS['jaula']}: {e.nombre.lower()}"
-    if el.nivel:
-        txt += ", " + (AC.TRIMS[el.nivel].nombre.split(", ")[-1] if liquido else
-                       CG.TRIMS_RUIDO[el.nivel].nombre.split(", ")[-1])
-    return txt
+    if not el.nivel:
+        return f"{TIPOS['jaula']}: obturador cilíndrico, {CLASES_JAULA['estandar'].lower()}"
+    cl = "anticav" if liquido else "antiruido"
+    return (f"{TIPOS['jaula']}: obturador cilíndrico, {CLASES_JAULA[cl].lower()}, "
+            f"{texto_config(el.elemento, el.nivel, liquido).split(' – ')[0].lower()}")
 
 
 def claves_en_uso() -> set[str]:

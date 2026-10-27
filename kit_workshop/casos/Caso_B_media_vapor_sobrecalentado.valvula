@@ -1,5 +1,5 @@
 {
- "version": "0.12.1",
+ "version": "0.13.0",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -26,10 +26,11 @@
   "agua_libre": "Según el cálculo",
   "tipo_caudal": "Másico",
   "tamano": "Automático",
-  "tipo_trim": "Guiado por jaula",
+  "tipo_trim": "Con jaula",
   "guia": "Superior reforzada (heavy top guided)",
-  "trim": "Jaula caracterizada de ventanas",
-  "nivel": "",
+  "trim": "Cilíndrico",
+  "jaula": "Jaula estándar (caracterizada)",
+  "nivel": "No aplica (jaula estándar)",
   "sentido": "Flujo tiende a abrir (Up)",
   "balance": "Balanceado",
   "caracteristica": "Lineal",

@@ -1,5 +1,5 @@
 {
- "version": "0.12.1",
+ "version": "0.13.0",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -26,10 +26,11 @@
   "agua_libre": "Sí",
   "tipo_caudal": "Volumétrico",
   "tamano": "Automático",
-  "tipo_trim": "Guiado por jaula",
+  "tipo_trim": "Con jaula",
   "guia": "Superior reforzada (heavy top guided)",
-  "trim": "Jaula anticavitación",
-  "nivel": "1 etapa – Kc 0,85, FL 0,93",
+  "trim": "Cilíndrico",
+  "jaula": "Jaula anticavitación",
+  "nivel": "Jaula perforada, 1 etapa – Kc 0,85, FL 0,93",
   "sentido": "Flujo tiende a abrir (Up)",
   "balance": "Desbalanceado",
   "caracteristica": "Lineal",

@@ -994,7 +994,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             self._fila(grid, r, f"Schedule de tubería de {lado}", ed, "cedula", QLabel("desde 1-Sistema")); r += 1
         self.cb_tamano = self._registrar("tamano", Combo())
         self._fila(grid, r, "Diámetro de válvula", self.cb_tamano, "tamano"); r += 1
-        # v0.13.0: tipo de trim → guía y obturador, o jaula → nivel o etapas (dependientes en ese orden)
+        # v0.13.1: tipo de trim (sin jaula / con jaula) → guía y tipo de obturador, o jaula → config dinámica
         self.cb_tipo_trim = self._registrar("tipo_trim", Combo())
         self.cb_tipo_trim.currentIndexChanged.connect(self._cambio_tipo_trim)
         self.fila_tipo_trim = self._fila(grid, r, "Tipo de trim", self.cb_tipo_trim, "tipo_trim"); r += 1
@@ -1004,9 +1004,13 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_trim = self._registrar("trim", Combo())
         self.cb_trim.currentIndexChanged.connect(self._cambio_trim)
         self.lbl_trim = self._fila(grid, r, "Estilo de trim", self.cb_trim, "trim")[0]; r += 1
+        self.cb_jaula = self._registrar("jaula", Combo())
+        self.cb_jaula.currentIndexChanged.connect(self._cambio_jaula)
+        self.fila_jaula = self._fila(grid, r, "Jaula", self.cb_jaula, "clase_jaula"); r += 1
         self.cb_nivel = self._registrar("nivel", Combo())
-        self.cb_nivel.currentIndexChanged.connect(self._cambio_estilo)
-        self.fila_nivel = self._fila(grid, r, "Nivel o etapas", self.cb_nivel, "nivel_etapas", ancho=420); r += 1
+        self.cb_nivel.currentIndexChanged.connect(self._cambio_trim)
+        self.fila_nivel = self._fila(grid, r, "Config dinámica de la jaula", self.cb_nivel, "nivel_etapas",
+                                     ancho=460); r += 1
         self.cb_sentido = self._registrar("sentido", Combo())
         self.cb_sentido.currentIndexChanged.connect(self._cambio_estilo)
         self.fila_sentido = self._fila(grid, r, "Sentido de flujo", self.cb_sentido, "sentido_flujo"); r += 1
@@ -1298,30 +1302,50 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         cb.blockSignals(False)
 
     def _cambio_tipo_trim(self, *_, recalcular=True):
-        """Guiado por obturador: muestra la guía y los obturadores; guiado por jaula: las jaulas del fluido."""
+        """Sin jaula: guía y tipo de obturador. Con jaula: obturador cilíndrico, jaula y config dinámica."""
         c = self.cuerpo().clave
         desl = T.deslizante(c)
         tipo = self.cb_tipo_trim.currentData() if desl else None
         por_obt = tipo == "obturador"
         for w in self.fila_guia:
             w.setVisible(por_obt)
+        for w in (*self.fila_jaula, *self.fila_nivel):
+            w.setVisible(tipo == "jaula")
+        self.cb_trim.setEnabled(tipo != "jaula")
         if por_obt:
             self._llenar(self.cb_guia, [(T.GUIAS[g].nombre, g) for g in T.guias(c)])
             for i in range(self.cb_guia.count()):
                 self.cb_guia.setItemData(i, T.GUIAS[self.cb_guia.itemData(i)].nota, Qt.ToolTipRole)
             self._cambio_guia(recalcular=recalcular)
             return
-        self.lbl_trim.setText("Jaula" if desl else "Estilo de trim")
-        if desl:
-            items = [(T.ELEMENTOS[e].nombre, e) for e in T.elementos(c, "jaula", self.tipo() == "liquido")]
-        else:
-            items = [(nombre_geometria(g), g) for g in geometrias(c)]
-        self._llenar(self.cb_trim, items)
+        if tipo == "jaula":
+            self.lbl_trim.setText("Tipo de obturador")
+            self._llenar(self.cb_trim, [(T.OBTURADOR_JAULA, "cilindrico")])
+            self.cb_trim.setItemData(0, "Cilindro hueco que abre las ventanas u orificios de la jaula; la "
+                                        "característica la da la jaula.", Qt.ToolTipRole)
+            liq = self.tipo() == "liquido"
+            self._llenar(self.cb_jaula, [(T.CLASES_JAULA[k], k) for k in T.clases_jaula(c, liq)])
+            self._cambio_jaula(recalcular=recalcular)
+            return
+        self.lbl_trim.setText("Estilo de trim")
+        self._llenar(self.cb_trim, [(nombre_geometria(g), g) for g in geometrias(c)])
         for i in range(self.cb_trim.count()):
-            d = self.cb_trim.itemData(i)
-            k = (T.clave_estilo(c, d, T.sentidos(c, d)[0], (T.niveles(d, self.tipo() == "liquido") or [""])[0])
-                 if desl else clave_trim(c, d, "abre"))
-            self.cb_trim.setItemData(i, ESTILOS[k].nombre, Qt.ToolTipRole)
+            self.cb_trim.setItemData(i, ESTILOS[clave_trim(c, self.cb_trim.itemData(i), "abre")].nombre,
+                                     Qt.ToolTipRole)
+        if recalcular:
+            self._cambio_trim()
+
+    def _cambio_jaula(self, *_, recalcular=True):
+        """Jaula estándar: config dinámica bloqueada. Anticavitación o antiruido: cada construcción y nivel."""
+        c = self.cuerpo().clave
+        liq = self.tipo() == "liquido"
+        cl = self.cb_jaula.currentData() or "estandar"
+        cfg = T.configuraciones(c, cl, liq)
+        if cfg:
+            self._llenar(self.cb_nivel, [(T.texto_config(e, n, liq), f"{e}|{n}") for e, n in cfg])
+        else:
+            self._llenar(self.cb_nivel, [("No aplica (jaula estándar)", "")])
+        self.cb_nivel.setEnabled(bool(cfg))
         if recalcular:
             self._cambio_trim()
 
@@ -1330,7 +1354,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         g = self.cb_guia.currentData()
         if not g:
             return
-        self.lbl_trim.setText("Obturador")
+        self.lbl_trim.setText("Tipo de obturador")
         self._llenar(self.cb_trim, [(T.ELEMENTOS[e].nombre, e) for e in T.obturadores(c, g)])
         for i in range(self.cb_trim.count()):
             k = T.clave_estilo(c, self.cb_trim.itemData(i), "abre")
@@ -1345,9 +1369,12 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         if c is None or not T.deslizante(c) or not self.cb_trim.currentData():
             return None
         tipo = self.cb_tipo_trim.currentData() or "obturador"
-        return T.Eleccion(tipo, self.cb_guia.currentData() if tipo == "obturador" else "",
-                          self.cb_trim.currentData(), self.cb_sentido.currentData() or "abre",
-                          self.cb_nivel.currentData() or "")
+        sd = self.cb_sentido.currentData() or "abre"
+        if tipo == "obturador":
+            return T.Eleccion(tipo, self.cb_guia.currentData() or "", self.cb_trim.currentData(), sd)
+        cfg = self.cb_nivel.currentData() or ""
+        e, nv = cfg.split("|") if cfg and self.cb_jaula.currentData() != "estandar" else ("jaula_4v", "")
+        return T.Eleccion(tipo, "", e, sd, nv)
 
     def trim_clave(self) -> str:
         """Clave de ESTILOS del trim, el sentido de flujo y el nivel elegidos en la solapa 2."""
@@ -1367,17 +1394,13 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         return T.especial(el.elemento, el.nivel, self.tipo() == "liquido")
 
     def _cambio_trim(self):
-        """Cambió el obturador o la jaula: niveles, sentidos de flujo que admite y característica habitual."""
-        d = self.cb_trim.currentData()
-        if not d:
+        """Cambió el obturador, la jaula o su config dinámica: sentidos de flujo que admite y característica."""
+        if not self.cb_trim.currentData():
             return
         c = self.cuerpo().clave
         desl = T.deslizante(c)
-        liq = self.tipo() == "liquido"
-        nv = T.niveles(d, liq) if desl else []
-        self._llenar(self.cb_nivel, [(T.texto_nivel(k, liq), k) for k in nv])
-        for w in self.fila_nivel:
-            w.setVisible(bool(nv))
+        el = self.eleccion()
+        d = el.elemento if el else self.cb_trim.currentData()
         previo = self.cb_sentido.currentData()
         ops = T.sentidos(c, d) if desl else sentidos(c, d)
         self.cb_sentido.blockSignals(True)
@@ -2141,6 +2164,10 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
     def _cargar(self, s: dict):
         self.aplicar_sistema(s.get("sistema", "SI"))
         s = _migrar_fluido(s)
+        v0130 = None
+        if s.get("campos", {}).get("tipo_trim") in ("Guiado por obturador", "Guiado por jaula"):
+            s = {**s, "campos": dict(s["campos"])}           # v0.13.0: el elemento y el nivel se eligen después
+            v0130 = {k: s["campos"].pop(k, "") for k in ("tipo_trim", "guia", "trim", "nivel")}
         for k, v in s.get("campos", {}).items():
             w = self.campos.get(k)
             if isinstance(w, QComboBox):
@@ -2154,7 +2181,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                     w.setCurrentIndex(i)
             elif w is not None:
                 w.setText(v)
-        if "tipo_trim" not in s.get("campos", {}) and T.deslizante(self.cuerpo().clave):
+        if v0130 is not None:
+            self._migrar_v0130(v0130, s["campos"])
+        elif "tipo_trim" not in s.get("campos", {}) and T.deslizante(self.cuerpo().clave):
             self._migrar_trim(s["campos"])     # proyectos de v0.12 y anteriores: trim especial aparte
         filas = {f.clave: f for f in self._todas_las_filas()}
         for k, d in s.get("filas", {}).items():
@@ -2215,10 +2244,36 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             self.cb_caract.setCurrentIndex(self.cb_caract.findData(car))
         return True
 
+    def _migrar_v0130(self, viejo: dict, campos: dict):
+        """Proyecto de v0.13.0 (guiado por obturador / por jaula, jaula especial y nivel aparte): sin jaula o con
+        jaula, jaula estándar, anticavitación o antiruido y su config dinámica. El disco plano y la jaula de
+        retención de asiento pasan a obturador contorneado."""
+        liq = self.tipo() == "liquido"
+        sd = next((k for k, t in SENTIDOS.items() if t == campos.get("sentido")), "abre")
+        e = next((k for k, x in T.ELEMENTOS.items() if x.nombre == viejo["trim"]), "")
+        if viejo["trim"] in ("Obturador de disco plano", "Jaula de retención de asiento, obturador contorneado"):
+            e = "contorneado"
+        if not e:
+            return
+        if T.ELEMENTOS[e].tipo == "obturador":
+            g = next((k for k, x in T.GUIAS.items() if x.nombre == viejo["guia"]), "")
+            g = g if g and e in T.GUIAS[g].obturadores else T.guia_por_defecto(e)
+            el = T.Eleccion("obturador", g, e, sd)
+        else:
+            nv = next((n for n in T.niveles(e, liq) if T.texto_nivel(n, liq) == viejo["nivel"]), "")
+            el = T.Eleccion("jaula", "", e, sd, nv or (T.niveles(e, liq) or [""])[0])
+        self.aplicar_eleccion(el)
+        i = self.cb_caract.findText(campos.get("caracteristica", ""))
+        if i >= 0:
+            self.cb_caract.setCurrentIndex(i)
+
     def aplicar_eleccion(self, el: T.Eleccion):
         """Elige en los desplegables de la solapa 2 el tipo, la guía, el obturador o la jaula, el nivel y el sentido."""
+        clase = "estandar" if not el.nivel else ("anticav" if self.tipo() == "liquido" else "antiruido")
+        cfg = f"{el.elemento}|{el.nivel}" if el.nivel else ""
         for cb, dato in ((self.cb_tipo_trim, el.tipo), (self.cb_guia, el.guia), (self.cb_trim, el.elemento),
-                         (self.cb_nivel, el.nivel), (self.cb_sentido, el.sentido)):
+                         (self.cb_jaula, clase if el.tipo == "jaula" else ""), (self.cb_nivel, cfg),
+                         (self.cb_sentido, el.sentido)):
             i = cb.findData(dato)
             if dato and i >= 0:
                 cb.setCurrentIndex(i)
