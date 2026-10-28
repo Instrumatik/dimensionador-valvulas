@@ -607,8 +607,6 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self._act_concordancia()
         self._cambio_tipo_fluido()
         self._actualizar_vistas()
-        self._estado_inicial = self._estado()    # «Nuevo» vuelve a este estado
-        self._estado_base = self._estado_inicial  # para saber si hay datos sin borrar
         self.statusBar().showMessage("Cargue los datos de instalación y de dimensionamiento y presione "
                                      "Calcular. «Ver» o F1 muestran la explicación de cada dato a la derecha.")
 
@@ -659,18 +657,12 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.btn_calc_cab = QPushButton("Calcular")
         botones.calcular(self.btn_calc_cab, "amarillo")
         self.btn_calc_cab.clicked.connect(self.calcular)
-        self.btn_nuevo_cab = QPushButton("Nuevo cálculo")
-        self.btn_nuevo_cab.setToolTip("Borra todos los datos y deja el programa como al abrirlo (Ctrl+N).")
-        self.btn_nuevo_cab.setStyleSheet("padding:6px 12px")
-        self.btn_nuevo_cab.clicked.connect(lambda: self.nuevo())
         self.buscador = Buscador(self)
         der.addWidget(self.buscador)
         der.addSpacing(16)
         der.addWidget(l)
         der.addWidget(self.cb_sistema)
         der.addSpacing(12)
-        der.addWidget(self.btn_nuevo_cab)
-        der.addSpacing(6)
         der.addWidget(self.btn_calc_cab)
         h.addLayout(der)
         return f
@@ -687,7 +679,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
     def _construir_menu(self):
         mb = self.menuBar()
         m = mb.addMenu("&Inicio")
-        self._accion(m, "Nuevo cálculo", lambda: self.nuevo(), QKeySequence.New)
+        self._accion(m, "Nuevo", self.nuevo, QKeySequence.New)
         self._accion(m, "Abrir proyecto…", self.abrir, QKeySequence.Open)
         self._accion(m, "Guardar proyecto", self.guardar, QKeySequence.Save)
         self._accion(m, "Guardar proyecto como…", lambda: self.guardar(como=True))
@@ -947,6 +939,8 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                 self.ed_sch[lado].setText(f"{sch}   (DI {pr.vu(di, 'longitud')})")
             except tuberias.ErrorTuberia:
                 self.ed_sch[lado].setText(sch)
+        if hasattr(self, "cb_area_modo"):
+            self._act_area()
 
     # ------------------------------------------------------------ 2-Cálculos Válvula
     def _tab_dimensionamiento(self) -> QWidget:
@@ -1084,14 +1078,31 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.vis_g1.append((self.f_Rn.widgets() + [nota_rn], "GVS")); r += 1
         self.f_area = FilaUnidad("area_salida", "Área de salida de la válvula", ("area",), grid, r, self.abrir_ayuda,
                                  1, "area_salida")
-        self.f_area.edits[0].setPlaceholderText("nominal")
-        self.f_area.edits[0].setToolTip("En blanco: área del diámetro nominal de la válvula. "
-                                         "Verifique la unidad seleccionada a la izquierda.")
+        # v0.13.4: automática (diámetro de la válvula y cédula de salida, ASME B36.10M / B36.19M) o manual
+        self.cb_area_modo = self._registrar("area_modo", Combo(), "area_salida")
+        self.cb_area_modo.addItem("Automático", "auto")
+        self.cb_area_modo.addItem("Manual", "manual")
+        self.cb_area_modo.setToolTip("Automático: área interior de la tabla ASME B36.10M / B36.19M con el diámetro "
+                                     "de la válvula y la cédula de la tubería de salida. Manual: cargue el área "
+                                     "certificada de la salida de la válvula.")
+        self.cb_area_modo.currentIndexChanged.connect(self._act_area)
+        self.cb_tamano.currentIndexChanged.connect(self._act_area)
         nota_area = QLabel("Para todas las condiciones")
         nota_area.setStyleSheet("color:#555")
-        grid.addWidget(nota_area, r, 4)
-        self.vis_g1.append((self.f_area.widgets() + [nota_area], "GVS")); r += 1
-        grid.setColumnStretch(4, 1)
+        self.cb_area_modo.setFixedWidth(130)
+        # El valor, el modo y la nota van juntos en una caja, para que el desplegable quede al lado del valor
+        ed_area = self.f_area.edits[0]
+        grid.removeWidget(ed_area)
+        ed_area.setFixedWidth(104)
+        caja_area = QWidget()
+        lay_area = QHBoxLayout(caja_area)
+        lay_area.setContentsMargins(0, 0, 0, 0)
+        lay_area.addWidget(ed_area)
+        lay_area.addWidget(self.cb_area_modo)
+        lay_area.addWidget(nota_area)
+        lay_area.addStretch(1)
+        grid.addWidget(caja_area, r, 3, 1, 2)
+        self.vis_g1.append((self.f_area.widgets() + [caja_area], "LGVS")); r += 1
         lay.addWidget(g)
 
         g = QGroupBox("Condiciones de operación (deje en blanco los casos que no use)")
@@ -1330,9 +1341,6 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         for w in (*self.fila_jaula, *self.fila_nivel):
             w.setVisible(tipo == "jaula")
         self.cb_trim.setEnabled(tipo != "jaula")
-        if tipo != "jaula":                  # sin jaula o rotativa: la jaula y su config no aplican
-            self._llenar(self.cb_jaula, [])
-            self._llenar(self.cb_nivel, [])
         if por_obt:
             self._llenar(self.cb_guia, [(T.GUIAS[g].nombre, g) for g in T.guias(c)])
             for i in range(self.cb_guia.count()):
@@ -1877,12 +1885,48 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                                                  anticav=self.trim_especial()[0], guia=self._guia(),
                                                  **self._datos_fluido())
         ruido_g = RuidoAerodinamico(self.trim_especial()[1], self.f_Rn.valor_base(0) or 1.0,
-                                    self.f_area.valor_base(0))
+                                    self.f_area.valor_base(0) if self._area_manual() else None)
         dim = Dimensionamiento(casos, None, self.trim_clave(), self.cb_tamano.currentData(),
                                self.cb_caract.currentData(), "Agua / vapor de agua" if t == "steam" else fluido,
                                cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado(), **self._geo_cert(),
                                composicion=self._composicion(), guia=self._guia(), **self._datos_fluido())
         return ident, inst, dim
+
+    def _area_manual(self) -> bool:
+        return self.cb_area_modo.currentData() == "manual"
+
+    def _act_area(self, *_):
+        """Automático: muestra (sin dejar editar) el área de la tabla para el diámetro de la válvula elegido o el
+        del último cálculo y la cédula de salida. Manual: la celda queda libre para el área certificada."""
+        ed = self.f_area.edits[0]
+        manual = self._area_manual()
+        ed.setReadOnly(not manual)
+        ed.setFocusPolicy(Qt.StrongFocus if manual else Qt.NoFocus)
+        ed.setStyleSheet("" if manual else f"background:{FONDO_AUTO}")
+        if manual:
+            ed.setPlaceholderText("área certificada")
+            ed.setToolTip("Área de la salida de la válvula ingresada por el usuario. Verifique la unidad "
+                          "seleccionada a la izquierda.")
+            return
+        d = self.cb_tamano.currentData()
+        if d is None and self.res is not None:
+            d = self.res.nps_valvula
+        A = origen = None
+        if d is not None:
+            sal = tuberias.salida_valvula(d, self.cb_sch["salida"].currentText())
+            if sal:
+                A, ced = sal
+                origen = f"{tuberias.texto_nps(d)} {tuberias.texto_cedula(ced)}"
+        if self.res is not None and self.res.salidas and self.res.salidas[0].get("A_salida") \
+                and (self.cb_tamano.currentData() is None or abs(self.res.nps_valvula - d) < 1e-6):
+            A = self.res.salidas[0]["A_salida"]
+            origen = self.res.salidas[0].get("origen_area", origen)
+        u = self.f_area.unidad.currentText()
+        ed.setText(fmt(U.desde_base(A, "area", u)) if A else "")
+        ed.setPlaceholderText("se calcula con «Calcular»")
+        ed.setToolTip((f"{origen}. " if origen else "Con diámetro automático el área sale al calcular. ")
+                      + "Tabla ASME B36.10M / B36.19M: π/4·DI² con el diámetro de la válvula y la cédula de la "
+                        "tubería de salida.")
 
     def _guia(self) -> str:
         el = self.eleccion()
@@ -1942,11 +1986,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
     # ----------------------------------------------------------- mostrar
     def _mostrar(self):
         res = self.res
-        A = next((x.get("A_salida") for x in res.salidas if x.get("A_salida")), None)
-        u = self.f_area.unidad.currentText()
-        self.f_area.edits[0].setPlaceholderText(
-            f"nominal: {fmt(U.desde_base(A, 'area', u))}" if A and not self.f_area.edits[0].text().strip()
-            else "nominal")
+        self._act_area()
         peor = res.peor()
         estado = {Severidad.INFO: ("#2e7d32", "Sin fenómenos que requieran acción."),
                   Severidad.ADVERTENCIA: ("#d9771e", "Hay advertencias para revisar."),
@@ -2231,6 +2271,10 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                     w.setCurrentText(v)
             elif w is not None:
                 w.setText(v)
+        if "area_modo" not in s.get("campos", {}):   # proyectos anteriores a v0.13.4: área cargada = manual
+            cargada = any(v.strip() for v in s.get("filas", {}).get("area_salida", {}).get("valores", []))
+            self.cb_area_modo.setCurrentIndex(self.cb_area_modo.findData("manual" if cargada else "auto"))
+        self._act_area()
         self._act_concordancia()  # un proyecto anterior puede traer un actuador que no corresponde a la válvula
         self._caract_concordancia()  # y una característica que no corresponde a una rotativa
         self.res = None
@@ -2307,30 +2351,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             if dato and i >= 0:
                 cb.setCurrentIndex(i)
 
-    def _hay_cambios(self) -> bool:
-        """Hay datos cargados o un cálculo hecho desde que se abrió el programa o se empezó un cálculo nuevo."""
-        if self.res is not None:
-            return True
-        actual, inicial = self._estado(), self._estado_base
-        return any(actual.get(k) != inicial.get(k) for k in ("campos", "filas", "materiales", "equipo"))
-
-    def nuevo(self, confirmar: bool = True) -> bool:
-        """Borra todos los datos: desplegables, valores, materiales, actuador y accesorios quedan como al abrir el
-        programa, con el sistema de unidades elegido. Si hay datos, pregunta antes y ofrece guardarlos."""
-        if confirmar and self._hay_cambios():
-            r = QMessageBox.question(
-                self, "Nuevo cálculo", "¿Borrar todos los datos? Lo que no guardó se pierde.",
-                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Cancel)
-            if r == QMessageBox.Cancel:
-                return False
-            if r == QMessageBox.Save:
-                self.guardar()
-                if not self.ruta:            # canceló el diálogo de guardar
-                    return False
-        sistema = self.sistema
-        self._cargar(self._estado_inicial)
-        if sistema != self.sistema:
-            self.aplicar_sistema(sistema)
+    def nuevo(self):
         for f in self._todas_las_filas():
             for e in f.edits:
                 if not e.isReadOnly() or f.clave in (*PROPIEDADES, "Pc"):
@@ -2350,13 +2371,11 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.lbl_geo.setText("Se calcula con «Calcular».")
         self._llenar_kpi()
         self.lista_alertas.clear()
+        self._act_area()
         for fs in self.salidas.values():
             for c in fs.celdas:
                 c.clear()
         self._actualizar_vistas()
-        self._estado_base = self._estado()
-        self.statusBar().showMessage("Datos borrados: puede cargar un cálculo nuevo.")
-        return True
 
     def guardar(self, como: bool = False):
         ruta = self.ruta

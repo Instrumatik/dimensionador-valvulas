@@ -41,7 +41,7 @@ dimensionador/
                     factores equivalentes FL, Kc y xFz, y etapas recomendadas
   empaquetaduras.py Empaquetadura del vástago y tipo de bonete: temperatura, presión, química,
                     vacío y emisión fugitiva (ISO 15848-1, API 622 / 624 / 641)
-  tuberias.py       Diámetro exterior y espesor por NPS y cédula (ASME B36.10M / B36.19M)
+  tuberias.py       Diámetro exterior, espesor y área interior por NPS (1/8" a 80") y cédula (ASME B36.10M / B36.19M); área de salida de la válvula
   proyecto.py       Versión 2 (líquidos): datos de instalación y de dimensionamiento, Kapp/Kc,
                     verificaciones de rating, conexión, cierre y velocidad, recomendaciones
   entregables.py    Memoria de cálculo, hoja de datos e informe técnico (HTML y Word .docx)
@@ -98,7 +98,7 @@ certificados de la válvula ofertada.
 
 ## Validación actual
 
-`python -m pytest tests` (189 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
+`python -m pytest tests` (193 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
 IEC 60534-2-1:2011 reproducidos:
 
 | Ejemplo | Norma | Programa |

@@ -227,6 +227,41 @@ def _area(d_mm: float) -> float:
     return math.pi * (d_mm / 1000) ** 2 / 4
 
 
+def area_salida(inst: Instalacion, dim: Dimensionamiento, d_pulg: float) -> tuple[float, str, list[Alerta]]:
+    """Área de la salida de la válvula [mm²], de dónde sale y alertas.
+
+    Manual: el valor ingresado (con aviso si se aparta mucho del de la tabla). Automática: diámetro de la
+    válvula con la cédula de la tubería de salida según ASME B36.10M / B36.19M, o la STD si esa cédula no existe
+    para el diámetro de la válvula; si el diámetro no figura en la tabla, el área del diámetro nominal."""
+    al = []
+    tabla = tuberias.salida_valvula(d_pulg, inst.sch_salida)
+    nps = tuberias.texto_nps(d_pulg)
+    if tabla:
+        A_tab, ced = tabla
+        origen_tab = f"{nps} {tuberias.texto_cedula(ced)} ({tuberias.REFERENCIA})"
+        if ced != inst.sch_salida:
+            al.append(Alerta(
+                "area_salida_cedula", Severidad.INFO, "Área de salida con cédula STD",
+                f"La cédula {inst.sch_salida} de la tubería de salida no está definida para {nps} en "
+                f"{tuberias.REFERENCIA}: el área de salida de la válvula se calculó con la cédula STD.",
+                remedios=["Si conoce el diámetro interior de la salida de la válvula, elija «Manual» y "
+                          "cargue el área."], referencia=tuberias.REFERENCIA))
+    else:
+        A_tab, origen_tab = _area(d_pulg * 25.4) * 1e6, f"diámetro nominal {nps}"
+    A = dim.ruido.area_salida
+    if not A:
+        return A_tab, f"Automática: {origen_tab}", al
+    if not 0.2 <= A / A_tab <= 1.6:
+        al.append(Alerta(
+            "area_salida_rango", Severidad.ADVERTENCIA, "Área de salida fuera del rango esperado",
+            f"El área de salida ingresada ({_n(A, 0)} mm² = {_n(A / 645.16, 2)} in²) es "
+            f"{_n(A / A_tab, 2)} veces el área de la tabla para {origen_tab} "
+            f"({_n(A_tab, 0)} mm² = {_n(A_tab / 645.16, 2)} in²). Verifique la unidad seleccionada.",
+            remedios=["Revisar la unidad del área (mm², cm² o in²).",
+                      "Elegir «Automático» para usar el área de la tabla."]))
+    return A, "Manual (dato del usuario)", [a for a in al if a.codigo != "area_salida_cedula"]
+
+
 def caudal_relativo(h: float, caracteristica: str, R: float) -> float:
     """Inversa de apertura_requerida: Cv/Cv_nominal para una carrera h (0–1)."""
     if h <= 0:
@@ -477,7 +512,8 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
                     D1_mm=D1, D2_mm=D2, FL=dim.casos[0].FL, Fd=dim.casos[0].Fd, xT=estilo.xT,
                     tp_mm=tp2, c_liquido=dim.c_sonido,
                     limite_ruido=inst.ruido_permitido, tamanos=tamanos, An=cuerpo.An,
-                    verificar_clase=False)
+                    verificar_clase=False, cedula_salida=inst.sch_salida,
+                    area_salida_mm2=dim.ruido.area_salida)
     casos = []
     for c in dim.casos:
         rho = c.SG * RHO_AGUA_15C
@@ -487,6 +523,7 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
                           xFz=(tac.xFz / (6e5 / (c.P1 * 1000)) ** 0.125 if tac.xFz else None),
                           criterio=c.criterio, etapas=tac.etapas))
     inf = dimensionar(casos, sel)
+    A_out, origen_area, al_area = area_salida(inst, dim, inf.d_pulg)
 
     salidas = []
     for c, rc in zip(dim.casos, inf.casos):
@@ -507,13 +544,14 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
             "bajo_cv_minimo": d.get("bajo_cv_minimo", False), "Cv_minimo": d.get("Cv_minimo"),
             "condicion": d.get("regimen", ""), "bloqueado": r.bloqueado, "regimen_flujo": r.regimen,
             "calidad": d.get("calidad_salida"), "sigma": d.get("sigma"),
+            "A_salida": A_out, "origen_area": origen_area,
         })
         salidas[-1].update(_etapas_caso(e.P1, e.P2, e.Pv, tac.etapas))
 
     alertas_ac = _alertas_anticav(dim, tac, salidas, aviso_rotativa)
 
     alertas = [(rc.caso.nombre, a) for rc in inf.casos for a in rc.alertas]
-    alertas = [("General", a) for a in inf.alertas_generales + alertas_ac] + alertas
+    alertas = [("General", a) for a in inf.alertas_generales + alertas_ac + al_area] + alertas
 
     P_ops = [c.P1 for c in dim.casos] + ([dim.cierre.P1] if dim.cierre else [])
     T_ops = [c.T1 for c in dim.casos] + ([dim.cierre.T1] if dim.cierre and dim.cierre.T1 else [])
@@ -1074,24 +1112,15 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
                     Kv_nominal=dim.Cv_nominal * 0.865 if dim.Cv_nominal else None,
                     D1_mm=D1, D2_mm=D2, FL=c0.FL, Fd=c0.Fd, xT=c0.xT, tp_mm=tp2,
                     limite_ruido=inst.ruido_permitido, tamanos=tamanos, calcular_ruido=False,
-                    verificar_clase=False)
+                    verificar_clase=False, cedula_salida=inst.sch_salida,
+                    area_salida_mm2=dim.ruido.area_salida)
     casos = [Caso(c.nombre, CG.estado_gas(c, e), fluido, FL=c.FL, Fd=c.Fd, xT=c.xT, criterio=c.criterio)
              for c, e in zip(dim.casos, estados)]
     inf = dimensionar(casos, sel)
 
-    d_mm = inf.d_pulg * 25.4
-    A_nom = _area(d_mm) * 1e6
-    A_out = dim.ruido.area_salida or A_nom
+    A_out, origen_area, al_area = area_salida(inst, dim, inf.d_pulg)
     d_out = math.sqrt(4 * A_out / math.pi)
-    salidas, alertas = [], []
-    if dim.ruido.area_salida and not 0.2 <= A_out / A_nom <= 1.6:
-        alertas.append(("General", Alerta(
-            "area_salida_rango", Severidad.ADVERTENCIA, "Área de salida fuera del rango esperado",
-            f"El área de salida ingresada ({_n(A_out, 0)} mm² = {_n(A_out / 645.16, 2)} in²) es "
-            f"{_n(A_out / A_nom, 2)} veces el área del diámetro nominal de la válvula "
-            f"({_n(A_nom, 0)} mm² = {_n(A_nom / 645.16, 2)} in²). Verifique la unidad seleccionada.",
-            remedios=["Revisar la unidad del área (mm², cm² o in²).",
-                             "Dejar el campo en blanco para usar el área del diámetro nominal."])))
+    salidas, alertas = [], [("General", a) for a in al_area]
     for c, e, rc in zip(dim.casos, estados, inf.casos):
         r, x = rc.resultado, rc.resultado.extra
         v = replace(inf.valvula, FL=c.FL, Fd=c.Fd, xT=c.xT)
@@ -1181,7 +1210,7 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
             "regimen_ruido": rr["regimen_nombre"] if rr else "",
             "Ma1": v1 / c1, "Ma_valvula": v_out / c2, "Ma2": v2 / c2,
             "v1": v1, "v_valvula": v_out, "v2": v2, "c1": c1, "c_valvula": c2, "c2": c2,
-            "d_salida": d_out, "A_salida": A_out,
+            "d_salida": d_out, "A_salida": A_out, "origen_area": origen_area,
         })
     alertas = [("General", a) for a in inf.alertas_generales] + alertas
     P_ops = [c.P1 for c in dim.casos] + ([dim.cierre.P1] if dim.cierre else [])

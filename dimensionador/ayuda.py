@@ -1170,10 +1170,19 @@ _e("Rn", "Distancia Rn para el ruido",
    relacionadas=["ruido_componentes"])
 _e("area_salida", "Área de salida de la válvula",
    "<p>Área de paso en la brida de salida del cuerpo. Define la velocidad y el número de Mach en la "
-   "salida de la válvula y el diámetro de salida que usa el ruido de salida de IEC 60534-8-3. En blanco "
-   "se toma el área del diámetro nominal de la válvula. Las válvulas con salida expandida o reducida "
-   "tienen otra área: tómela de los datos del fabricante.</p>",
-   relacionadas=["mach", "ruido_componentes"])
+   "salida de la válvula (gases, vapor y steam), la velocidad en la salida de la válvula (líquidos) y el "
+   "diámetro de salida que usa el ruido de salida de IEC 60534-8-3.</p><ul>"
+   "<li><b>Automático</b> (desde v0.13.4): área interior A = π/4·DI² de la tabla ASME B36.10M / B36.19M, con "
+   "el diámetro de la válvula (el elegido o el que da el cálculo automático) y la cédula de la tubería de "
+   "salida de 1-Sistema. Si esa cédula no existe para el diámetro de la válvula se usa la STD y el programa "
+   "lo avisa. La celda muestra el valor y no se edita.</li>"
+   "<li><b>Manual</b>: cargue el área certificada de la salida de la válvula, con su unidad. Úsela en "
+   "válvulas con salida expandida o reducida. El programa avisa si se aparta mucho del área de la tabla.</li>"
+   "</ul><p>La tabla tiene todos los diámetros de 1/8\" a 80\" con las cédulas que define la norma para cada "
+   "uno (10 a 160, STD, XS, XXS, 5S, 10S, 40S y 80S). La memoria de cálculo y la hoja de datos indican de dónde "
+   "salió el área.</p>",
+   formula="A = π/4·DI², DI = OD − 2·espesor", referencia="ASME B36.10M; ASME B36.19M; IEC 60534-8-3:2010",
+   relacionadas=["mach", "ruido_componentes", "cedula"])
 _e("mach", "Número de Mach",
    "<p>Relación entre la velocidad del fluido y la velocidad del sonido local, Ma = v/c. Se informa "
    "aguas arriba, en la salida de la válvula y aguas abajo.</p><p>Práctica habitual: en la salida de "

@@ -5,9 +5,10 @@ unidades base (ver ``unidades.py``).
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field, replace
 
-from . import anticavitacion, asme_b16_34, fenomenos, propiedades, ruido
+from . import anticavitacion, asme_b16_34, fenomenos, propiedades, ruido, tuberias
 from .estilos import ESTILOS, TAMANOS, EstiloValvula, apertura_requerida, espesor_pared, kv_nominal
 from .unidades import kv_a_cv
 from .iec60534_2_1 import (Bifasico, CapacidadInsuficiente, Gas, Liquido, Resultado, Valvula,
@@ -55,6 +56,8 @@ class Seleccion:
     tamanos: tuple | None = None           # diámetros admitidos en selección automática [pulg]
     An: float | None = None                # coeficiente acústico IEC 60534-8-4
     verificar_clase: bool = True
+    cedula_salida: str = ""                # cédula de la tubería de salida: área de salida según ASME B36
+    area_salida_mm2: float | None = None   # área de salida ingresada (modo manual)
 
 
 @dataclass
@@ -94,6 +97,15 @@ def _dn(d_pulg: float) -> int:
     return round(d_pulg * 25)
 
 
+def d_salida_mm(sel: Seleccion, d_mm: float) -> float:
+    """Diámetro equivalente de la salida de la válvula: el área ingresada (manual) o la de ASME B36.10M/B36.19M
+    con el diámetro de la válvula y la cédula de salida (automática); sin cédula, el diámetro nominal."""
+    if sel.area_salida_mm2:
+        return math.sqrt(4 * sel.area_salida_mm2 / math.pi)
+    a = tuberias.salida_valvula(round(d_mm / 25.4, 3), sel.cedula_salida) if sel.cedula_salida else None
+    return math.sqrt(4 * a[0] / math.pi) if a else d_mm
+
+
 def _valvula(sel: Seleccion, d_pulg: float) -> Valvula:
     d_mm = d_pulg * 25.4
     return Valvula(FL=sel.FL or sel.estilo.FL, xT=sel.xT or sel.estilo.xT,
@@ -111,7 +123,7 @@ def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> Res
         alertas = list(r.alertas)
         rho2 = e.densidad_homogenea(e.P2)
         Q2 = e.W / rho2
-        v_valv = Q2 / 3600 / (fenomenos.area_mm2(v.d_mm) * 1e-6)
+        v_valv = Q2 / 3600 / (fenomenos.area_mm2(d_salida_mm(sel, v.d_mm)) * 1e-6)
         D2 = v.D2_mm or v.d_mm
         v_tub = Q2 / 3600 / (fenomenos.area_mm2(D2) * 1e-6)
         datos = {"rho_mezcla_entrada": e.densidad_homogenea(), "rho_mezcla_salida": rho2,
@@ -140,7 +152,8 @@ def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> Res
                                              r.extra["dPchoked"], xFz, q, caso.Kc)
         alertas += a
         bif = e.P2 <= e.Pv
-        a, dv = fenomenos.evaluar_velocidad_liquido(r.extra["Q"], v.d_mm, v.D2_mm, e.rho1, bif)
+        a, dv = fenomenos.evaluar_velocidad_liquido(r.extra["Q"], d_salida_mm(sel, v.d_mm), v.D2_mm or v.d_mm,
+                                                    e.rho1, bif)
         alertas += a
         datos.update(dv)
         if bif and q is not None and caso.fluido:
@@ -158,7 +171,7 @@ def _calcular_caso(caso: Caso, v: Valvula, sel: Seleccion, Kv_nom: float) -> Res
         r = dimensionar_gas(e, v)
         alertas = list(r.alertas)
         a, datos = fenomenos.evaluar_gas(e.P1, e.P2, e.T1, e.M, e.gamma, e.Z, r.extra["W"],
-                                         v.d_mm, v.D2_mm, r.extra["x"], r.extra["xchoked"])
+                                         d_salida_mm(sel, v.d_mm), v.D2_mm, r.extra["x"], r.extra["xchoked"])
         alertas += a
         if "v_tuberia_salida" in datos:
             datos["v_erosional_api14e"] = fenomenos.velocidad_erosional_api14e(datos["rho2"], sel.C_api14e)

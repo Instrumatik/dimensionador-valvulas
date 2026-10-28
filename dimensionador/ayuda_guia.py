@@ -3888,7 +3888,8 @@ GUIA = {
         'que_es': 'Es el área de paso en la brida de salida del cuerpo de la válvula.',
         'que_hace': ('Define la velocidad y el número de Mach en la salida de la válvula y el '
                      'diámetro de salida que usa el cálculo de ruido de salida de IEC 60534-8-3. '
-                     'En blanco se toma el área del diámetro nominal de la válvula.'),
+                     'En Automático sale de la tabla ASME B36.10M / B36.19M con el diámetro de la válvula '
+                     'y la cédula de salida; en Manual se carga el área certificada.'),
         'que_indica': ('Un área chica implica velocidad y Mach altos en la salida; un área mayor '
                        '(salida expandida) los reduce.'),
         'umbrales': ('No tiene umbral propio; su efecto se juzga por el Mach de salida resultante.'

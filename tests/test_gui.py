@@ -521,25 +521,3 @@ def test_operating_range_en_pantalla(app):
     w2 = VentanaPrincipal()
     w2._cargar(w._estado())
     assert w2.eq_w["act_rango"].currentText() == A.RANGO_OPT and w2.f_rango.edits[1].text() == "45"
-
-
-def test_nuevo_borra_todo(app, monkeypatch):
-    """v0.13.3: «Nuevo cálculo» deja todos los datos como al abrir el programa y pregunta antes de borrar."""
-    import json
-    from pathlib import Path
-    from PySide6.QtWidgets import QMessageBox
-    from dimensionador.gui.ventana import VentanaPrincipal
-    inicial = VentanaPrincipal()._estado()
-    kit = Path(__file__).resolve().parents[1] / "kit_workshop" / "casos"
-    w = VentanaPrincipal()
-    w._cargar(json.loads((kit / "Caso_C_alta_agua_producida_agria.valvula").read_text(encoding="utf-8")))
-    w.calcular()
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Cancel))
-    assert not w.nuevo() and w.res is not None            # canceló: no se borra nada
-    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Discard))
-    assert w.nuevo() and w.res is None
-    e = w._estado()
-    for sec in ("campos", "filas", "materiales", "equipo"):
-        assert e[sec] == inicial[sec], sec
-    assert not w._hay_cambios()
-    assert w.btn_nuevo_cab.text() == "Nuevo cálculo"

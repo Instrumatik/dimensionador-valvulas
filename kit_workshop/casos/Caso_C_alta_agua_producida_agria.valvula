@@ -1,5 +1,5 @@
 {
- "version": "0.13.2",
+ "version": "0.13.4",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -35,6 +35,7 @@
   "balance": "Desbalanceado",
   "caracteristica": "Lineal",
   "Cv_reducido": "",
+  "area_modo": "Automático",
   "carrera_salida": "mm",
   "visc_salida": "Dinámica",
   "mat_industria": "O&G Upstream",
@@ -328,7 +329,7 @@
   "area_salida": {
    "unidad": "mm²",
    "valores": [
-    ""
+    "2.163"
    ]
   },
   "puerto": {

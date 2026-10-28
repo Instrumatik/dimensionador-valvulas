@@ -256,7 +256,9 @@ def _tabla_salidas(res: Resultado, pr: Presentacion, completa=True):
             (_fila("Flujo másico", "", [x["W"] for x in s], pr, "caudal_masico") if _volumetrico(res) else
              _fila("Caudal volumétrico", "", [x["Q"] for x in s], pr, "caudal_vol")),
             _fila("Velocidad aguas arriba", "", [x["v1"] for x in s], pr, "velocidad", 3),
+            _fila("Velocidad en la salida de la válvula", "", [x.get("v_valvula") for x in s], pr, "velocidad", 3),
             _fila("Velocidad aguas abajo", "", [x["v2"] for x in s], pr, "velocidad", 3),
+            _fila("Área de salida de la válvula", "", [x.get("A_salida") for x in s], pr, "area", 4),
         ]
     f.append(_fila("Presión sonora a 1 m LpAe,1m", "dB(A)", [x["Lp"] for x in s], cifras=3))
     return f
@@ -413,6 +415,8 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         ["Diámetro", f"{tuberias.texto_nps(res.nps_valvula)} (DN {res.informe.DN})"],
         ["Rating", f"CL{i.rating} (ASME B16.34)"],
         ["Conexión a proceso", i.conexion],
+        *([["Área de salida", f"{pr.vu(s[0]['A_salida'], 'area')} · {s[0].get('origen_area', '')}"]]
+          if s and s[0].get("A_salida") else []),
         ["Presión de diseño", pr.vu(res.P_diseno, "presion")],
         ["Temperatura de diseño", pr.vu(res.T_diseno, "temperatura")],
         *_filas_material_cuerpo(res),
@@ -612,8 +616,7 @@ def _datos_ruido(doc: Documento, res: Resultado, pr: Presentacion):
     r, s = res.dim.ruido, res.salidas
     doc.tabla([["Trim para ruido aerodinámico", CG.TRIMS_RUIDO[r.trim].nombre],
                ["Distancia Rn desde la pared de la tubería", pr.vu(r.Rn, "distancia", 3)],
-               ["Área de salida de la válvula", pr.vu(s[0]["A_salida"], "area") +
-                ("" if r.area_salida else " (área del diámetro nominal)")],
+               ["Área de salida de la válvula", f"{pr.vu(s[0]['A_salida'], 'area')} · {s[0].get('origen_area', '')}"],
                ["Condición de salida T2, ρ2", s[0]["origen_salida"] or "dato del usuario"]], anchos=[40, 60])
 
 
@@ -785,7 +788,8 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
         ["Diámetro", f"{tuberias.texto_nps(res.nps_valvula)} (DN {res.informe.DN})"],
         ["Rating", f"CL{i.rating} (ASME B16.34)"],
         ["Conexión a proceso", i.conexion],
-        ["Área de salida", pr.vu(s[0]["A_salida"], "area")],
+        *([["Área de salida", f"{pr.vu(s[0]['A_salida'], 'area')} · {s[0].get('origen_area', '')}"]]
+          if s and s[0].get("A_salida") else []),
         ["Presión de diseño", pr.vu(res.P_diseno, "presion")],
         ["Temperatura de diseño", pr.vu(res.T_diseno, "temperatura")],
         *_filas_material_cuerpo(res),
