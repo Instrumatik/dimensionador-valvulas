@@ -607,6 +607,8 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self._act_concordancia()
         self._cambio_tipo_fluido()
         self._actualizar_vistas()
+        self._estado_inicial = self._estado()    # «Nuevo» vuelve a este estado
+        self._estado_base = self._estado_inicial  # para saber si hay datos sin borrar
         self.statusBar().showMessage("Cargue los datos de instalación y de dimensionamiento y presione "
                                      "Calcular. «Ver» o F1 muestran la explicación de cada dato a la derecha.")
 
@@ -657,12 +659,18 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.btn_calc_cab = QPushButton("Calcular")
         botones.calcular(self.btn_calc_cab, "amarillo")
         self.btn_calc_cab.clicked.connect(self.calcular)
+        self.btn_nuevo_cab = QPushButton("Nuevo cálculo")
+        self.btn_nuevo_cab.setToolTip("Borra todos los datos y deja el programa como al abrirlo (Ctrl+N).")
+        self.btn_nuevo_cab.setStyleSheet("padding:6px 12px")
+        self.btn_nuevo_cab.clicked.connect(lambda: self.nuevo())
         self.buscador = Buscador(self)
         der.addWidget(self.buscador)
         der.addSpacing(16)
         der.addWidget(l)
         der.addWidget(self.cb_sistema)
         der.addSpacing(12)
+        der.addWidget(self.btn_nuevo_cab)
+        der.addSpacing(6)
         der.addWidget(self.btn_calc_cab)
         h.addLayout(der)
         return f
@@ -679,7 +687,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
     def _construir_menu(self):
         mb = self.menuBar()
         m = mb.addMenu("&Inicio")
-        self._accion(m, "Nuevo", self.nuevo, QKeySequence.New)
+        self._accion(m, "Nuevo cálculo", lambda: self.nuevo(), QKeySequence.New)
         self._accion(m, "Abrir proyecto…", self.abrir, QKeySequence.Open)
         self._accion(m, "Guardar proyecto", self.guardar, QKeySequence.Save)
         self._accion(m, "Guardar proyecto como…", lambda: self.guardar(como=True))
@@ -1322,6 +1330,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         for w in (*self.fila_jaula, *self.fila_nivel):
             w.setVisible(tipo == "jaula")
         self.cb_trim.setEnabled(tipo != "jaula")
+        if tipo != "jaula":                  # sin jaula o rotativa: la jaula y su config no aplican
+            self._llenar(self.cb_jaula, [])
+            self._llenar(self.cb_nivel, [])
         if por_obt:
             self._llenar(self.cb_guia, [(T.GUIAS[g].nombre, g) for g in T.guias(c)])
             for i in range(self.cb_guia.count()):
@@ -2296,7 +2307,30 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             if dato and i >= 0:
                 cb.setCurrentIndex(i)
 
-    def nuevo(self):
+    def _hay_cambios(self) -> bool:
+        """Hay datos cargados o un cálculo hecho desde que se abrió el programa o se empezó un cálculo nuevo."""
+        if self.res is not None:
+            return True
+        actual, inicial = self._estado(), self._estado_base
+        return any(actual.get(k) != inicial.get(k) for k in ("campos", "filas", "materiales", "equipo"))
+
+    def nuevo(self, confirmar: bool = True) -> bool:
+        """Borra todos los datos: desplegables, valores, materiales, actuador y accesorios quedan como al abrir el
+        programa, con el sistema de unidades elegido. Si hay datos, pregunta antes y ofrece guardarlos."""
+        if confirmar and self._hay_cambios():
+            r = QMessageBox.question(
+                self, "Nuevo cálculo", "¿Borrar todos los datos? Lo que no guardó se pierde.",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Cancel)
+            if r == QMessageBox.Cancel:
+                return False
+            if r == QMessageBox.Save:
+                self.guardar()
+                if not self.ruta:            # canceló el diálogo de guardar
+                    return False
+        sistema = self.sistema
+        self._cargar(self._estado_inicial)
+        if sistema != self.sistema:
+            self.aplicar_sistema(sistema)
         for f in self._todas_las_filas():
             for e in f.edits:
                 if not e.isReadOnly() or f.clave in (*PROPIEDADES, "Pc"):
@@ -2320,6 +2354,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             for c in fs.celdas:
                 c.clear()
         self._actualizar_vistas()
+        self._estado_base = self._estado()
+        self.statusBar().showMessage("Datos borrados: puede cargar un cálculo nuevo.")
+        return True
 
     def guardar(self, como: bool = False):
         ruta = self.ruta
