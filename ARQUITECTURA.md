@@ -30,6 +30,7 @@ dimensionador/
   datos_b16_34.py   Tablas numéricas de B16.34-2017 (49 grupos, clases 150 a 2500), generadas
   fluido_servicio.py  Definición única del fluido: variantes, agua libre, corrección salina y datos para materiales
   materiales.py     Biblioteca de materiales por componente (ASTM/UNS, dureza, PREN, NACE, costo)
+  pernos.py         Pernos y tuercas cuerpo-bonete y de la brida prensaempaques: opciones, temperatura y servicio agrio
   quimica.py        Agentes químicos, normalización de unidades y compatibilidad A–D por material
   seleccion_materiales.py  Selección por componente: química, P-T, cavitación/dureza, galling,
                     servicio agrio (ISO 15156 / ISO 17945), modo manual y alertas
@@ -98,7 +99,7 @@ certificados de la válvula ofertada.
 
 ## Validación actual
 
-`python -m pytest tests` (193 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
+`python -m pytest tests` (202 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
 IEC 60534-2-1:2011 reproducidos:
 
 | Ejemplo | Norma | Programa |

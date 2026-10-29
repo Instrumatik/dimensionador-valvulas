@@ -799,7 +799,17 @@ _e("estilo_cuerpo", "Estilo de válvula",
    "asiento al abrir (menos roce y desgaste); FL mayor que la bola (0,85 con flujo que tiende a abrir), "
    "rangeabilidad 100:1, bueno con fluidos sucios, viscosos o erosivos y para ΔP medias.</li>"
    "<li><b>Mariposa</b> concéntrica, de <b>doble</b> y de <b>triple "
-   "excentricidad</b>: gran capacidad y bajo costo en diámetros grandes; FL bajo, cavitan antes.</li></ul>",
+   "excentricidad</b>: gran capacidad y bajo costo en diámetros grandes; FL bajo, cavitan antes.</li></ul>"
+   "<p><b>Nombres comerciales de las mariposas.</b> Algunos fabricantes o usuarios finales llaman «disco "
+   "excéntrico con offset», «disco excéntrico» o «High Performance Butterfly» (HPBV) a la mariposa de "
+   "<b>doble excentricidad</b>; en N25 es «Mariposa doble excentricidad». En algunos casos también llaman "
+   "«mariposa de alto desempeño» o «high performance» a la de <b>triple excentricidad</b>, que suma una tercera "
+   "excentricidad (el cono del asiento) y casi siempre lleva asiento metálico. <b>Aclare siempre con el "
+   "fabricante</b> cuántas excentricidades tiene la válvula y qué asiento lleva antes de elegir el estilo.</p>"
+   "<p>En las mariposas de doble y triple excentricidad el disco no es simétrico respecto del eje, por eso las "
+   "hojas de datos indican el sentido de instalación («Flow to open» o «Flow to close»). N25 lo registra como "
+   "dato informativo en «Sentido de flujo» y lo lleva a la hoja de datos; no cambia el Cv, la cavitación ni el "
+   "ruido.</p>",
    relacionadas=["trim", "FL", "clase_cierre"])
 _e("rating", "Rating (clase de presión)",
    "<p>Clase de presión-temperatura del cuerpo según ASME B16.34: CL150, 300, 600, 900, 1500 o "
@@ -808,6 +818,32 @@ _e("rating", "Rating (clase de presión)",
    "3-Materiales; si no hay material definido usa como referencia acero al carbono (grupo 1.1, WCB). Una "
    "bola flotante en CL900 o superior genera un aviso: a esas presiones corresponde bola trunnion.</p>",
    referencia="ASME B16.34, Tabla 2-1.1", relacionadas=["P_diseno"])
+_e("pernos_bonete", "Material pernos y tuercas cuerpo a bonete",
+   "<p>Material de los espárragos (o tornillos) y tuercas que unen el cuerpo con el bonete. Las opciones nombran "
+   "el espárrago y la tuerca, por ejemplo «SA-193 B7 espárragos / tuercas 2H»; «lubricados» indica que se montan "
+   "con lubricante antiagarrotante. «Estándar del fabricante» deja la elección al fabricante de la válvula.</p>"
+   "<p>N25 no calcula la junta (precarga, cantidad ni diámetro de los pernos): eso lo define el fabricante. Sí "
+   "verifica que cada pieza admita la temperatura del servicio y, si el servicio es agrio, que la combinación sea "
+   "aceptable según ISO 15156 cuando los pernos pueden quedar expuestos al H₂S.</p><ul>"
+   "<li><b>B7 / 2H</b>: estándar de −48 °C a unos 450 °C. No apto para servicio agrio si queda expuesto.</li>"
+   "<li><b>B7M / 2HM</b>: versión NACE (≤ 22 HRC), algo menos resistente.</li>"
+   "<li><b>B16 / grado 7</b>, <b>A453 660</b>, <b>aleación 718</b> y <b>EN 1.7709</b>: alta temperatura.</li>"
+   "<li><b>B8M / 8M</b> (Clase 1): inoxidable para corrosión, criogenia y alta temperatura; la Clase 2 es más "
+   "resistente pero pierde el endurecimiento sobre unos 425 °C y no es NACE.</li>"
+   "<li><b>XM-19</b>, <b>C-276</b>, <b>17-4PH H1150D</b>: medios corrosivos o servicio agrio severo.</li>"
+   "<li><b>A2-70</b>, <b>EN 1.1181</b> y <b>SAE grado 5</b>: servicio general de baja exigencia.</li></ul>"
+   "<p>Todos los materiales están en la Biblioteca de materiales con su ficha.</p>",
+   referencia="ASTM A193 / A194 (ASME SA-193 / SA-194), EN 10269, ISO 3506-1, ISO 15156-2",
+   relacionadas=["pernos_prensa", "mat_biblioteca", "T_diseno"])
+_e("pernos_prensa", "Material espárragos y tuercas de brida prensaempaques",
+   "<p>Material de los espárragos y tuercas que aprietan la brida prensaempaques (la que comprime la "
+   "empaquetadura del vástago) y, en algunas opciones, de la propia brida. «Tuerca prensaempaques de CF10SMnN» "
+   "corresponde a prensaempaques con tuerca roscada, sin brida ni espárragos.</p>"
+   "<p>Trabajan algo más fríos que los pernos del cuerpo-bonete, pero el programa los verifica con la misma "
+   "temperatura de diseño (lado seguro) y con el mismo criterio de servicio agrio. Una fuga por la empaquetadura "
+   "los moja con el fluido de proceso: en servicio agrio o corrosivo conviene que sean del mismo nivel que la "
+   "empaquetadura y el vástago.</p>",
+   referencia="ASTM A193 / A194, ISO 15156-2", relacionadas=["pernos_bonete", "mat_biblioteca"])
 _e("nps", "Diámetro nominal de tubería (NPS)",
    "<p>Tamaño nominal de la tubería de entrada o de salida en pulgadas (NPS). Junto con la cédula "
    "define el diámetro interior según ASME B36.10M / B36.19M, que el programa usa para los "
@@ -937,7 +973,13 @@ _e("sentido_flujo", "Sentido de flujo",
    "colapsen lejos del asiento y de las paredes; FL menor (≈ 0,80–0,85) y puede dar golpe al cerrar.</li></ul>"
    "<p>Cambia FL, xT y Fd (IEC 60534-2-1, Tabla 2) y el sentido de la fuerza del fluido sobre el obturador en "
    "el cálculo del actuador. En los datos de los fabricantes el Cv nominal es el mismo en los dos sentidos. "
-   "En válvulas rotativas que no tienen sentido preferente la fila muestra «No aplica».</p>",
+   "En válvulas rotativas que no tienen sentido preferente la fila muestra «No aplica».</p>"
+   "<p>En las mariposas de <b>doble y triple excentricidad</b> la fila ofrece «Flujo tiende a abrir (Flow to "
+   "open)» o «Flujo tiende a cerrar (Flow to close)»: es el sentido de instalación que piden las hojas de datos, "
+   "porque el disco desplazado del eje recibe un par del fluido que tiende a abrirlo o a cerrarlo. Es un dato "
+   "informativo para la hoja de datos: IEC 60534-2-1 da un solo juego de factores para la mariposa, así que no "
+   "cambia el Cv, la cavitación ni el ruido. El sentido preferido para el cierre lo indica el fabricante (flecha "
+   "en el cuerpo).</p>",
    referencia="IEC 60534-2-1, Anexo A, Tabla 2",
    relacionadas=["trim", "FL", "balance", "caracteristica"])
 

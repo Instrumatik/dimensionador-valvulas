@@ -4352,3 +4352,44 @@ GUIA["nivel_etapas"] = {
     'ejemplo': ('Vapor con 102 dB(A) y límite 85: multiorificio nivel 3 deja 88, multietapa multiorificio de 4 '
                 'etapas deja 83: se elige la de 4 etapas.'),
 }
+
+GUIA["pernos_bonete"] = {
+    'que_es': ('Es el material de los espárragos (o tornillos) y tuercas que unen el cuerpo con el bonete de la '
+               'válvula.'),
+    'que_hace': ('Queda en la hoja de datos y el programa verifica la temperatura de uso de cada pieza y, en '
+                 'servicio agrio, si la combinación es aceptable según ISO 15156.'),
+    'que_indica': ('Cada opción nombra el espárrago y la tuerca (por ejemplo B7 / 2H); «lubricados» indica montaje '
+                   'con antiagarrotante; «NACE» marca las combinaciones para servicio agrio.'),
+    'umbrales': ('B7 / 2H de −48 °C a unos 450 °C; B16 y A453 660 hasta unos 593 °C; B8M / 8M Clase 1 de −196 °C '
+                 'a 816 °C; servicio agrio con pernos expuestos: ≤ 22 HRC (B7M / 2HM, B8M Cl. 1 / 8M).'),
+    'por_debajo': ('Por debajo de su temperatura mínima el acero pierde tenacidad y el perno puede romperse de '
+                   'forma frágil.'),
+    'por_encima': ('Por encima de su temperatura máxima el perno se relaja, pierde precarga y la junta '
+                   'cuerpo-bonete fuga.'),
+    'afecta': ['Hoja de datos', 'Alertas de temperatura y servicio agrio', 'Estanqueidad del bonete'],
+    'recomendaciones': [
+        'Use «Estándar del fabricante» si la especificación del cliente no pide un grado.',
+        'En servicio agrio con aislación térmica elija una combinación NACE.',
+        'La junta (cantidad, diámetro y torque de los pernos) la define el fabricante.',
+    ],
+    'ejemplo': ('Vapor a 480 °C: B7 / 2H queda fuera de temperatura; B16 / grado 7 cumple.'),
+}
+
+GUIA["pernos_prensa"] = {
+    'que_es': ('Es el material de los espárragos y tuercas de la brida prensaempaques, que comprime la empaquetadura '
+               'del vástago, y en algunas opciones también el de la brida.'),
+    'que_hace': ('Queda en la hoja de datos y se verifica con la temperatura de diseño y el servicio agrio, igual '
+                 'que los pernos cuerpo-bonete.'),
+    'que_indica': ('Indica de qué material son las piezas que aprietan la empaquetadura y que quedan mojadas si la '
+                   'empaquetadura fuga.'),
+    'umbrales': ('Los mismos de cada material de pernos; en servicio agrio, combinaciones NACE si pueden quedar '
+                 'expuestos.'),
+    'por_debajo': 'Fuera de temperatura los espárragos pierden tenacidad o precarga y la empaquetadura fuga.',
+    'por_encima': 'Un material de más encarece sin mejorar la estanqueidad.',
+    'afecta': ['Hoja de datos', 'Alertas de temperatura y servicio agrio', 'Emisiones por el vástago'],
+    'recomendaciones': [
+        'En fluidos corrosivos use el mismo nivel de material que el vástago.',
+        'Con tuerca prensaempaques roscada elija CF10SMnN para evitar el agarrotamiento.',
+    ],
+    'ejemplo': 'Servicio agrio con aislación térmica: SA-193 B7M espárragos / tuercas 2HM, NACE.',
+}

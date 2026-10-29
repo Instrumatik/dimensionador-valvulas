@@ -376,6 +376,9 @@ def riesgo_galling(a: MT.Material, b: MT.Material, T_C: float) -> tuple[str, str
     elif "cu" in (ga, gb):
         nivel, mot = ("MEDIO", "Bronce contra bronce.") if ga == gb else \
             ("BAJO", "Bronce contra acero: pareja disímil clásica de bajo galling.")
+    elif "nit" in (ga, gb):
+        nivel, mot = ("MEDIO", "Nitrurado en ambas superficies.") if ga == gb else \
+            ("BAJO", "Superficie nitrurada (≈ 1000 HV) en una de las piezas.")
     elif "enc" in (ga, gb):
         nivel, mot = ("MEDIO", "Níquel químico en ambas superficies.") if ga == gb else \
             ("BAJO", "Recubrimiento de níquel químico (≈ 50 HRC) en una superficie.")

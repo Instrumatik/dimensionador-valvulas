@@ -421,6 +421,10 @@ def estilo_con(clave: str, caracteristica: str) -> EstiloValvula:
 
 # Estilo de trim (geometría) y sentido del flujo de cada clave; la solapa 2 los elige por separado.
 SENTIDOS = {"abre": "Flujo tiende a abrir (Up)", "cierra": "Flujo tiende a cerrar (Down)", "": "No aplica"}
+# v0.14.0: en las mariposas excéntricas el sentido de instalación es un dato informativo (no cambia los factores)
+EXCENTRICAS = ("mariposa_doble", "mariposa_triple")
+SENTIDOS_ROT = {"abre": "Flujo tiende a abrir (Flow to open)", "cierra": "Flujo tiende a cerrar (Flow to close)",
+                "": "No aplica"}
 GEOMETRIA = {
     "globo_contorneado_abre": ("contorneado", "abre"), "globo_contorneado_cierra": ("contorneado", "cierra"),
     "globo_doble_guia_abre": ("doble_guia", "abre"), "globo_doble_guia_cierra": ("doble_guia", "cierra"),

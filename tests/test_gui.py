@@ -357,7 +357,8 @@ def test_concordancia_actuador_valvula(app):
     E["act_tipo"].setCurrentText("Pistón retorno por resorte")
     w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("mariposa"))
     assert E["act_tipo"].currentText() == "Piñón y cremallera (Rack and pinion)"
-    assert E["act_tipo"].count() == 10 and "Diafragma y resorte" not in habilitadas(E["act_tipo"])
+    assert E["act_tipo"].count() == 11 and "Diafragma y resorte" not in habilitadas(E["act_tipo"])
+    assert "Diafragma y resorte rotativo (con palanca)" in habilitadas(E["act_tipo"])
     assert habilitadas(E["act_flujo"]) == ["Unidireccional"] and E["act_flujo"].currentText() == "Unidireccional"
     w.cb_cuerpo.setCurrentIndex(w.cb_cuerpo.findData("bola_trunnion"))
     assert habilitadas(E["act_flujo"]) == ["Unidireccional", "Bidireccional"]

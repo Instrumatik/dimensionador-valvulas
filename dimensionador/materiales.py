@@ -15,7 +15,7 @@ válvulas, fichas de los productores de aleaciones y normas citadas en
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 # Componentes de la válvula (clave interna -> nombre)
 COMPONENTES = {
@@ -377,6 +377,16 @@ MATERIALES: dict[str, Material] = {m.clave: m for m in [
        T_min_C=-254, T_max_C=816, composicion="C ≤ 0,08 · Cr 16–18 · Ni 10–14 · Mo 2–3", Rm_MPa=515,
        Rp_MPa=205, HB=160, pren=24, costo=3.3, galling="aus", cavitacion=2, erosion=3,
        iso15156=AUS_15156, iso17945=AUS_17945, fuentes=(F_B1634, F_ASTM)),
+    _m("F304", "ASTM A182 F304 — inoxidable 304 forjado", "Inoxidable austenítico", ("ss304",), CUERPO,
+       uns="S30400", astm="ASTM A182 Gr. F304", forma="Forja", equivalente="A351 CF8 (fundición)", grupo="2.1",
+       T_min_C=-254, T_max_C=816, composicion="C ≤ 0,08 · Cr 18–20 · Ni 8–11", Rm_MPa=515, Rp_MPa=205,
+       HB=150, pren=19, costo=3.1, galling="aus", cavitacion=2, erosion=3,
+       iso15156=AUS_15156, iso17945=AUS_17945,
+       notas=("Cuerpos y bonetes forjados para ácido nítrico, oxidantes y criogenia.",
+              "No es la opción recomendada en general: el CF8 fundido cumple lo mismo a menor costo, y frente a "
+              "cloruros el 316 (F316 / CF8M) resiste mejor porque lleva molibdeno.",
+              "Por encima de 538 °C solo con C ≥ 0,04 %; picaduras y SCC por cloruros por encima de ~60 °C."),
+       fuentes=(F_B1634, F_ASTM)),
     _m("F51", "ASTM A182 F51 — dúplex 2205 forjado", "Inoxidable dúplex", ("duplex",), CUERPO,
        uns="S31803", astm="ASTM A182 Gr. F51", forma="Forja", equivalente="A995 CD3MN", grupo="2.8",
        T_min_C=-46, T_max_C=315, composicion="Cr 21–23 · Ni 4,5–6,5 · Mo 2,5–3,5 · N 0,08–0,2",
@@ -408,6 +418,36 @@ MATERIALES: dict[str, Material] = {m.clave: m for m in [
        iso15156=AUS_15156, iso17945=AUS_17945,
        notas=("Interno estándar en servicios limpios con ΔP moderada.",
               "Blando (≈ 150 HB): se desgasta con cavitación, erosión o sólidos; galling 316/316 alto."),
+       fuentes=(F_PRACTICA, F_15156)),
+    _m("304", "Inoxidable 304 / 304L (A479, A276)", "Inoxidable austenítico", ("ss304",),
+       TRIM | {"vastago"}, uns="S30400 / S30403", astm="ASTM A479 / A276 304", forma="Barra / forja",
+       T_min_C=-254, T_max_C=816, composicion="C ≤ 0,08 · Cr 18–20 · Ni 8–10,5", Rm_MPa=515, Rp_MPa=205,
+       HB=150, pren=19, costo=1.05, galling="aus", cavitacion=2, erosion=2,
+       iso15156=AUS_15156, iso17945=AUS_17945,
+       notas=("Obturador, bola, disco, asiento, jaula, guía o vástago en ácido nítrico, oxidantes, agua limpia y "
+              "criogenia.",
+              "No es la opción recomendada en general: en internos de válvulas el 316 es el estándar de stock y "
+              "cuesta prácticamente lo mismo, y el 304 resiste peor las picaduras y la corrosión bajo tensión por "
+              "cloruros (no lleva molibdeno, PREN ≈ 19 frente a 24).",
+              "Blando (≈ 150 HB): igual que el 316, se desgasta con cavitación, erosión o sólidos y tiene galling "
+              "alto contra sí mismo o contra 316."),
+       fuentes=(F_PRACTICA, F_ASTM, F_15156)),
+    _m("316_NIT", "316 nitrurado (nitruración a baja temperatura, ≈ 1000 HV superficial)",
+       "Inoxidable + capa nitrurada", ("ss316",), C({"guia", "jaula", "obturador", "vastago"}),
+       uns="S31600 + capa nitrurada", astm="ASTM A479 / A276 316 + nitruración (gas o plasma) a baja temperatura",
+       forma="Barra / forja con tratamiento superficial", T_min_C=-196, T_max_C=400,
+       composicion="Base 316; capa de austenita expandida en N (fase S) de 15–35 µm", Rm_MPa=515, Rp_MPa=205,
+       HB=150, HRC=65, pren=24, costo=1.5, galling="nit", cavitacion=3, erosion=4,
+       iso15156=Nace("condicional", None, 100, 60, nota="La capa superficial no cambia la aceptación: vale la base "
+                     "316 (ISO 15156-3, anexo A). Confirmar con la edición vigente y el fabricante.", azufre=False),
+       iso17945=AUS_17945,
+       notas=("Evita el galling y el desgaste en guías, bujes, ejes de rotativas, obturadores y jaulas de 316 "
+              "sin cambiar el material base.",
+              "Nitruración a baja temperatura (menos de unos 450 °C): conserva casi toda la resistencia a la "
+              "corrosión del 316. La nitruración convencional a alta temperatura forma nitruros de cromo y la "
+              "reduce: pedir siempre la de baja temperatura.",
+              "Capa delgada: no reemplaza un recargue de Stellite ni un inserto de carburo frente a cavitación "
+              "severa o sólidos. Por encima de unos 400 °C la capa pierde estabilidad."),
        fuentes=(F_PRACTICA, F_15156)),
     _m("316_ST6", "316 con recargue de Stellite 6 (asiento y/o superficie de guiado)", "Inoxidable + recargue Co-Cr",
        ("ss316", "cocr"), TRIM, uns="S31600 + R30006", astm="ASTM A479 316 + AWS A5.21 ERCoCr-A",
@@ -724,6 +764,137 @@ MATERIALES: dict[str, Material] = {m.clave: m for m in [
        fuentes=(F_PRACTICA,)),
 ]}
 
+# ---------------------------------------------------------------------------------------------------------------
+# v0.14.0: pernos, espárragos y tuercas (cuerpo-bonete y brida prensaempaques). Valores típicos de las
+# especificaciones citadas; el fabricante confirma el grado, la clase y la dureza con el certificado.
+# ---------------------------------------------------------------------------------------------------------------
+PERNOS = C({"pernos"})
+F_PERNOS = "Especificación del grado (ASTM / ASME Sección II, EN 10269, ISO 3506-1, SAE J429)"
+_NO_EXP = ("Si el perno queda expuesto al ambiente agrio (aislación térmica, cubiertas, enterrado) no es aceptable "
+           "(ISO 15156-2, A.2.2.4); sin exposición se admite.")
+_PERNOS = [
+    _m("B7", "ASTM A193 / ASME SA-193 Gr. B7 — espárrago Cr-Mo templado y revenido", "Acero Cr-Mo (pernos)",
+       ("crmo",), PERNOS, uns="G41400", astm="ASTM A193 / ASME SA-193 Gr. B7", forma="Barra roscada",
+       T_min_C=-48, T_max_C=450, composicion="AISI 4140 / 4142: C 0,37–0,49 · Cr 0,75–1,2 · Mo 0,15–0,25",
+       Rm_MPa=860, Rp_MPa=720, HRC=30, costo=1.0, galling="cs", cavitacion=1, erosion=1,
+       iso15156=Nace("no", nota="Dureza hasta 35 HRC. " + _NO_EXP), iso17945=Nace("no", nota=_NO_EXP),
+       notas=("Espárrago estándar de cuerpo-bonete y bridas en servicio general de −48 °C a unos 450 °C.",
+              "Se combina con tuercas A194 2H. Galvanizado o con recubrimiento de flúor-polímero en ambientes "
+              "corrosivos."), fuentes=(F_PERNOS,)),
+    _m("B7M", "ASTM A193 / ASME SA-193 Gr. B7M — espárrago Cr-Mo para servicio agrio (≤ 235 HB)",
+       "Acero Cr-Mo (pernos)", ("crmo",), PERNOS, uns="G41400", astm="ASTM A193 / ASME SA-193 Gr. B7M",
+       forma="Barra roscada (100 % de ensayo de dureza)", T_min_C=-48, T_max_C=450,
+       composicion="AISI 4140 / 4142 revenido a mayor temperatura", Rm_MPa=690, Rp_MPa=550, HB=235, HRC=22,
+       costo=1.15, galling="cs", cavitacion=1, erosion=1,
+       iso15156=Nace("aceptable", 22, nota="≤ 22 HRC (235 HB) en toda la pieza (ISO 15156-2)."),
+       iso17945=Nace("aceptable", 22),
+       notas=("Versión NACE del B7 (con tuercas 2HM o 7M): menor resistencia, por eso a igual diámetro admite "
+              "menos precarga.",), fuentes=(F_PERNOS, F_15156)),
+    _m("B16", "ASTM A193 / ASME SA-193 Gr. B16 — espárrago Cr-Mo-V para alta temperatura", "Acero Cr-Mo-V (pernos)",
+       ("crmo",), PERNOS, uns="K14072", astm="ASTM A193 / ASME SA-193 Gr. B16", forma="Barra roscada",
+       T_min_C=-29, T_max_C=593, composicion="C 0,36–0,47 · Cr 0,8–1,15 · Mo 0,5–0,65 · V 0,25–0,35",
+       Rm_MPa=860, Rp_MPa=725, HRC=30, costo=1.6, galling="cs", cavitacion=1, erosion=1,
+       iso15156=Nace("no", nota=_NO_EXP), iso17945=Nace("no"),
+       notas=("Alta temperatura (vapor, refinería) hasta unos 593 °C: el vanadio da resistencia a la relajación.",
+              "Se combina con tuercas A194 Gr. 7 o 4."), fuentes=(F_PERNOS,)),
+    _m("B8M1", "ASTM A193 / ASME SA-193 Gr. B8M Clase 1 — espárrago inoxidable 316 solubilizado",
+       "Inoxidable austenítico (pernos)", ("ss316",), PERNOS, uns="S31600", astm="ASTM A193 Gr. B8M Cl. 1",
+       forma="Barra roscada solubilizada", T_min_C=-196, T_max_C=816, composicion="Cr 16–18 · Ni 10–14 · Mo 2–3",
+       Rm_MPa=515, Rp_MPa=205, HB=190, pren=24, costo=1.8, galling="aus", cavitacion=2, erosion=2,
+       iso15156=AUS_15156, iso17945=AUS_17945,
+       notas=("Pernos corrosión-resistentes, criogenia y alta temperatura; resistencia baja: requiere más o "
+              "mayores pernos para la misma junta.", "Galling alto con tuercas 8M: lubricar con antiagarrotante."),
+       fuentes=(F_PERNOS, F_15156)),
+    _m("B8M2", "ASTM A193 / ASME SA-193 Gr. B8M Clase 2 — espárrago 316 endurecido por deformación",
+       "Inoxidable austenítico (pernos)", ("ss316",), PERNOS, uns="S31600", astm="ASTM A193 Gr. B8M Cl. 2",
+       forma="Barra roscada endurecida en frío", T_min_C=-196, T_max_C=425,
+       composicion="Cr 16–18 · Ni 10–14 · Mo 2–3", Rm_MPa=760, Rp_MPa=550, HRC=30, pren=24, costo=2.0,
+       galling="aus", cavitacion=2, erosion=2,
+       iso15156=Nace("no", nota="Trabajado en frío por encima de 22 HRC: no aceptable si queda expuesto."),
+       iso17945=Nace("no"),
+       notas=("Más resistente que la Clase 1 (la resistencia baja con el diámetro).",
+              "El endurecimiento se pierde por encima de unos 425 °C."), fuentes=(F_PERNOS,)),
+    _m("B8M_CR", "ASTM A193 B8M con recubrimiento de cromo delgado denso (antigalling)",
+       "Inoxidable austenítico + cromo (pernos)", ("ss316",), PERNOS, uns="S31600 + Cr",
+       astm="ASTM A193 Gr. B8M + cromado delgado denso", forma="Barra roscada recubierta", T_min_C=-196,
+       T_max_C=538, composicion="Base 316; capa de cromo de 2–10 µm", Rm_MPa=515, Rp_MPa=205, HB=190, pren=24,
+       costo=2.2, galling="enc", cavitacion=2, erosion=2, iso15156=AUS_15156, iso17945=AUS_17945,
+       notas=("La capa delgada de cromo evita el galling entre espárrago y tuerca de inoxidable.",),
+       fuentes=(F_PERNOS,)),
+    _m("2H", "ASTM A194 / ASME SA-194 Gr. 2H — tuerca de acero al carbono templado", "Acero al carbono (tuercas)",
+       ("cs",), PERNOS, uns="—", astm="ASTM A194 / ASME SA-194 Gr. 2H", forma="Tuerca hexagonal pesada",
+       T_min_C=-48, T_max_C=538, composicion="C ≥ 0,40 · templada y revenida", HB=290, HRC=30, costo=1.0,
+       galling="cs", cavitacion=1, erosion=1, iso15156=Nace("no", nota=_NO_EXP), iso17945=Nace("no"),
+       notas=("Tuerca estándar para espárragos B7.",), fuentes=(F_PERNOS,)),
+    _m("2HM", "ASTM A194 / ASME SA-194 Gr. 2HM — tuerca para servicio agrio (≤ 235 HB)",
+       "Acero al carbono (tuercas)", ("cs",), PERNOS, uns="—", astm="ASTM A194 / ASME SA-194 Gr. 2HM",
+       forma="Tuerca hexagonal pesada", T_min_C=-48, T_max_C=538, composicion="Como 2H, revenida a ≤ 235 HB",
+       HB=235, HRC=22, costo=1.15, galling="cs", cavitacion=1, erosion=1,
+       iso15156=Nace("aceptable", 22, nota="≤ 22 HRC (ISO 15156-2)."), iso17945=Nace("aceptable", 22),
+       notas=("Tuerca NACE para espárragos B7M o 17-4PH H1150D.",), fuentes=(F_PERNOS, F_15156)),
+    _m("G7", "ASTM A194 / ASME SA-194 Gr. 7 — tuerca Cr-Mo templada", "Acero Cr-Mo (tuercas)", ("crmo",), PERNOS,
+       uns="G41400", astm="ASTM A194 / ASME SA-194 Gr. 7", forma="Tuerca hexagonal pesada", T_min_C=-101,
+       T_max_C=593, composicion="AISI 4140 templado y revenido", HB=290, HRC=30, costo=1.2, galling="cs",
+       cavitacion=1, erosion=1, iso15156=Nace("no", nota=_NO_EXP), iso17945=Nace("no"),
+       notas=("Tuerca para B16, A453 660 y aleaciones de alta temperatura o baja temperatura (con impacto).",),
+       fuentes=(F_PERNOS,)),
+    _m("8M", "ASTM A194 / ASME SA-194 Gr. 8M — tuerca de inoxidable 316", "Inoxidable austenítico (tuercas)",
+       ("ss316",), PERNOS, uns="S31600", astm="ASTM A194 / ASME SA-194 Gr. 8M", forma="Tuerca hexagonal pesada",
+       T_min_C=-196, T_max_C=816, composicion="Cr 16–18 · Ni 10–14 · Mo 2–3", HB=190, pren=24, costo=1.8,
+       galling="aus", cavitacion=2, erosion=2, iso15156=AUS_15156, iso17945=AUS_17945,
+       notas=("La variante 8MA se entrega solubilizada (carburos en solución): preferida en servicio agrio.",),
+       fuentes=(F_PERNOS, F_15156)),
+    _m("A2_70", "ISO 3506-1 A2-70 — perno y tuerca de inoxidable 18-8 (304)", "Inoxidable austenítico (pernos)",
+       ("ss304",), PERNOS, uns="S30400", astm="ISO 3506-1 / ISO 3506-2 A2-70", forma="Perno / tuerca trabajado en frío",
+       T_min_C=-196, T_max_C=400, composicion="Cr 17–19 · Ni 8–10 (tipo 304)", Rm_MPa=700, Rp_MPa=450, HRC=25,
+       pren=19, costo=1.4, galling="aus", cavitacion=2, erosion=2,
+       iso15156=Nace("no", nota="Trabajado en frío: no aceptable si queda expuesto."), iso17945=Nace("no"),
+       notas=("Bulonería métrica inoxidable de uso general (ambiente marino moderado, alimentos).",
+              "Galling alto entre perno y tuerca: lubricar con antiagarrotante."), fuentes=(F_PERNOS,)),
+    _m("EN11181", "EN 10269 1.1181 (C35E) — espárrago de acero al carbono", "Acero al carbono (pernos)", ("cs",),
+       PERNOS, uns="—", astm="EN 10269 1.1181 (C35E)", forma="Barra roscada templada y revenida", T_min_C=-10,
+       T_max_C=350, composicion="C 0,32–0,39 · Mn 0,5–0,8", Rm_MPa=550, Rp_MPa=320, HB=170, costo=0.8,
+       galling="cs", cavitacion=1, erosion=1, iso15156=Nace("sin_datos"), iso17945=Nace("sin_datos"),
+       notas=("Norma europea para bulonería de equipos a presión; servicio moderado hasta unos 350 °C.",
+              "Se combina con tuercas 1.0501 (C35)."), fuentes=(F_PERNOS,)),
+    _m("EN10501", "EN 10269 1.0501 (C35) — tuerca de acero al carbono", "Acero al carbono (tuercas)", ("cs",),
+       PERNOS, uns="—", astm="EN 10269 1.0501 (C35)", forma="Tuerca", T_min_C=-10, T_max_C=350,
+       composicion="C 0,32–0,39 · Mn 0,5–0,8", HB=170, costo=0.8, galling="cs", cavitacion=1, erosion=1,
+       iso15156=Nace("sin_datos"), iso17945=Nace("sin_datos"), fuentes=(F_PERNOS,)),
+    _m("EN17709", "EN 10269 1.7709 (21CrMoV5-7) — espárrago Cr-Mo-V", "Acero Cr-Mo-V (pernos)", ("crmo",), PERNOS,
+       uns="—", astm="EN 10269 1.7709 (21CrMoV5-7)", forma="Barra roscada templada y revenida", T_min_C=-40,
+       T_max_C=540, composicion="C 0,17–0,25 · Cr 1,2–1,5 · Mo 0,65–0,8 · V 0,25–0,35", Rm_MPa=800, Rp_MPa=550,
+       HRC=25, costo=1.5, galling="cs", cavitacion=1, erosion=1, iso15156=Nace("no", nota=_NO_EXP),
+       iso17945=Nace("no"),
+       notas=("Equivalente europeo del B16 para alta temperatura; se combina con tuercas 1.7258.",),
+       fuentes=(F_PERNOS,)),
+    _m("EN17258", "EN 10269 1.7258 (24CrMo5) — tuerca Cr-Mo", "Acero Cr-Mo (tuercas)", ("crmo",), PERNOS, uns="—",
+       astm="EN 10269 1.7258 (24CrMo5)", forma="Tuerca templada y revenida", T_min_C=-40, T_max_C=540,
+       composicion="C 0,20–0,28 · Cr 0,9–1,2 · Mo 0,2–0,3", HB=230, costo=1.3, galling="cs", cavitacion=1, erosion=1,
+       iso15156=Nace("no", nota=_NO_EXP), iso17945=Nace("no"), fuentes=(F_PERNOS,)),
+    _m("SAE_G5", "SAE J429 grado 5 — tornillo de cabeza de acero al medio carbono", "Acero al carbono (pernos)",
+       ("cs",), PERNOS, uns="—", astm="SAE J429 Gr. 5", forma="Tornillo de cabeza hexagonal (cap screw)",
+       T_min_C=-29, T_max_C=232, composicion="C 0,28–0,55 · templado y revenido", Rm_MPa=830, Rp_MPa=635, HRC=30,
+       costo=0.7, galling="cs", cavitacion=1, erosion=1, iso15156=Nace("no", nota=_NO_EXP), iso17945=Nace("no"),
+       notas=("Bulonería comercial: válvulas pequeñas de baja presión y servicio general.",
+              "No es un grado para recipientes a presión: confirmar que el fabricante lo admite para el rating."),
+       fuentes=(F_PERNOS,)),
+    _m("CF10SMnN", "ASTM A351 CF10SMnN — inoxidable al Mn-Si-N fundido (tuerca prensaempaques)",
+       "Inoxidable austenítico al Mn-Si", ("ss304",), PERNOS, uns="J92972", astm="ASTM A351 Gr. CF10SMnN",
+       forma="Fundición", T_min_C=-196, T_max_C=425, composicion="Cr 16–18 · Ni 8–9 · Mn 7–9 · Si 3,5–4,5 · N",
+       Rm_MPa=655, Rp_MPa=345, HB=200, pren=20, costo=2.0, galling="n60", cavitacion=5, erosion=4,
+       iso15156=Nace("condicional", 22, 100, 60, azufre=False, nota="Austenítico solubilizado (ISO 15156-3, anexo A)."),
+       iso17945=AUS_17945,
+       notas=("Versión fundida del inoxidable antigalling S21800: tuercas prensaempaques roscadas que no se "
+              "agarrotan contra el bonete o el vástago.",), fuentes=(F_ASTM, F_PRACTICA)),
+]
+MATERIALES.update({m.clave: m for m in _PERNOS})
+# Materiales de internos y vástagos que también se usan como espárragos y tuercas
+for _k in ("N50", "718", "A286", "174_H1150D", "C276", "M400", "A20", "B2", "304", "316"):
+    MATERIALES[_k] = replace(MATERIALES[_k], componentes=MATERIALES[_k].componentes | PERNOS)
+# Componentes que no elige el motor de materiales (se eligen en 1-Sistema); solo para la ficha de la biblioteca
+COMPONENTES_EXTRA = {"pernos": "Pernos, espárragos y tuercas"}
+
 CUERPOS = [k for k, m in MATERIALES.items() if "cuerpo" in m.componentes]
 
 
@@ -759,12 +930,14 @@ def ficha(m: Material) -> list[tuple[str, str]]:
             partes += f" · pH ≥ {n.pH_min:g}"
         return partes + (f". {n.nota}" if n.nota else "")
 
-    usos = ", ".join(COMPONENTES[c] for c in COMPONENTES if c in m.componentes)
+    nombres = {**COMPONENTES, **COMPONENTES_EXTRA}
+    usos = ", ".join(nombres[c] for c in nombres if c in m.componentes)
     filas = [("Designación", m.nombre), ("Familia", m.familia), ("UNS", m.uns or "—"),
              ("Especificación", m.astm or "—"), ("Forma de producto", m.forma or "—"),
              ("Equivalente", m.equivalente or "—"),
              ("Grupo ASME B16.34", (m.grupo + (" (por el forjado equivalente)" if m.grupo_equivalente else ""))
-              if m.grupo else "No incluido en las tablas"),
+              if m.grupo else ("No aplica (pernos y tuercas)" if m.componentes <= PERNOS else
+                               "No incluido en las tablas")),
              ("Temperatura de uso", f"{m.T_min_C:.0f} °C a {m.T_max_C:.0f} °C"),
              ("Composición nominal [%]", m.composicion or "—"),
              ("Resistencia a la tracción", num(m.Rm_MPa, "MPa")), ("Límite de fluencia", num(m.Rp_MPa, "MPa")),

@@ -1,5 +1,5 @@
 {
- "version": "0.13.4",
+ "version": "0.14.0",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -19,6 +19,8 @@
   "ruido": "85",
   "conexion": "Wafer",
   "cierre": "ANSI Clase IV",
+  "pernos_bonete": "Estándar del fabricante",
+  "pernos_prensa": "Estándar del fabricante",
   "tipo_fluido": "Líquido",
   "fluido": "Agua / vapor de agua",
   "composicion_gn": "Metano 90; Etano 5; Propano 2; n-Butano 0,5; Isobutano 0,5; Nitrógeno 1; Dióxido de carbono 1",
@@ -31,7 +33,7 @@
   "trim": "Triple excéntrica · 90°",
   "jaula": "",
   "nivel": "",
-  "sentido": "No aplica",
+  "sentido": "Flujo tiende a abrir (Flow to open)",
   "balance": "Desbalanceado",
   "caracteristica": "Isoporcentual",
   "Cv_reducido": "",

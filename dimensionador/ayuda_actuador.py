@@ -55,9 +55,14 @@ _e("act_tipo", "Tipo de actuador",
    "<li><b>Electrohidráulico</b>: bomba y cilindro hidráulico propios; mucho empuje o par y falla por resorte.</li>"
    "<li><b>Piñón y cremallera</b> y <b>yugo escocés</b>: cuarto de vuelta, solo para rotativas. El primero da "
    "par constante; el segundo da par máximo en los extremos (arranque y asiento) y mínimo en la mitad.</li>"
+   "<li><b>Diafragma y resorte rotativo (con palanca)</b>: solo para rotativas. Es un diafragma y resorte cuyo "
+   "vástago empuja una palanca estriada montada sobre el eje, y así convierte la carrera lineal en un giro de "
+   "90°. Su par varía con el ángulo: máximo a 45° y unos 0,71 del máximo en los extremos. Es muy común en "
+   "mariposas, bolas segmentadas y tapones excéntricos de control.</li>"
    "<li><b>Manual</b>: volante o reductor.</li></ul>"
    "<p>La lista se ajusta a la válvula de 1-Sistema: con globo o ángulo quedan bloqueados piñón y cremallera y yugo "
-   "escocés; con mariposa, bola o tapón excéntrico quedan bloqueados el diafragma y los pistones. Eléctrico, "
+   "escocés y el diafragma con palanca; con mariposa, bola o tapón excéntrico quedan bloqueados el diafragma y los "
+   "pistones de vástago deslizante. Eléctrico, "
    "electrohidráulico y manual sirven para las dos. Las opciones bloqueadas se ven con el motivo al pasar el "
    "mouse.</p>",
    ACT, referencia=REF_F, relacionadas=["act_falla", "act_metodo", "act_tamano"],
@@ -65,7 +70,8 @@ _e("act_tipo", "Tipo de actuador",
            "Define la serie de tamaños, la presión máxima admisible y cómo se obtiene la posición de falla.",
            "Un tipo mal elegido se ve en el resultado: tamaños enormes, aire insuficiente o una falla imposible.",
            "Diafragma: hasta unos 3,4 bar en carcasa. Multiresorte: hasta unos 6 bar. Pistón: hasta unos 10 bar. "
-           "Piñón y cremallera y yugo escocés: solo rotativas. Diafragma y pistones: solo vástago deslizante.",
+           "Piñón y cremallera, yugo escocés y diafragma con palanca: solo rotativas. Diafragma y pistones: solo "
+           "vástago deslizante.",
            "No aplica.", "No aplica.",
            ["Fuerza o par disponible", "Ajuste de banco y resorte", "Señales del posicionador", "Accesorios"],
            ["Use diafragma y resorte en control con ΔP moderada: es simple y a prueba de fallas.",
@@ -321,6 +327,27 @@ _e("act_resorte", "Resorte del actuador",
            "Resorte rígido: más aire.", ["Estabilidad", "Presión requerida", "Carga del vástago"],
            ["Pida al fabricante el resorte con la constante más cercana sin superarla y ajuste el banco."],
            "Ks = (16 − 4) × 69 / 1,125 ≈ 736 lbf/in (129 N/mm)."))
+
+_e("act_palanca", "Factor de la palanca (diafragma rotativo)",
+   "<p>En el diafragma y resorte con palanca, el vástago empuja el extremo de una palanca de largo L calada en el "
+   "eje. La palanca queda perpendicular al vástago a mitad de carrera (45°), así que el brazo efectivo es "
+   "L·cos(θ − 45°): 1 a 45° y 0,707 en 0° y 90°. Para girar 90° la carrera del vástago es 2·L·sen 45° ≈ 1,41·L.</p>"
+   "<p>El resorte se comprime a lo largo de la carrera, de modo que su fuerza va del ajuste de banco inferior al "
+   "superior. El par del actuador en cada ángulo es:</p>"
+   "<p><b>T(θ) = (P − Ps(θ))·A·L·cos(θ − 45°)</b> (aire contra resorte) y <b>T = (Ps(θ) − Pa)·A·L·cos(θ − 45°)</b> "
+   "(resorte).</p>"
+   "<p>N25 elige el menor tamaño de la serie genérica cuyo resorte vence el par de arranque en el asiento y el par "
+   "dinámico en el ángulo del caso más exigente, y cuyo aire vence a la vez el resorte y esos pares, todo con "
+   "margen 1,25.</p>",
+   ACT, formula="T(θ) = (P − Ps(θ))·A·L·cos(θ − 45°)", referencia=REF_F,
+   relacionadas=["act_tipo", "act_banco", "act_resorte"],
+   guia=_g("Es cuánto del largo de la palanca se aprovecha como brazo en cada ángulo.",
+           "Fija el par disponible en el asiento (0°), en la zona de par dinámico y al final del giro.",
+           "En los extremos el par cae al 71 %: el asiento y la apertura total son los puntos críticos.",
+           "Datos del fabricante: área efectiva, largo de palanca, ajuste de banco y tabla de pares por ángulo.",
+           "No aplica.", "No aplica.", ["Par disponible", "Ajuste de banco", "Presión de aire requerida"],
+           ["En modo MANUAL cargue el par de aire y del resorte del fabricante en el ángulo más desfavorable."],
+           "A = 54 in², L = 2,25 in, P − Ps = 20 psi en 0°: T = 20 × 54 × 2,25 × 0,707 ≈ 1.718 lbf·in."))
 
 _e("act_P_req", "Presión de aire requerida",
    "<p>Presión que necesita el actuador para cumplir en el extremo más exigente: con falla cierra, Pbu más la "

@@ -53,7 +53,9 @@ REF_ACT = "Práctica de la industria de válvulas de control (dimensionamiento d
 
 TIPOS = ["Diafragma y resorte", "Multiresorte y diafragma", "Pistón doble acción con resorte",
          "Pistón doble acción sin resorte", "Pistón retorno por resorte", "Eléctrico", "Electrohidráulico",
-         "Piñón y cremallera (Rack and pinion)", "Yugo escocés", "Manual"]
+         "Piñón y cremallera (Rack and pinion)", "Yugo escocés", "Diafragma y resorte rotativo (con palanca)", "Manual"]
+# v0.14.0: diafragma y resorte cuyo vástago mueve una palanca estriada sobre el eje (carrera lineal → giro de 90°)
+PALANCA = "Diafragma y resorte rotativo (con palanca)"
 FALLAS = ["Cierra (FC)", "Abre (FO)", "Última posición (FL)"]
 MODOS_ACT = ["AUTOMÁTICO", "MANUAL"]
 FLUJOS = ["Up", "Down", "Unidireccional", "Bidireccional"]
@@ -61,7 +63,7 @@ FC, FO, FL = FALLAS
 
 # Concordancia actuador / válvula: los de cuarto de vuelta solo mueven ejes rotativos y los de vástago
 # deslizante (diafragma, pistones) solo vástagos; eléctrico, electrohidráulico y manual existen en las dos versiones.
-TIPOS_ROTATIVOS = ("Piñón y cremallera (Rack and pinion)", "Yugo escocés")
+TIPOS_ROTATIVOS = ("Piñón y cremallera (Rack and pinion)", "Yugo escocés", PALANCA)
 TIPOS_LINEALES = ("Diafragma y resorte", "Multiresorte y diafragma", "Pistón doble acción con resorte",
                   "Pistón doble acción sin resorte", "Pistón retorno por resorte")
 FLUJOS_LINEALES = ("Up", "Down")
@@ -72,7 +74,8 @@ def tipos_bloqueados(rotativa: bool) -> dict[str, str]:
     """Tipos de actuador que no corresponden a la válvula, con el motivo."""
     if rotativa:
         return {t: "actuador de vástago deslizante; la válvula elegida es rotativa" for t in TIPOS_LINEALES}
-    return {t: "actuador de cuarto de vuelta; la válvula elegida es de vástago deslizante" for t in TIPOS_ROTATIVOS}
+    return {t: ("actuador de cuarto de vuelta" if t != PALANCA else "actuador rotativo (la palanca gira el eje)")
+            + "; la válvula elegida es de vástago deslizante" for t in TIPOS_ROTATIVOS}
 
 
 def _trim_cierra(trim: str) -> bool:
@@ -495,6 +498,37 @@ YUGO = [Tamano(f"Y-{i + 1:02d}", 0, P_max_psig=150, brazo_in=t) for i, t in enum
 ELEC_LIN_KN = (0.6, 1, 1.5, 2.5, 4, 6, 10, 15, 25, 40, 60, 100, 160, 250)
 ELEC_ROT_NM = (35, 60, 100, 150, 250, 400, 600, 1000, 1500, 2500, 4000, 6000, 10000, 16000, 25000, 40000)
 VOLANTES_MM = (150, 200, 250, 300, 400, 500, 600, 700, 800)
+
+
+# Diafragma y resorte con palanca: área efectiva [in²], largo de la palanca [in] y presión máxima de la carcasa
+# [psig]. La palanca queda perpendicular al vástago a mitad de carrera: carrera = 2·L·sen 45° para 90°.
+@dataclass(frozen=True)
+class TamanoPalanca:
+    nombre: str
+    area_in2: float
+    palanca_in: float
+    P_max_psig: float
+
+    @property
+    def carrera_in(self) -> float:
+        return 2 * self.palanca_in * math.sin(math.radians(45))
+
+
+DIAFRAGMA_PALANCA = [TamanoPalanca("DP-033", 33, 1.75, 50), TamanoPalanca("DP-054", 54, 2.25, 50),
+                     TamanoPalanca("DP-069", 69, 2.75, 50), TamanoPalanca("DP-105", 105, 3.25, 50),
+                     TamanoPalanca("DP-156", 156, 4.0, 50), TamanoPalanca("DP-220", 220, 5.0, 40),
+                     TamanoPalanca("DP-300", 300, 6.0, 40), TamanoPalanca("DP-450", 450, 7.0, 40)]
+
+
+def par_palanca(theta: float) -> float:
+    """Factor de par de la palanca: brazo efectivo / largo = cos(θ − 45°) (0,707 en los extremos, 1 a 45°)."""
+    return math.cos(math.radians(min(max(theta, 0.0), 90.0) - 45))
+
+
+def carrera_palanca(theta: float) -> float:
+    """Fracción de la carrera del vástago a θ grados (0 a 90°)."""
+    s45 = math.sin(math.radians(45))
+    return (math.sin(math.radians(min(max(theta, 0.0), 90.0) - 45)) + s45) / (2 * s45)
 
 
 def par_yugo(theta: float) -> float:
@@ -1024,6 +1058,18 @@ def pares_rotativos(sv: Servicio, act: DatosActuador):
     return f, TB, TD, caso_TD
 
 
+def angulo_par_dinamico(sv: Servicio) -> float:
+    """Ángulo de apertura [°] del caso con mayor par dinámico (70° si no hay casos)."""
+    f = factores_par(sv.cuerpo, sv.nps, sv.blando)
+    rot = sv.rotacion or 90.0
+    mejor, ang = -1.0, 70.0
+    for _n_, h, _dp, dpef in sv.casos:
+        td = f.C_en(h * rot) * dpef
+        if td > mejor:
+            mejor, ang = td, h * rot
+    return ang
+
+
 def _rotativo(r: ResultadoActuador, sv: Servicio, act: DatosActuador):
     f, TB, TD, caso = pares_rotativos(sv, act)
     req_b = TB * MARGEN_ROT
@@ -1052,7 +1098,86 @@ def _rotativo(r: ResultadoActuador, sv: Servicio, act: DatosActuador):
     if tipo == "Manual":
         _manual(r, act, r.requerido, True)
         return
+    if tipo == PALANCA:
+        _palanca(r, act, TB, TD, pmin, pmax, angulo_par_dinamico(sv))
+        return
     _cuarto_vuelta(r, act, TB, TD, pmin, pmax, tipo == "Yugo escocés", rot)  # los lineales se bloquean antes
+
+
+def _palanca(r, act, TB, TD, pmin, pmax, ang_d: float):
+    """Diafragma y resorte con palanca: T(θ) = (P − Ps(θ))·A·L·cos(θ − 45°); el resorte varía con la carrera."""
+    req_b, req_d = TB * MARGEN_ROT, TD * MARGEN_ROT
+    fo = act.falla == FO
+    Pa = _pa(act)
+    f0, fd = par_palanca(0.0), par_palanca(ang_d)
+    xd = carrera_palanca(ang_d)
+    xs = 1 - xd if fo else xd          # compresión del resorte a θd, medida desde la posición de falla
+    elegido = None
+    for t in DIAFRAGMA_PALANCA:
+        Pd = min(pmin, t.P_max_psig)
+        K = t.area_in2 * t.palanca_in      # lbf·in por psi
+        span = max(3.0, Pd / 3)
+        if fo:   # el resorte abre (falla a 90°, más comprimido en 0°); el aire cierra y asienta
+            Pbl = max(P_BANCO_MIN, req_b / (K * f0) + Pa - span, req_d / (K * fd) + Pa - span * xs)
+        else:    # el resorte cierra y asienta (falla a 0°); el aire abre
+            Pbl = max(P_BANCO_MIN, req_b / (K * f0) + Pa, req_d / (K * fd) + Pa - span * xs)
+        Pbl = math.ceil(Pbl * 2) / 2
+        Pbu = math.ceil((Pbl + span) * 2) / 2
+        Ps_d = Pbl + (Pbu - Pbl) * xs
+        Ps0 = Pbu if fo else Pbl
+        P_req = max(Ps0 + req_b / (K * f0), Ps_d + req_d / (K * fd), Pbu)
+        if P_req <= Pd + 1e-9:
+            elegido = (t, Pd, K, Pbl, Pbu, Ps_d, P_req)
+            break
+    if elegido is None:
+        r.ok = False
+        r.seleccion = f"{PALANCA}: ningún tamaño de la serie genérica alcanza"
+        r.alertas.append(Alerta("act_no_alcanza", Severidad.CRITICA, "El actuador no alcanza el par requerido",
+                                f"Ningún diafragma y resorte con palanca de la serie genérica da "
+                                f"{_Nm(max(req_b, req_d))} con aire mínimo de {_psi(pmin)}.",
+                                remedios=["Subir la presión mínima del aire.", "Usar piñón y cremallera, yugo "
+                                          "escocés o un actuador electrohidráulico."], referencia=REF_ACT))
+        return
+    t, Pd, K, Pbl, Pbu, Ps_d, P_req = elegido
+    r.P_banco, r.P_req_psig, r.area_in2, r.P_disp_psig = (Pbl, Pbu), P_req, t.area_in2, Pd
+    r.resorte = True
+    r.seleccion = (f"{PALANCA} {t.nombre}: área efectiva {_area(t.area_in2)}, palanca {_in(t.palanca_in)}, "
+                   f"carrera {_in(t.carrera_in)} para 90°")
+    Ps0 = Pbu if fo else Pbl               # resorte en la posición cerrada (0°)
+    T_res0 = (Ps0 - Pa) * K * f0
+    T_resd = (Ps_d - Pa) * K * fd
+    T_aire0 = (Pd - Ps0) * K * f0
+    T_aired = (Pd - Ps_d) * K * fd
+    r.filas += [("Tamaño (serie genérica)", r.seleccion, "act_tamano"),
+                ("Acción del actuador", "Aire para cerrar (resorte abre)" if fo else
+                 "Aire para abrir (resorte cierra)", "act_falla"),
+                ("Ajuste de banco (bench set)", f"{_n(Pbl, 1)} – {_n(Pbu, 1)} psig "
+                 f"({_n(Pbl / 14.5038, 2)} – {_n(Pbu / 14.5038, 2)} bar g)", "act_banco"),
+                ("Factor de la palanca", f"{_n(f0, 3)} en 0° y 90°, {_n(fd, 3)} a {_n(ang_d, 0)}°, 1 a 45°",
+                 "act_palanca"),
+                ("Par del resorte en el asiento (0°)" if not fo else "Par del resorte para abrir (0°)",
+                 _Nm(T_res0), "act_resorte"),
+                (f"Par del resorte a {_n(ang_d, 0)}° (par dinámico)", _Nm(T_resd), "act_resorte"),
+                ("Par de aire menos resorte en 0° / a " + f"{_n(ang_d, 0)}°", f"{_Nm(T_aire0)} / {_Nm(T_aired)}",
+                 "act_empuje"),
+                ("Presión de aire requerida", _psi(P_req), "act_P_req"),
+                ("Margen de presión con aire mínimo", _psi(Pd - P_req), "act_P_req")]
+    r.pasos += [("Factor de la palanca", "f(θ) = cos(θ − 45°)", f"{_n(f0, 3)} (0°) · {_n(fd, 3)} ({_n(ang_d, 0)}°)"),
+                ("Par del actuador", "T(θ) = (P − Ps(θ))·A·L·f(θ); resorte T = (Ps(θ) − Pa)·A·L·f(θ)",
+                 f"A·L = {_n(K, 0)} lbf·in/psi"),
+                ("Ajuste de banco", "Pbl, Pbu: el resorte vence TB y TD con margen 1,25",
+                 f"{_n(Pbl, 1)} – {_n(Pbu, 1)} psig"),
+                ("Presión requerida", "P = máx(Ps(0) + TB·m/(A·L·f(0)), Ps(θd) + TD·m/(A·L·f(θd)))", _psi(P_req))]
+    if act.falla == FL:
+        r.alertas.append(Alerta(
+            "act_fl_resorte", Severidad.ADVERTENCIA, "Última posición con actuador de resorte",
+            "Un diafragma y resorte con palanca vuelve a la posición del resorte al perder aire. Para mantener la "
+            "última posición se necesita una válvula de bloqueo neumático (lock-up). Se dimensionó como falla "
+            "cierra.", remedios=["Declarar la válvula de bloqueo neumático en 6-Accesorios."], referencia=REF_ACT))
+    _verif_aire(r, pmin, pmax, P_req, t.P_max_psig, act.regulado)
+    if act.volante:
+        r.filas.append(("Mando manual", f"Reductor de volante para {_Nm(max(req_b, req_d))}", "act_volante"))
+        _volante(r, max(req_b, req_d))
 
 
 def _cuarto_vuelta(r, act, TB, TD, pmin, pmax, yugo: bool, rot: float):
@@ -1302,7 +1427,7 @@ def evaluar_actuador(sv: Servicio, act: DatosActuador) -> ResultadoActuador:
     r = ResultadoActuador(act.tipo, act.falla, sv.rotativa)
     r.neumatico = act.tipo not in ("Eléctrico", "Electrohidráulico", "Manual")
     r.resorte = act.tipo in ("Diafragma y resorte", "Multiresorte y diafragma", "Pistón doble acción con resorte",
-                             "Pistón retorno por resorte")
+                             "Pistón retorno por resorte", PALANCA)
     r.doble_efecto = act.tipo in ("Pistón doble acción con resorte", "Pistón doble acción sin resorte")
     pmin, pmax = _aire(act)
     if r.neumatico and pmin is None:

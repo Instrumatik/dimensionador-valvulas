@@ -13,9 +13,9 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QSplitter, QTabWidget, QTextBrowser, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
-from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, propiedades, trims as T, tuberias, unidades as U
-from ..estilos import (CLAVES_ANTERIORES, CUERPOS, ESTILOS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES, SENTIDOS,
-                       NOMBRE_GEOMETRIA, TAMANOS, clave_de_geometria, clave_trim, factores, geometria_sentido,
+from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, pernos as PE, propiedades, trims as T, tuberias, unidades as U
+from ..estilos import (CLAVES_ANTERIORES, CUERPOS, ESTILOS, EXCENTRICAS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES,
+                       SENTIDOS, SENTIDOS_ROT, NOMBRE_GEOMETRIA, TAMANOS, clave_de_geometria, clave_trim, factores, geometria_sentido,
                        geometrias, nombre_geometria, sentidos)
 from ..geometria import fraccion_in
 from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
@@ -898,6 +898,22 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_cierre.addItems(CIERRES)
         self.cb_cierre.setCurrentText("ANSI Clase IV")
         self._fila(grid, r, "Clase de cierre (shutoff)", self.cb_cierre, "clase_cierre"); r += 1
+        # v0.14.0: materiales de pernos y tuercas (cuerpo-bonete) y de la brida prensaempaques
+        self.cb_pernos = {}
+        for clave, etiqueta, tabla in (("pernos_bonete", "Material pernos y tuercas cuerpo a bonete", PE.CUERPO_BONETE),
+                                       ("pernos_prensa", "Material espárragos y tuercas de brida prensaempaques",
+                                        PE.PRENSAEMPAQUES)):
+            cb = self._registrar(clave, Combo())
+            for o in tabla.values():
+                cb.addItem(o.nombre, o.clave)
+                cb.setItemData(cb.count() - 1, o.detalle, Qt.ToolTipRole)
+            cb.currentIndexChanged.connect(lambda _=0, c=cb: c.setToolTip(c.currentData(Qt.ToolTipRole) or ""))
+            self.cb_pernos[clave] = cb
+            ancho = max(self._ancho_celda(), max(cb.fontMetrics().horizontalAdvance(o.nombre) for o in tabla.values())
+                        + 40)
+            self._fila(grid, r, etiqueta, cb, clave, ancho=ancho)
+            grid.removeWidget(cb)       # ocupa también las columnas de unidad y valor, sin ensancharlas
+            grid.addWidget(cb, r, 2, 1, 3, Qt.AlignLeft); r += 1
         grid.setColumnStretch(5, 1)
         lay.addWidget(g)
         nota = QLabel("Estos datos definen los diámetros interiores de tubería, los trims compatibles, el límite "
@@ -1435,15 +1451,21 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         d = el.elemento if el else self.cb_trim.currentData()
         previo = self.cb_sentido.currentData()
         ops = T.sentidos(c, d) if desl else sentidos(c, d)
+        excentrica = c in EXCENTRICAS
+        if excentrica:      # v0.14.0: sentido de instalación informativo (Flow to open / close)
+            ops = ["abre", "cierra"]
         self.cb_sentido.blockSignals(True)
         self.cb_sentido.clear()
         for sd in ops:
-            self.cb_sentido.addItem(SENTIDOS[sd], sd)
+            self.cb_sentido.addItem((SENTIDOS_ROT if excentrica else SENTIDOS)[sd], sd)
         i = self.cb_sentido.findData(previo)
         self.cb_sentido.setCurrentIndex(max(0, i))
         self.cb_sentido.setEnabled(len(ops) > 1)
         self.cb_sentido.setToolTip("Sentido en que el flujo empuja al obturador. Es el mismo dato que «Flow» de la "
-                                   "solapa 4, que lo toma de aquí." if ops != [""] else
+                                   "solapa 4, que lo toma de aquí." if not excentrica and ops != [""] else
+                                   "Sentido de instalación de la mariposa excéntrica (Flow to open / Flow to close). "
+                                   "Es un dato informativo para la hoja de datos: no cambia el Cv, la cavitación ni "
+                                   "el ruido. Confirme el sentido preferido con el fabricante." if excentrica else
                                    "En esta válvula el sentido del flujo no cambia los factores del trim.")
         self.cb_sentido.blockSignals(False)
         k = self.trim_clave()
@@ -1834,7 +1856,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             nps_entrada=self.cb_nps["entrada"].currentData(), nps_salida=self.cb_nps["salida"].currentData(),
             sch_entrada=self.cb_sch["entrada"].currentText(), sch_salida=self.cb_sch["salida"].currentText(),
             ruido_permitido=self._float(self.ed_ruido, "ruido permitido"), conexion=self.cb_conexion.currentText(),
-            P_diseno=self.f_Pd.valor_base(0), T_diseno=self.f_Td.valor_base(0), cierre=self.cb_cierre.currentText())
+            P_diseno=self.f_Pd.valor_base(0), T_diseno=self.f_Td.valor_base(0), cierre=self.cb_cierre.currentText(),
+            pernos_bonete=self.cb_pernos["pernos_bonete"].currentData(),
+            pernos_prensa=self.cb_pernos["pernos_prensa"].currentData())
         F = self.filas
         t = self.tipo()
         activos = self._activos()
@@ -1883,14 +1907,19 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                                                  self.cb_caract.currentData(), fluido, cierre,
                                                  balanceado=self._balanceado(), **self._geo_cert(),
                                                  anticav=self.trim_especial()[0], guia=self._guia(),
+                                                 sentido_instalacion=self._sentido_instalacion(),
                                                  **self._datos_fluido())
         ruido_g = RuidoAerodinamico(self.trim_especial()[1], self.f_Rn.valor_base(0) or 1.0,
                                     self.f_area.valor_base(0) if self._area_manual() else None)
         dim = Dimensionamiento(casos, None, self.trim_clave(), self.cb_tamano.currentData(),
                                self.cb_caract.currentData(), "Agua / vapor de agua" if t == "steam" else fluido,
                                cierre, tipo=t, ruido=ruido_g, balanceado=self._balanceado(), **self._geo_cert(),
-                               composicion=self._composicion(), guia=self._guia(), **self._datos_fluido())
+                               composicion=self._composicion(), guia=self._guia(),
+                               sentido_instalacion=self._sentido_instalacion(), **self._datos_fluido())
         return ident, inst, dim
+
+    def _sentido_instalacion(self) -> str:
+        return (self.cb_sentido.currentData() or "") if self.cb_cuerpo.currentData() in EXCENTRICAS else ""
 
     def _area_manual(self) -> bool:
         return self.cb_area_modo.currentData() == "manual"

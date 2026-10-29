@@ -68,6 +68,8 @@ class Instalacion:
     P_diseno: float | None = None     # kPa abs
     T_diseno: float | None = None     # K
     cierre: str = "ANSI Clase IV"
+    pernos_bonete: str = "estandar"   # clave de pernos.CUERPO_BONETE (v0.14.0)
+    pernos_prensa: str = "estandar"   # clave de pernos.PRENSAEMPAQUES
 
 
 @dataclass
@@ -127,6 +129,7 @@ class Dimensionamiento:
     anticav: str = "estandar"          # clave de anticavitacion.TRIMS (solo líquidos)
     composicion: dict | None = None    # % molar del gas natural (None = típica, propiedades.GN_TIPICO)
     guia: str = ""                     # guía del obturador (trims.GUIAS); "" = la habitual del obturador
+    sentido_instalacion: str = ""      # mariposas excéntricas: «abre» / «cierra» (Flow to open / close), informativo
 
     def __post_init__(self):
         # v0.12: la doble guía superior era un estilo de trim; desde v0.13.0 es una guía del obturador
@@ -145,8 +148,13 @@ class Dimensionamiento:
 
     @property
     def sentido(self) -> str:
-        """«abre», «cierra» o "" (no aplica), según el trim elegido."""
-        return geometria_sentido(self.trim)[1]
+        """«abre», «cierra» o "" (no aplica), según el trim elegido o el sentido de instalación informativo."""
+        return geometria_sentido(self.trim)[1] or self.sentido_instalacion
+
+    @property
+    def texto_sentido(self) -> str:
+        from .estilos import SENTIDOS, SENTIDOS_ROT
+        return (SENTIDOS_ROT if not geometria_sentido(self.trim)[1] else SENTIDOS)[self.sentido]
 
 
 def estilo_efectivo(dim: Dimensionamiento, rotativa: bool):
@@ -559,6 +567,7 @@ def _calcular(ident: Identificacion, inst: Instalacion, dim: Dimensionamiento, m
     T_d = inst.T_diseno or max(T_ops)
     mres = _materiales(mat, inst, dim, salidas, P_d, T_d)
     generales, rating_adm = _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2, mres)
+    generales += _alertas_pernos(inst, T_d, min(T_ops), mres)
     alertas = [("General", a) for a in generales] + alertas
     if mres is not None:
         alertas += [("Materiales", a) for a in mres.todas_las_alertas()]
@@ -654,6 +663,14 @@ def _carreras(res: Resultado):
         h = max(0.0, min(s["apertura"], 1.0))
         s["carrera_mm"] = None if geo.rotativa else h * geo.carrera_mm
         s["rotacion"] = h * geo.rotacion_grados if geo.rotativa else None
+
+
+def _alertas_pernos(inst: Instalacion, T_d: float, T_min: float, mres) -> list:
+    """Pernos cuerpo-bonete y de la brida prensaempaques: temperatura y servicio agrio (v0.14.0)."""
+    from . import pernos as PE
+    T_lo = mres.ctx.T_min_C if mres is not None else T_min - 273.15
+    return PE.alertas(PE.opcion(PE.CUERPO_BONETE, inst.pernos_bonete), PE.opcion(PE.PRENSAEMPAQUES, inst.pernos_prensa),
+                      T_d - 273.15, T_lo, bool(mres is not None and mres.agrio))
 
 
 def _materiales(mat, inst, dim, salidas, P_d, T_d):
@@ -1219,6 +1236,7 @@ def _calcular_compresible(ident: Identificacion, inst: Instalacion, dim: Dimensi
     T_d = inst.T_diseno or max(T_ops)
     mres = _materiales(mat, inst, dim, salidas, P_d, T_d)
     generales, rating_adm = _verificaciones(inst, cuerpo, inf, dim, salidas, P_d, T_d, D1, D2, mres)
+    generales += _alertas_pernos(inst, T_d, min(T_ops), mres)
     alertas = [("General", a) for a in generales] + alertas
     if mres is not None:
         alertas += [("Materiales", a) for a in mres.todas_las_alertas()]

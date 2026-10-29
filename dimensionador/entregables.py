@@ -420,13 +420,14 @@ def hoja_datos(res: Resultado, pr: Presentacion) -> Documento:
         ["Presión de diseño", pr.vu(res.P_diseno, "presion")],
         ["Temperatura de diseño", pr.vu(res.T_diseno, "temperatura")],
         *_filas_material_cuerpo(res),
+        *_filas_pernos(res),
         ["Ruido admisible", f"{fmt(i.ruido_permitido, 3)} dB(A)"],
     ], anchos=[35, 65])
     doc.h2("Internos")
     rec = dict(res.recomendaciones)
     doc.tabla([
         *_filas_trim(res),
-        ["Sentido de flujo", _SENTIDOS[d.sentido]],
+        ["Sentido de flujo", d.texto_sentido],
         ["Balance del obturador", BALANCE[d.balanceado]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
         *_filas_cv(res),
@@ -793,13 +794,14 @@ def hoja_datos_compresible(res: Resultado, pr: Presentacion) -> Documento:
         ["Presión de diseño", pr.vu(res.P_diseno, "presion")],
         ["Temperatura de diseño", pr.vu(res.T_diseno, "temperatura")],
         *_filas_material_cuerpo(res),
+        *_filas_pernos(res),
         ["Ruido admisible", f"{fmt(i.ruido_permitido, 3)} dB(A)"],
     ], anchos=[35, 65])
     doc.h2("Internos")
     rec = dict(res.recomendaciones)
     doc.tabla([
         *_filas_trim(res),
-        ["Sentido de flujo", _SENTIDOS[d.sentido]],
+        ["Sentido de flujo", d.texto_sentido],
         ["Balance del obturador", BALANCE[d.balanceado]],
         ["Característica inherente", CARACTERISTICA.get(d.caracteristica, d.caracteristica)],
         *_filas_cv(res),
@@ -841,6 +843,18 @@ def _comp_mat(res: Resultado, *claves) -> list[list[str]]:
             if rc.elegido.astm and rc.elegido.astm not in t:
                 t += f" · {rc.elegido.astm}"
         filas.append([f"Material {rc.nombre.lower()}", t])
+    return filas
+
+
+def _filas_pernos(res: Resultado) -> list[list[str]]:
+    """Pernos y tuercas cuerpo-bonete y de la brida prensaempaques (1-Sistema, v0.14.0)."""
+    from . import pernos as PE
+    filas = []
+    for et, tabla, clave in (("Pernos y tuercas cuerpo-bonete", PE.CUERPO_BONETE, res.inst.pernos_bonete),
+                             ("Espárragos y tuercas de la brida prensaempaques", PE.PRENSAEMPAQUES,
+                              res.inst.pernos_prensa)):
+        o = PE.opcion(tabla, clave)
+        filas.append([et, o.nombre + (f". {o.nota}" if o.nota else "")])
     return filas
 
 
@@ -936,6 +950,8 @@ def _seccion_materiales_informe(doc: Documento, res: Resultado, n: int):
                    ["Motivo del bonete", e.bonete_motivo]], anchos=[25, 75])
         if e.notas:
             doc.lista(e.notas)
+    doc.h3("Pernos y tuercas")
+    doc.tabla(_filas_pernos(res), anchos=[35, 65])
     if m.notas:
         doc.lista(m.notas)
     doc.nota("Preselección de ingeniería: no reemplaza la aprobación del fabricante ni del especialista en "

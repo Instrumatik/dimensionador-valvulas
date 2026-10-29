@@ -374,6 +374,7 @@ class SolapaEquipo:
                "Electrohidráulico": "Gran empuje o par con falla por resorte hidráulico.",
                "Piñón y cremallera (Rack and pinion)": "Cuarto de vuelta, par constante en todo el recorrido.",
                "Yugo escocés": "Cuarto de vuelta, par máximo en los extremos (arranque y asiento).",
+               A.PALANCA: "Rotativo: el vástago del diafragma gira el eje con una palanca; par máximo a 45°.",
                "Manual": "Volante o reductor; sin posición de falla."}[t]
         self.lbl_act_tipo.setText(txt)
 

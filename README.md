@@ -2,7 +2,7 @@
 
 Programa independiente de marcas para dimensionar y verificar válvulas de control
 según IEC 60534-2-1 / ANSI/ISA-75.01.01, con cavitación y ruido IEC 60534-8-4,
-tuberías ASME B36.10M / B36.19M (1/8" a 80", con el área de salida de la válvula automática), rating ASME B16.34 con el material del cuerpo, selección de materiales y clases de
+tuberías ASME B36.10M / B36.19M (1/8" a 80", con el área de salida de la válvula automática), rating ASME B16.34 con el material del cuerpo, selección de materiales (con pernos y tuercas cuerpo-bonete y prensaempaques) y clases de
 cierre ANSI/FCI 70-2. La versión 2 trabaja **solo con líquidos**; el núcleo de
 cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
 [ARQUITECTURA.md](ARQUITECTURA.md).
