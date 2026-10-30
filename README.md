@@ -72,6 +72,15 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
 las listas y temas de ayuda y lleva a cada uno. El selector de unidades (SI / Imperial)
 cambia todo el programa, incluidos los documentos; cada dato además tiene su propia unidad.
 
+**Herramientas rápidas** (v0.15.0): bajo el buscador hay una fila de botones con iconos (también en el menú
+*Herramientas*) que abren, en ventanas aparte que no cambian el proyecto, el conversor de unidades (con Cv / Kv y
+la altitud del sitio), las propiedades de fluidos en un punto y en saturación (tabla de vapor), las tablas de
+tubería ASME B36.10M / B36.19M con velocidad y diámetro sugerido, la tabla presión-temperatura ASME B16.34 con la
+clase mínima, la biblioteca de materiales, calculadoras (ΔP de bloqueo de líquidos y gases, caudal de gas normal,
+real y másico, velocidad, Reynolds y Mach, presión atmosférica) y una lista editable de enlaces de referencia.
+Cada tabla se copia a Excel con un clic. Los últimos tres botones llevan al WhatsApp, al LinkedIn y a la página
+web de INSTRUMATIK (`dimensionador/contacto.py`).
+
 ## Uso (versión de desarrollo)
 
 ```

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QSplitter, QTabWidget, QTextBrowser, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
-from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, entregables as E, fluido_servicio as FS, modelos, pernos as PE, propiedades, trims as T, tuberias, unidades as U
+from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, contacto, entregables as E, fluido_servicio as FS, modelos, pernos as PE, propiedades, trims as T, tuberias, unidades as U
 from ..estilos import (CLAVES_ANTERIORES, CUERPOS, ESTILOS, EXCENTRICAS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES,
                        SENTIDOS, SENTIDOS_ROT, NOMBRE_GEOMETRIA, TAMANOS, clave_de_geometria, clave_trim, factores, geometria_sentido,
                        geometrias, nombre_geometria, sentidos)
@@ -22,6 +22,8 @@ from ..iec60534_2_1 import RHO_AGUA_15C, CapacidadInsuficiente
 from ..modelos import ErrorDatos, Severidad
 from . import botones
 from .buscador import Buscador
+from . import iconos
+from .herramientas import HERRAMIENTAS, BarraHerramientas, abrir_url
 from .solapa_actuador import SolapaEquipo, _bloquear_items
 from .solapa_materiales import SolapaMateriales
 from ..proyecto import (CIERRES, CONEXIONES, RATINGS, CasoCierre, CasoGas, CasoLiquido, Dimensionamiento,
@@ -664,7 +666,13 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         der.addWidget(self.cb_sistema)
         der.addSpacing(12)
         der.addWidget(self.btn_calc_cab)
-        h.addLayout(der)
+        # Debajo del buscador, la barra de herramientas rápidas (iconos sin texto, alineados a la derecha)
+        col = QVBoxLayout()
+        col.setSpacing(6)
+        col.addLayout(der)
+        self.barra_herramientas = BarraHerramientas(self)
+        col.addWidget(self.barra_herramientas)
+        h.addLayout(col)
         return f
 
     # ------------------------------------------------------------------ menú
@@ -695,6 +703,14 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self._accion(ent, "Selección de trim y manual (PDF)…", self.exportar_manual_trim)
         m.addSeparator()
         self._accion(m, "Salir", self.close, QKeySequence.Quit)
+        mh = mb.addMenu("&Herramientas")
+        for clave, titulo in HERRAMIENTAS:
+            a = self._accion(mh, titulo + "…", lambda _=False, c=clave: self.barra_herramientas.abrir(c))
+            a.setIcon(iconos.icono(clave, "#0d3b66"))
+        mh.addSeparator()
+        for clave, titulo, url in contacto.DESTINOS:
+            a = self._accion(mh, titulo, lambda _=False, u=url: abrir_url(u(), self))
+            a.setIcon(iconos.icono(clave, "#0d3b66"))
         mu = mb.addMenu("&Unidades")
         for s, t in (("SI", "Sistema Internacional (SI)"), ("Imperial", "Sistema imperial")):
             self._accion(mu, t, lambda _=False, s=s: self.aplicar_sistema(s))

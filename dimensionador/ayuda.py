@@ -42,6 +42,31 @@ _e("sistema_unidades", "Sistema de unidades",
    "mm, de modo que el resultado no depende de las unidades elegidas.</p>",
    relacionadas=["presion_abs_man", "kv_cv"], categoria="Conceptos")
 
+_e("herramientas", "Herramientas rápidas (barra del encabezado)",
+   "<p>Los botones chicos bajo el buscador abren herramientas de consulta en ventanas aparte, que se "
+   "pueden dejar abiertas mientras se trabaja. <b>No cambian el proyecto</b>: sirven para buscar un dato "
+   "sin salir del programa. Están también en el menú <b>Herramientas</b>.</p><ul>"
+   "<li><b>Conversor de unidades</b>: presión absoluta y manométrica (con la altitud del sitio), "
+   "temperatura, caudales, Cv y Kv, densidad, viscosidad, longitudes, fuerza y par.</li>"
+   "<li><b>Propiedades de fluidos</b>: densidad, viscosidad, Z, cp, cv, κ, velocidad del sonido, "
+   "entalpía, presión de vapor y saturación a la presión y temperatura indicadas; para el agua es la tabla "
+   "de vapor (IAPWS-95). Es la misma biblioteca que usa el cálculo de la válvula.</li>"
+   "<li><b>Tablas de tubería</b>: diámetro exterior, espesor, diámetro interior, área y peso de cada "
+   "cédula (ASME B36.10M y B36.19M), velocidad del caudal y el menor diámetro para una velocidad "
+   "máxima.</li>"
+   "<li><b>Presión-temperatura por clase</b>: la tabla ASME B16.34 de cada grupo de materiales y la clase "
+   "mínima para una condición de diseño.</li>"
+   "<li><b>Biblioteca de materiales</b>: la misma de la solapa 3-Materiales.</li>"
+   "<li><b>Calculadoras</b>: ΔP de bloqueo de líquidos y gases, caudal de gas normal a real y másico, "
+   "velocidad, Reynolds y Mach, presión atmosférica según la altitud.</li>"
+   "<li><b>Enlaces de referencia</b>: lista editable de páginas que se abren en el navegador (precios de "
+   "metales, recargos por aleación, normas). Se guarda en su equipo.</li></ul>"
+   "<p>Los últimos botones, separados por una línea, llevan al WhatsApp, al LinkedIn y a la página web de "
+   "INSTRUMATIK. El mensaje de WhatsApp sale escrito con un código que identifica que la consulta viene "
+   "del programa.</p><p>Cada tabla tiene «Copiar tabla» para pegarla en Excel o en un informe.</p>",
+   referencia="ASME B36.10M / B36.19M; ASME B16.34; IEC 60534-2-1; CoolProp",
+   relacionadas=["sistema_unidades", "presion_abs_man", "kv_cv"], categoria="Conceptos")
+
 _e("presion_abs_man", "Presión absoluta y manométrica",
    "<p>La <b>presión absoluta</b> se mide desde el vacío total. La <b>manométrica</b> se mide "
    "desde la presión atmosférica local: P<sub>abs</sub> = P<sub>man</sub> + P<sub>atm</sub>.</p>"

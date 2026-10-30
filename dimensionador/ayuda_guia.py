@@ -4432,3 +4432,18 @@ GUIA["resortes"] = {
     'recomendaciones': ['En servicio agrio con resortes en contacto con el fluido use X-750.'],
     'ejemplo': 'Empaquetadura con carga viva a 300 °C: el 301 queda justo fuera; el 17-7PH cumple.',
 }
+
+GUIA["herramientas"] = {
+    'que_es': 'Es la fila de botones con iconos bajo el buscador: herramientas de consulta a un clic.',
+    'que_hace': ('Abre conversor de unidades, propiedades de fluidos, tablas de tubería, presión-temperatura por clase, '
+                 'biblioteca de materiales, calculadoras y enlaces, en ventanas aparte que no cambian el proyecto.'),
+    'que_indica': 'Los resultados usan los mismos módulos que el cálculo, así que coinciden con los del programa.',
+    'umbrales': 'No aplica.',
+    'por_debajo': 'No aplica.',
+    'por_encima': 'No aplica.',
+    'afecta': ['Nada del proyecto: son solo de consulta'],
+    'recomendaciones': ['Use «Copiar tabla» para llevar los datos a Excel o a un informe.',
+                        'Agregue a «Enlaces de referencia» las páginas que consulta seguido.'],
+    'ejemplo': ('Línea de 100 m³/h de agua: la tabla de tubería muestra 3,4 m/s en 4" Sch 40 y sugiere 5" Sch 40 '
+                'para no superar 3 m/s.'),
+}

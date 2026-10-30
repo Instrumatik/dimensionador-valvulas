@@ -59,6 +59,11 @@ dimensionador/
   gui/solapa_actuador.py  Solapas 4-Actuador, 5-Posicionador y 6-Accesorios
   gui/botones.py    Estilo y animación de los botones (hover, presionado y brillo de «Calcular»)
   gui/buscador.py   Buscador del encabezado: datos, opciones de las listas y temas de ayuda
+  herramientas.py   Herramientas rápidas sin interfaz: conversor (incluye Cv/Kv y altitud), propiedades en un
+                    punto y en saturación, tablas de tubería y velocidad, rating B16.34, calculadoras, enlaces
+  contacto.py       WhatsApp, LinkedIn y web de INSTRUMATIK (un solo lugar para cambiarlos) y mensaje con código
+  gui/herramientas.py  Barra de iconos del encabezado (v0.15.0) y sus ventanas no modales; menú Herramientas
+  gui/iconos.py     Iconos de línea en SVG de la barra
 tests/              Validación contra ejemplos de las normas
 ```
 
@@ -99,7 +104,7 @@ certificados de la válvula ofertada.
 
 ## Validación actual
 
-`python -m pytest tests` (207 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
+`python -m pytest tests` (215 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
 IEC 60534-2-1:2011 reproducidos:
 
 | Ejemplo | Norma | Programa |
