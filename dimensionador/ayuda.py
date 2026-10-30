@@ -844,6 +844,38 @@ _e("pernos_prensa", "Material espárragos y tuercas de brida prensaempaques",
    "los moja con el fluido de proceso: en servicio agrio o corrosivo conviene que sean del mismo nivel que la "
    "empaquetadura y el vástago.</p>",
    referencia="ASTM A193 / A194, ISO 15156-2", relacionadas=["pernos_bonete", "mat_biblioteca"])
+_e("junta_bonete", "Material junta cuerpo a bonete",
+   "<p>Material de la junta (empaque) que sella entre el cuerpo y el bonete.</p><ul>"
+   "<li><b>PTFE relleno (Filled PTFE)</b>: PTFE con vidrio, carbono o grafito; casi universal en química, hasta "
+   "unos 232 °C.</li>"
+   "<li><b>Grafito flexible (Grafoil)</b>: estándar de alta temperatura, hasta unos 450 °C con aire y unos "
+   "650 °C en vapor; no apto para oxidantes fuertes.</li>"
+   "<li><b>Espirometálica 316</b> con grafito o con PTFE: para presión y temperatura altas.</li>"
+   "<li><b>Fluoropolímero XTREME</b>: nombre comercial de un fluoropolímero de un fabricante de válvulas; química "
+   "como el PTFE relleno y temperatura hasta unos 260 °C.</li></ul>"
+   "<p>N25 verifica la temperatura de uso y la compatibilidad química con los agentes de 3-Materiales. La "
+   "empaquetadura del vástago se elige aparte, en 3-Materiales.</p>",
+   referencia="ASME B16.20; ASTM F104", relacionadas=["pernos_bonete", "orings", "mat_biblioteca"])
+_e("orings", "Material de O-rings",
+   "<p>Material de los O-rings y sellos elastoméricos de la válvula (sellos del eje, del asiento o del bonete, "
+   "según el diseño del fabricante).</p><ul>"
+   "<li><b>EPDM</b>: agua, vapor y álcalis; no apto para hidrocarburos ni aceites. Hasta unos 150 °C.</li>"
+   "<li><b>FKM</b>: hidrocarburos y ácidos; no apto para aminas, amoníaco ni vapor.</li>"
+   "<li><b>NBR</b>: hidrocarburos, aceites y agua fría.</li>"
+   "<li><b>FFKM</b>: casi universal en química y hasta unos 316 °C; muy caro.</li></ul>"
+   "<p>N25 verifica la temperatura y la compatibilidad química con los agentes de 3-Materiales.</p>",
+   referencia="Práctica de la industria de válvulas de control", relacionadas=["junta_bonete", "mat_biblioteca"])
+_e("resortes", "Material de resortes",
+   "<p>Material de los resortes de la válvula que indica la hoja de datos: resortes de sellos y asientos, de la "
+   "empaquetadura con carga viva o del actuador.</p><ul>"
+   "<li><b>Inoxidable 301 o 302</b>: resortes pequeños hasta unos 288 °C.</li>"
+   "<li><b>17-7PH</b>: resortes Belleville de la empaquetadura con carga viva, hasta unos 343 °C.</li>"
+   "<li><b>Aleación X-750</b>: alta temperatura y servicio agrio.</li>"
+   "<li><b>Acero aleado para resortes</b>: el resorte del actuador, dentro de la carcasa y sin contacto con el "
+   "fluido.</li></ul>"
+   "<p>N25 verifica la temperatura, la compatibilidad química y, en servicio agrio, la aceptación según "
+   "ISO 15156 de los resortes que pueden quedar en contacto con el fluido.</p>",
+   referencia="ASTM A313; ISO 15156-3", relacionadas=["pernos_bonete", "mat_biblioteca"])
 _e("nps", "Diámetro nominal de tubería (NPS)",
    "<p>Tamaño nominal de la tubería de entrada o de salida en pulgadas (NPS). Junto con la cédula "
    "define el diámetro interior según ASME B36.10M / B36.19M, que el programa usa para los "

@@ -847,12 +847,14 @@ def _comp_mat(res: Resultado, *claves) -> list[list[str]]:
 
 
 def _filas_pernos(res: Resultado) -> list[list[str]]:
-    """Pernos y tuercas cuerpo-bonete y de la brida prensaempaques (1-Sistema, v0.14.0)."""
+    """Pernos y tuercas, junta cuerpo-bonete, O-rings y resortes (1-Sistema, v0.14.0 y v0.14.1)."""
     from . import pernos as PE
     filas = []
-    for et, tabla, clave in (("Pernos y tuercas cuerpo-bonete", PE.CUERPO_BONETE, res.inst.pernos_bonete),
-                             ("Espárragos y tuercas de la brida prensaempaques", PE.PRENSAEMPAQUES,
-                              res.inst.pernos_prensa)):
+    i = res.inst
+    for et, tabla, clave in (("Pernos y tuercas cuerpo-bonete", PE.CUERPO_BONETE, i.pernos_bonete),
+                             ("Espárragos y tuercas de la brida prensaempaques", PE.PRENSAEMPAQUES, i.pernos_prensa),
+                             ("Junta cuerpo-bonete", PE.JUNTAS, i.junta_bonete), ("O-rings", PE.ORINGS, i.orings),
+                             ("Resortes", PE.RESORTES, i.resortes)):
         o = PE.opcion(tabla, clave)
         filas.append([et, o.nombre + (f". {o.nota}" if o.nota else "")])
     return filas
@@ -950,7 +952,7 @@ def _seccion_materiales_informe(doc: Documento, res: Resultado, n: int):
                    ["Motivo del bonete", e.bonete_motivo]], anchos=[25, 75])
         if e.notas:
             doc.lista(e.notas)
-    doc.h3("Pernos y tuercas")
+    doc.h3("Pernos, junta, O-rings y resortes")
     doc.tabla(_filas_pernos(res), anchos=[35, 65])
     if m.notas:
         doc.lista(m.notas)

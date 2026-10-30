@@ -4393,3 +4393,42 @@ GUIA["pernos_prensa"] = {
     ],
     'ejemplo': 'Servicio agrio con aislación térmica: SA-193 B7M espárragos / tuercas 2HM, NACE.',
 }
+
+GUIA["junta_bonete"] = {
+    'que_es': 'Es el material de la junta que sella entre el cuerpo y el bonete.',
+    'que_hace': ('Queda en la hoja de datos y se verifica con la temperatura de diseño y con los agentes químicos de '
+                 '3-Materiales.'),
+    'que_indica': 'PTFE relleno para química; grafito flexible o espirometálica para temperatura alta.',
+    'umbrales': ('PTFE relleno hasta unos 232 °C; grafito flexible hasta unos 450 °C con aire y 650 °C en vapor; '
+                 'espirometálica con PTFE hasta unos 260 °C.'),
+    'por_debajo': 'Por debajo de su temperatura mínima la junta pierde elasticidad y puede fugar.',
+    'por_encima': 'Por encima de su temperatura máxima la junta se degrada o fluye y el bonete fuga.',
+    'afecta': ['Hoja de datos', 'Alertas de temperatura y química', 'Estanqueidad del bonete'],
+    'recomendaciones': ['Use «Estándar del fabricante» si la especificación del cliente no pide un material.',
+                        'Con oxidantes fuertes evite el grafito.'],
+    'ejemplo': 'Vapor a 400 °C: el PTFE relleno queda fuera de temperatura; el grafito flexible cumple.',
+}
+
+GUIA["orings"] = {
+    'que_es': 'Es el material de los O-rings y sellos elastoméricos de la válvula.',
+    'que_hace': 'Queda en la hoja de datos y se verifica con la temperatura y la química del fluido.',
+    'que_indica': 'Cada elastómero tiene fluidos que lo atacan: el EPDM no tolera hidrocarburos; el FKM, aminas ni vapor.',
+    'umbrales': 'EPDM −40 a 150 °C; FKM −18 a 204 °C; NBR −30 a 107 °C; FFKM −15 a 316 °C.',
+    'por_debajo': 'En frío el elastómero se endurece y deja de sellar.',
+    'por_encima': 'En caliente se degrada, se hincha o pierde la deformación de sello.',
+    'afecta': ['Hoja de datos', 'Alertas de temperatura y química'],
+    'recomendaciones': ['Agua y vapor: EPDM. Hidrocarburos: FKM o NBR. Química agresiva: FFKM.'],
+    'ejemplo': 'Gas natural con condensado: el EPDM tiene compatibilidad D; se elige FKM.',
+}
+
+GUIA["resortes"] = {
+    'que_es': 'Es el material de los resortes de la válvula que indica la hoja de datos.',
+    'que_hace': 'Queda en la hoja de datos y se verifica con la temperatura, la química y el servicio agrio.',
+    'que_indica': 'Un resorte que pierde carga deja de sellar o de mantener la posición de falla.',
+    'umbrales': '301 / 302 hasta unos 288 °C; 17-7PH hasta unos 343 °C; X-750 hasta unos 540 °C.',
+    'por_debajo': 'No aplica.',
+    'por_encima': 'Por encima de su temperatura el resorte se relaja y pierde carga.',
+    'afecta': ['Hoja de datos', 'Alertas de temperatura, química y servicio agrio'],
+    'recomendaciones': ['En servicio agrio con resortes en contacto con el fluido use X-750.'],
+    'ejemplo': 'Empaquetadura con carga viva a 300 °C: el 301 queda justo fuera; el 17-7PH cumple.',
+}

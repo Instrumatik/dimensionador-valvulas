@@ -70,6 +70,9 @@ class Instalacion:
     cierre: str = "ANSI Clase IV"
     pernos_bonete: str = "estandar"   # clave de pernos.CUERPO_BONETE (v0.14.0)
     pernos_prensa: str = "estandar"   # clave de pernos.PRENSAEMPAQUES
+    junta_bonete: str = "estandar"    # clave de pernos.JUNTAS (v0.14.1)
+    orings: str = "estandar"          # clave de pernos.ORINGS
+    resortes: str = "estandar"        # clave de pernos.RESORTES
 
 
 @dataclass
@@ -371,11 +374,33 @@ def trim_reducido(inst: Instalacion, dim: Dimensionamiento, d_pulg: float) -> Tr
     return TrimReducido(p_tip, Cv_tip, dim.puerto_mm, True, Cv_tip * (dim.puerto_mm / p_tip) ** 2, False)
 
 
+def _alerta_disco_rotativa(res: "Resultado") -> Alerta | None:
+    """Rotativas (v0.14.1): diámetro del disco / orificio certificado frente al típico del tamaño de la válvula."""
+    from . import geometria as G
+    p = res.dim.puerto_mm
+    if not p:
+        return None
+    d = res.nps_valvula
+    DI = next((di for q, _, di in TAMANOS if abs(q - d) < 1e-6), None)
+    tip = G._puerto_rotativa(res.dim.trim, d, DI)
+    if 0.6 * tip <= p <= 1.1 * tip:
+        return None
+    return Alerta("coherencia_disco", Severidad.ADVERTENCIA, "Diámetro del disco u orificio no corresponde a la válvula",
+                  f"El diámetro del disco / orificio certificado ({_n(p, 1)} mm) no corresponde a una válvula de "
+                  f"{tuberias.texto_nps(d)}: el típico es unos {_n(tip, 0)} mm (se espera entre {_n(0.6 * tip, 0)} y "
+                  f"{_n(1.1 * tip, 0)} mm). En las rotativas este dato no cambia el Cv, pero queda en la hoja de datos.",
+                  remedios=["Revisar la unidad y el valor cargado en 2-Cálculos Válvula.",
+                            "Dejar la celda en blanco para usar el diámetro estimado."],
+                  referencia="Práctica de la industria de válvulas de control")
+
+
 def _alerta_coherencia(res: "Resultado") -> Alerta | None:
     """Puerto, carrera y Cv certificados frente a los típicos de la tabla de capacidad (±10 %)."""
     from . import capacidad as CAP
     dim = res.dim
-    if res.cuerpo.rotativa or not (dim.puerto_mm or dim.carrera_mm or dim.Cv_nominal or dim.Cv_reducido_cert):
+    if res.cuerpo.rotativa:
+        return _alerta_disco_rotativa(res)
+    if not (dim.puerto_mm or dim.carrera_mm or dim.Cv_nominal or dim.Cv_reducido_cert):
         return None
     e = estilo_efectivo(dim, False)
     if not e.familia_cv:
@@ -669,8 +694,20 @@ def _alertas_pernos(inst: Instalacion, T_d: float, T_min: float, mres) -> list:
     """Pernos cuerpo-bonete y de la brida prensaempaques: temperatura y servicio agrio (v0.14.0)."""
     from . import pernos as PE
     T_lo = mres.ctx.T_min_C if mres is not None else T_min - 273.15
-    return PE.alertas(PE.opcion(PE.CUERPO_BONETE, inst.pernos_bonete), PE.opcion(PE.PRENSAEMPAQUES, inst.pernos_prensa),
-                      T_d - 273.15, T_lo, bool(mres is not None and mres.agrio))
+    agrio = bool(mres is not None and mres.agrio)
+    out = PE.alertas(PE.opcion(PE.CUERPO_BONETE, inst.pernos_bonete), PE.opcion(PE.PRENSAEMPAQUES, inst.pernos_prensa),
+                     T_d - 273.15, T_lo, agrio)
+    piezas = (PE.opcion(PE.JUNTAS, inst.junta_bonete), PE.opcion(PE.ORINGS, inst.orings),
+              PE.opcion(PE.RESORTES, inst.resortes))
+    quim = []
+    if mres is not None and mres.agentes:
+        from . import quimica as Q, seleccion_materiales as SM
+        acuoso = SM._acuoso(mres.servicio)
+        for o in piezas:
+            for _, m in o.piezas:
+                niveles = [Q.evaluar(m, n, mres.ctx.T_corr, acuoso).nivel for n in mres.agentes]
+                quim.append((m.clave, Q._peor(*niveles)))
+    return out + PE.alertas_piezas(*piezas, T_d - 273.15, T_lo, agrio, quim)
 
 
 def _materiales(mat, inst, dim, salidas, P_d, T_d):

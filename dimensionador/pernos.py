@@ -1,4 +1,5 @@
-"""Pernos y tuercas cuerpo-bonete y espárragos y tuercas de la brida prensaempaques (v0.14.0).
+"""Pernos y tuercas cuerpo-bonete y espárragos y tuercas de la brida prensaempaques (v0.14.0); junta
+cuerpo-bonete, O-rings y resortes (v0.14.1).
 
 Cada opción del desplegable de 1-Sistema nombra el espárrago (o tornillo), la tuerca y, en la brida
 prensaempaques, el material de la brida. Los materiales están en la biblioteca (``materiales.py``). El
@@ -101,7 +102,59 @@ PRENSAEMPAQUES = {o.clave: o for o in [
 ]}
 
 
-def opcion(tabla: dict, nombre_o_clave: str) -> OpcionPernos:
+@dataclass(frozen=True)
+class OpcionPieza:
+    """Junta cuerpo-bonete, O-rings o resortes: un solo material."""
+    clave: str
+    nombre: str
+    material: str = ""           # clave de materiales.MATERIALES ("" = estándar del fabricante)
+    nota: str = ""
+    pieza: str = ""
+
+    @property
+    def piezas(self) -> list[tuple[str, MT.Material]]:
+        return [(self.pieza, MT.MATERIALES[self.material])] if self.material else []
+
+    @property
+    def detalle(self) -> str:
+        if not self.material:
+            return "El fabricante de la válvula elige el material según su estándar."
+        m = MT.MATERIALES[self.material]
+        return f"{m.nombre}: {m.T_min_C:.0f} °C a {m.T_max_C:.0f} °C" + (f". {self.nota}" if self.nota else "")
+
+
+def _p(pieza, clave, nombre, material="", nota=""):
+    return OpcionPieza(clave, nombre, material, nota, pieza)
+
+
+_J, _O, _R = "Junta", "O-rings", "Resortes"
+JUNTAS = {o.clave: o for o in [
+    _p(_J, ESTANDAR, "Estándar del fabricante"),
+    _p(_J, "ptfe_relleno", "PTFE relleno (Filled PTFE)", "RPTFE"),
+    _p(_J, "grafito", "Grafito flexible (Grafoil)", "GRAF"),
+    _p(_J, "esp_grafito", "Espirometálica 316 / grafito flexible", "ESP_GRAF"),
+    _p(_J, "esp_ptfe", "Espirometálica 316 / PTFE", "ESP_PTFE"),
+    _p(_J, "xtreme", "Fluoropolímero XTREME", "XTREME"),
+]}
+ORINGS = {o.clave: o for o in [
+    _p(_O, ESTANDAR, "Estándar del fabricante"),
+    _p(_O, "epdm", "EPDM", "EPDM"),
+    _p(_O, "fkm", "FKM (Viton®)", "FKM"),
+    _p(_O, "nbr", "NBR (Buna-N)", "NBR"),
+    _p(_O, "ffkm", "FFKM (perfluoroelastómero)", "FFKM"),
+]}
+RESORTES = {o.clave: o for o in [
+    _p(_R, ESTANDAR, "Estándar del fabricante"),
+    _p(_R, "301", "Inoxidable 301 (301 SS)", "301"),
+    _p(_R, "302", "Inoxidable 302 (302 SS)", "302"),
+    _p(_R, "177ph", "17-7PH", "177PH"),
+    _p(_R, "x750", "Aleación X-750", "X750"),
+    _p(_R, "acero", "Acero aleado para resortes (actuador)", "RES_CS",
+       nota="Solo para resortes que no tocan el fluido (dentro de la carcasa del actuador)."),
+]}
+
+
+def opcion(tabla: dict, nombre_o_clave: str):
     """Opción por clave o por nombre (los proyectos guardan el texto del desplegable)."""
     if nombre_o_clave in tabla:
         return tabla[nombre_o_clave]
@@ -113,6 +166,34 @@ def nace_ok(o: OpcionPernos) -> bool | None:
     if not o.piezas:
         return None
     return all(m.iso15156.estado in ("aceptable", "condicional") for _, m in o.piezas)
+
+
+def alertas_piezas(junta: OpcionPieza, oring: OpcionPieza, resorte: OpcionPieza, T_max_C: float, T_min_C: float,
+                   agrio: bool, quim: list[tuple[str, str]]) -> list[Alerta]:
+    """Junta, O-rings y resortes: temperatura de uso, servicio agrio y compatibilidad química (``quim``: lista de
+    (clave de material, nivel A–D peor con los agentes del fluido))."""
+    out = []
+    peor = dict(quim)
+    for o, lugar, codigo in ((junta, "La junta cuerpo-bonete", "junta_bonete"), (oring, "Los O-rings", "orings"),
+                             (resorte, "Los resortes", "resortes")):
+        for _, m in o.piezas:
+            if T_max_C > m.T_max_C + 1e-6 or T_min_C < m.T_min_C - 1e-6:
+                out.append(Alerta(codigo + "_temperatura", Severidad.ADVERTENCIA, f"{lugar}: fuera de temperatura",
+                                  f"{m.nombre}: uso de {m.T_min_C:.0f} °C a {m.T_max_C:.0f} °C y el servicio va de "
+                                  f"{T_min_C:.0f} °C a {T_max_C:.0f} °C.",
+                                  remedios=["Elegir otro material en 1-Sistema."], referencia=REF_PERNOS))
+            if peor.get(m.clave) in ("C", "D"):
+                out.append(Alerta(codigo + "_quimica", Severidad.ADVERTENCIA, f"{lugar}: compatibilidad química "
+                                  f"{peor[m.clave]}", f"{m.nombre} tiene compatibilidad {peor[m.clave]} con algún agente "
+                                  "del fluido (3-Materiales).", remedios=["Elegir otro material en 1-Sistema."],
+                                  referencia="Compatibilidad química de 3-Materiales"))
+            if agrio and codigo == "resortes" and o.clave != "acero" and m.iso15156.estado == "no":
+                out.append(Alerta(codigo + "_nace", Severidad.ADVERTENCIA, "Resortes no aptos para servicio agrio",
+                                  f"{m.nombre} no es aceptable según ISO 15156 si el resorte queda en contacto con el "
+                                  "fluido agrio.", remedios=["Usar aleación X-750 o el resorte que indique el "
+                                                             "fabricante para servicio agrio."],
+                                  referencia=REF_PERNOS))
+    return out
 
 
 def alertas(bonete: OpcionPernos, prensa: OpcionPernos, T_max_C: float, T_min_C: float,

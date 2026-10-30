@@ -265,7 +265,7 @@ MATERIALES: dict[str, Material] = {m.clave: m for m in [
                      "(ISO 15156-3, anexo A); ≤ 35 HRC."), iso17945=Nace("aceptable", 35),
        notas=("Agua de mar, salmueras y cloruros calientes donde el 316 sufre picaduras.",),
        fuentes=(F_B1634, F_PRACTICA, F_ASTM)),
-    _m("CD3MN", "ASTM A995 CD3MN (4A) — dúplex 2205 fundido", "Inoxidable dúplex", ("duplex",), CUERPO,
+    _m("CD3MN", "ASTM A995 CD3MN (4A) — dúplex 2205 fundido", "Inoxidable dúplex (Duplex SS)", ("duplex",), CUERPO,
        uns="J92205", astm="ASTM A995 Gr. 4A (CD3MN)", forma="Fundición", equivalente="A182 F51 / F60 (forja)",
        grupo="2.8", T_min_C=-46, T_max_C=315, composicion="Cr 21–23,5 · Ni 4,5–6,5 · Mo 2,5–3,5 · N 0,1–0,3",
        Rm_MPa=620, Rp_MPa=415, HB=240, pren=35, costo=4.5, galling="dup", cavitacion=4, erosion=5,
@@ -275,7 +275,7 @@ MATERIALES: dict[str, Material] = {m.clave: m for m in [
        notas=("Doble de resistencia mecánica que el 316 y mucho mejor frente a SCC por cloruros.",
               "Límite práctico 315 °C (fragilización a 475 °C); impacto limitado por debajo de −46 °C."),
        fuentes=(F_B1634, F_PRACTICA, F_15156)),
-    _m("CD3MWCuN", "ASTM A995 CD3MWCuN (6A) — superdúplex fundido (S32760)", "Inoxidable superdúplex",
+    _m("CD3MWCuN", "ASTM A995 CD3MWCuN (6A) — superdúplex fundido (S32760)", "Inoxidable superdúplex (Super Duplex SS)",
        ("sduplex",), CUERPO, uns="J93380", astm="ASTM A995 Gr. 6A (CD3MWCuN)", forma="Fundición",
        equivalente="A182 F55 / S32760 (forja)", grupo="2.8", T_min_C=-46, T_max_C=315,
        composicion="Cr 24–26 · Ni 6,5–8,5 · Mo 3–4 · W 0,5–1 · Cu 0,5–1 · N 0,2–0,3",
@@ -387,13 +387,13 @@ MATERIALES: dict[str, Material] = {m.clave: m for m in [
               "cloruros el 316 (F316 / CF8M) resiste mejor porque lleva molibdeno.",
               "Por encima de 538 °C solo con C ≥ 0,04 %; picaduras y SCC por cloruros por encima de ~60 °C."),
        fuentes=(F_B1634, F_ASTM)),
-    _m("F51", "ASTM A182 F51 — dúplex 2205 forjado", "Inoxidable dúplex", ("duplex",), CUERPO,
+    _m("F51", "ASTM A182 F51 — dúplex 2205 forjado", "Inoxidable dúplex (Duplex SS)", ("duplex",), CUERPO,
        uns="S31803", astm="ASTM A182 Gr. F51", forma="Forja", equivalente="A995 CD3MN", grupo="2.8",
        T_min_C=-46, T_max_C=315, composicion="Cr 21–23 · Ni 4,5–6,5 · Mo 2,5–3,5 · N 0,08–0,2",
        Rm_MPa=620, Rp_MPa=450, HB=240, pren=34, costo=4.8, galling="dup", cavitacion=4, erosion=5,
        iso15156=Nace("condicional", 28, 10, 232, azufre=False, nota="ISO 15156-3, anexo A."),
        iso17945=Nace("aceptable", 28), fuentes=(F_B1634, F_15156)),
-    _m("F55", "ASTM A182 F55 — superdúplex forjado (S32760)", "Inoxidable superdúplex", ("sduplex",), CUERPO,
+    _m("F55", "ASTM A182 F55 — superdúplex forjado (S32760)", "Inoxidable superdúplex (Super Duplex SS)", ("sduplex",), CUERPO,
        uns="S32760", astm="ASTM A182 Gr. F55", forma="Forja", equivalente="A995 CD3MWCuN", grupo="2.8",
        T_min_C=-46, T_max_C=315, composicion="Cr 24–26 · Ni 6–8 · Mo 3–4 · W · Cu · N 0,2–0,3", Rm_MPa=750,
        Rp_MPa=550, HB=260, pren=41, costo=6.3, galling="dup", cavitacion=5, erosion=6,
@@ -626,14 +626,14 @@ MATERIALES: dict[str, Material] = {m.clave: m for m in [
        iso17945=AUS_17945,
        notas=("Bujes de guía y anillos de desgaste: excelente resistencia al galling incluso contra 316.",
               "Muy buena resistencia a la cavitación para un inoxidable austenítico."), fuentes=(F_PRACTICA,)),
-    _m("2205", "Dúplex 2205 (S31803 / S32205) barra", "Inoxidable dúplex", ("duplex",), TRIM | {"vastago"},
+    _m("2205", "Dúplex 2205 (S31803 / S32205) barra", "Inoxidable dúplex (Duplex SS)", ("duplex",), TRIM | {"vastago"},
        uns="S31803 / S32205", astm="ASTM A479 / A276 S32205", forma="Barra", T_min_C=-46, T_max_C=315,
        composicion="Cr 22 · Ni 5 · Mo 3 · N 0,17", Rm_MPa=655, Rp_MPa=450, HB=250, pren=35, costo=1.8,
        galling="dup", cavitacion=4, erosion=5,
        iso15156=Nace("condicional", 28, 10, 232, azufre=False, nota="ISO 15156-3, anexo A."),
        iso17945=Nace("aceptable", 28), notas=("Internos y ejes en agua salobre y producción.",),
        fuentes=(F_15156,)),
-    _m("S32760", "Superdúplex S32760 (Zeron 100) barra", "Inoxidable superdúplex", ("sduplex",),
+    _m("S32760", "Superdúplex S32760 (Zeron 100) barra", "Inoxidable superdúplex (Super Duplex SS)", ("sduplex",),
        TRIM | {"vastago"}, uns="S32760", astm="ASTM A479 / A276 S32760", forma="Barra", T_min_C=-46,
        T_max_C=315, composicion="Cr 25 · Ni 7 · Mo 3,5 · W 0,7 · Cu 0,7 · N 0,25", Rm_MPa=750, Rp_MPa=550,
        HB=270, pren=41, costo=2.5, galling="dup", cavitacion=5, erosion=6,
@@ -888,12 +888,108 @@ _PERNOS = [
        notas=("Versión fundida del inoxidable antigalling S21800: tuercas prensaempaques roscadas que no se "
               "agarrotan contra el bonete o el vástago.",), fuentes=(F_ASTM, F_PRACTICA)),
 ]
-MATERIALES.update({m.clave: m for m in _PERNOS})
+# ---------------------------------------------------------------------------------------------------------------
+# v0.14.1: internos de alta temperatura, resortes, juntas cuerpo-bonete y O-rings
+# ---------------------------------------------------------------------------------------------------------------
+RESORTE = C({"resorte"})
+JUNTA = C({"junta"})
+ORING = C({"oring"})
+_V0141 = [
+    _m("422", "Inoxidable 422 (S42200) templado — 12Cr-Mo-W-V para alta temperatura", "Inoxidable martensítico",
+       ("mart",), C({"obturador", "guia", "jaula", "vastago"}), uns="S42200",
+       astm="ASTM A565 Gr. 616 (AISI 422) / ASTM A437 B4B", forma="Barra / forja templada y revenida",
+       T_min_C=-29, T_max_C=650, composicion="C 0,20–0,25 · Cr 11–12,5 · Mo 0,9–1,25 · W 0,9–1,25 · V 0,2–0,3 · Ni 0,5–1",
+       Rm_MPa=965, Rp_MPa=760, HRC=32, pren=15, costo=1.6, galling="mart", cavitacion=5, erosion=5,
+       iso15156=Nace("no", nota="Martensítico templado por encima de 22 HRC: no aceptable en servicio agrio."),
+       iso17945=Nace("no"),
+       notas=("Disco, obturador, guía, buje o manguito (sleeve) del disco y eje en vapor y gases calientes: conserva "
+              "la resistencia hasta unos 650 °C, donde el 410 y el 17-4PH ya no sirven.",
+              "En N25 el manguito (sleeve) del disco se elige como guía (cojinetes / bujes) o, en globo, como jaula.",
+              "Corrosión como el 410: no apto para cloruros altos, ácidos ni servicio agrio."),
+       fuentes=(F_ASTM, F_PRACTICA)),
+    _m("301", "Inoxidable 301 (S30100) para resortes, laminado duro", "Inoxidable austenítico (resortes)",
+       ("ss304",), RESORTE, uns="S30100", astm="ASTM A313 / A666 Tipo 301", forma="Alambre o fleje endurecido en frío",
+       T_min_C=-196, T_max_C=288, composicion="C ≤ 0,15 · Cr 16–18 · Ni 6–8", Rm_MPa=1275, Rp_MPa=965, HRC=40,
+       pren=17, costo=1.3, galling="aus", cavitacion=2, erosion=2,
+       iso15156=Nace("no", nota="Trabajado en frío: no aceptable si el resorte queda expuesto al H₂S."),
+       iso17945=Nace("no"),
+       notas=("Resortes de sellos, de la empaquetadura con carga viva y resortes pequeños expuestos al ambiente.",
+              "Pierde carga por relajación por encima de unos 290 °C: usar 17-7PH o aleación X-750."),
+       fuentes=(F_ASTM, F_PRACTICA)),
+    _m("302", "Inoxidable 302 (S30200) para resortes", "Inoxidable austenítico (resortes)", ("ss304",), RESORTE,
+       uns="S30200", astm="ASTM A313 Tipo 302", forma="Alambre de resorte", T_min_C=-196, T_max_C=288,
+       composicion="C ≤ 0,15 · Cr 17–19 · Ni 8–10", Rm_MPa=1400, Rp_MPa=1050, HRC=42, pren=18, costo=1.3,
+       galling="aus", cavitacion=2, erosion=2, iso15156=Nace("no", nota="Trabajado en frío."), iso17945=Nace("no"),
+       notas=("El alambre de resorte inoxidable más común.",), fuentes=(F_ASTM,)),
+    _m("177PH", "17-7PH (S17700) CH900 para resortes", "Inoxidable PH (resortes)", ("ph",), RESORTE, uns="S17700",
+       astm="ASTM A313 Tipo 631", forma="Alambre o fleje endurecido", T_min_C=-196, T_max_C=343,
+       composicion="Cr 16–18 · Ni 6,5–7,75 · Al 0,75–1,5", Rm_MPa=1650, Rp_MPa=1450, HRC=45, pren=17, costo=1.8,
+       galling="ph", cavitacion=3, erosion=3, iso15156=Nace("no"), iso17945=Nace("no"),
+       notas=("Resortes Belleville de la empaquetadura con carga viva y resortes de mayor temperatura que el 301.",),
+       fuentes=(F_ASTM,)),
+    _m("X750", "Aleación X-750 (N07750) para resortes", "Aleación Ni-Cr endurecida (resortes)", ("ni600",), RESORTE,
+       uns="N07750", astm="AMS 5698 / AMS 5699 (alambre)", forma="Alambre de resorte envejecido", T_min_C=-196,
+       T_max_C=540, composicion="Ni ≥ 70 · Cr 14–17 · Fe 5–9 · Ti 2,25–2,75 · Al · Nb", Rm_MPa=1300, Rp_MPa=900,
+       HRC=40, costo=5.0, galling="ni", cavitacion=4, erosion=4,
+       iso15156=Nace("condicional", 40, nota="Resortes de X-750 con tratamiento y dureza de ISO 15156-3 (anexo A); "
+                     "confirmar con la edición vigente."), iso17945=Nace("aceptable", 40),
+       notas=("Resortes en servicio agrio y en alta temperatura.",), fuentes=(F_PRACTICA, F_15156)),
+    _m("RES_CS", "Acero aleado para resortes (Cr-Si / Cr-V) pintado", "Acero aleado (resortes)", ("crmo",), RESORTE,
+       uns="G92540 / G61500", astm="ASTM A401 (Cr-Si) / ASTM A231 (Cr-V)", forma="Alambre de resorte templado",
+       T_min_C=-40, T_max_C=120, composicion="Cr 0,5–0,8 · Si 1,2–1,6 (Cr-Si)", Rm_MPa=1800, Rp_MPa=1600, HRC=50,
+       costo=0.6, galling="cs", cavitacion=1, erosion=1, iso15156=Nace("no", nota="Fuera de contacto con el fluido."),
+       iso17945=Nace("no"),
+       notas=("Resorte estándar de los actuadores de diafragma y de pistón, protegido con pintura dentro de la "
+              "carcasa (no está en contacto con el fluido).",), fuentes=(F_ASTM, F_PRACTICA)),
+    _m("GRAF", "Grafito flexible (Grafoil) — junta cuerpo-bonete", "Grafito flexible", ("grafito",), JUNTA,
+       uns="—", astm="ASTM F104 (grafito flexible, ≥ 98 % C)", forma="Junta laminada, con o sin inserto metálico",
+       T_min_C=-200, T_max_C=450, composicion="Grafito expandido ≥ 98 %; cloruros ≤ 50 ppm (grado nuclear ≤ 25)",
+       costo=1.5, galling="polimero", cavitacion=0, erosion=0, blando=True,
+       iso15156=Nace("aceptable", None, nota="No metálico: fuera del alcance de la norma."),
+       iso17945=Nace("aceptable", None),
+       notas=("Junta estándar de alta temperatura: hasta unos 450 °C con aire u oxidantes y hasta unos 650 °C en "
+              "vapor o medio inerte.", "No apta para oxidantes fuertes (ácido nítrico, oleum, cloro húmedo caliente)."),
+       fuentes=(F_PRACTICA,)),
+    _m("ESP_GRAF", "Espirometálica 316 con relleno de grafito flexible — junta cuerpo-bonete",
+       "Junta espirometálica", ("ss316", "grafito"), JUNTA, uns="S31600 + grafito",
+       astm="ASME B16.20 (espirometálica)", forma="Junta espirometálica con anillo interior", T_min_C=-200,
+       T_max_C=450, composicion="Fleje 316L + relleno de grafito flexible", costo=2.0, galling="polimero",
+       cavitacion=0, erosion=0, blando=True, iso15156=AUS_15156, iso17945=AUS_17945,
+       notas=("Junta de bonete para presión y temperatura altas.",), fuentes=(F_PRACTICA,)),
+    _m("ESP_PTFE", "Espirometálica 316 con relleno de PTFE — junta cuerpo-bonete", "Junta espirometálica",
+       ("ss316", "ptfe"), JUNTA, uns="S31600 + PTFE", astm="ASME B16.20 (espirometálica)",
+       forma="Junta espirometálica con anillo interior", T_min_C=-200, T_max_C=260,
+       composicion="Fleje 316L + relleno de PTFE", costo=2.0, galling="polimero", cavitacion=0, erosion=0, blando=True,
+       iso15156=AUS_15156, iso17945=AUS_17945,
+       notas=("Para medios químicos agresivos donde el grafito no es apto.",), fuentes=(F_PRACTICA,)),
+    _m("XTREME", "Fluoropolímero de alto desempeño «XTREME» (asiento blando y sellos)", "Polímero fluorado",
+       ("ptfe",), C({"asiento"}) | JUNTA, uns="—", astm="Especificación del fabricante (formulación propietaria)",
+       forma="Inserto de asiento / sello", T_min_C=-46, T_max_C=260,
+       composicion="Fluoropolímero de formulación propietaria con mejor recuperación que el PTFE relleno",
+       costo=2.5, galling="polimero", cavitacion=0, erosion=1, blando=True,
+       iso15156=Nace("aceptable", None), iso17945=Nace("aceptable", None),
+       notas=("Nombre comercial de un material de asiento de un fabricante de válvulas de bola y mariposa: "
+              "compatibilidad química equivalente a la del PTFE relleno y temperatura hasta unos 260 °C "
+              "(rango del PEEK), con más presión admisible que el PTFE relleno a temperatura.",
+              "Confirmar con el fabricante el límite de presión y temperatura del asiento ofertado."),
+       fuentes=("Información técnica publicada por el fabricante del material (asientos para bola y mariposa)",)),
+    _m("FFKM", "Perfluoroelastómero FFKM (O-rings y sellos)", "Elastómero perfluorado", ("ptfe",), ORING,
+       forma="O-ring / sello", T_min_C=-15, T_max_C=316, composicion="Perfluoroelastómero", costo=8.0,
+       galling="polimero", cavitacion=0, erosion=0, blando=True,
+       iso15156=Nace("aceptable", None), iso17945=Nace("aceptable", None),
+       notas=("Resistencia química casi universal, como el PTFE, con elasticidad de elastómero; muy caro.",),
+       fuentes=(F_PRACTICA,)),
+]
+MATERIALES.update({m.clave: m for m in _PERNOS + _V0141})
 # Materiales de internos y vástagos que también se usan como espárragos y tuercas
 for _k in ("N50", "718", "A286", "174_H1150D", "C276", "M400", "A20", "B2", "304", "316"):
     MATERIALES[_k] = replace(MATERIALES[_k], componentes=MATERIALES[_k].componentes | PERNOS)
+# Polímeros que también son juntas cuerpo-bonete (PTFE relleno) u O-rings (elastómeros)
+for _k, _c in (("RPTFE", JUNTA), ("PTFE", JUNTA), ("EPDM", ORING), ("FKM", ORING), ("NBR", ORING)):
+    MATERIALES[_k] = replace(MATERIALES[_k], componentes=MATERIALES[_k].componentes | _c)
 # Componentes que no elige el motor de materiales (se eligen en 1-Sistema); solo para la ficha de la biblioteca
-COMPONENTES_EXTRA = {"pernos": "Pernos, espárragos y tuercas"}
+COMPONENTES_EXTRA = {"pernos": "Pernos, espárragos y tuercas", "junta": "Junta cuerpo-bonete", "oring": "O-rings",
+                     "resorte": "Resortes"}
 
 CUERPOS = [k for k, m in MATERIALES.items() if "cuerpo" in m.componentes]
 
@@ -903,13 +999,25 @@ def para_componente(componente: str) -> list[Material]:
     return sorted((m for m in MATERIALES.values() if componente in m.componentes), key=lambda m: m.costo)
 
 
+def _sin_tildes(t: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", t.lower()) if unicodedata.category(c) != "Mn")
+
+
 def buscar(texto: str) -> list[Material]:
-    """Búsqueda simple por clave, nombre, UNS, ASTM o familia."""
-    t = texto.lower().strip()
+    """Búsqueda por clave, nombre, UNS, ASTM, familia o componente, sin distinguir tildes ni guiones
+    («duplex», «super duplex» y «superdúplex» encuentran lo mismo)."""
+    t = _sin_tildes(texto).replace("-", " ").strip()
     if not t:
         return list(MATERIALES.values())
-    return [m for m in MATERIALES.values()
-            if t in " ".join((m.clave, m.nombre, m.uns, m.astm, m.familia, m.equivalente)).lower()]
+    nombres = {**COMPONENTES, **COMPONENTES_ROTATIVA, **COMPONENTES_EXTRA}
+    out = []
+    for m in MATERIALES.values():
+        base = _sin_tildes(" ".join((m.clave, m.nombre, m.uns, m.astm, m.familia, m.equivalente,
+                                     *(nombres.get(c, "") for c in m.componentes)))).replace("-", " ")
+        if t in base or t.replace(" ", "") in base.replace(" ", ""):
+            out.append(m)
+    return out
 
 
 def ficha(m: Material) -> list[tuple[str, str]]:
@@ -936,7 +1044,7 @@ def ficha(m: Material) -> list[tuple[str, str]]:
              ("Especificación", m.astm or "—"), ("Forma de producto", m.forma or "—"),
              ("Equivalente", m.equivalente or "—"),
              ("Grupo ASME B16.34", (m.grupo + (" (por el forjado equivalente)" if m.grupo_equivalente else ""))
-              if m.grupo else ("No aplica (pernos y tuercas)" if m.componentes <= PERNOS else
+              if m.grupo else ("No aplica" if m.componentes <= PERNOS | JUNTA | ORING | RESORTE else
                                "No incluido en las tablas")),
              ("Temperatura de uso", f"{m.T_min_C:.0f} °C a {m.T_max_C:.0f} °C"),
              ("Composición nominal [%]", m.composicion or "—"),

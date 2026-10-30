@@ -898,22 +898,26 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_cierre.addItems(CIERRES)
         self.cb_cierre.setCurrentText("ANSI Clase IV")
         self._fila(grid, r, "Clase de cierre (shutoff)", self.cb_cierre, "clase_cierre"); r += 1
-        # v0.14.0: materiales de pernos y tuercas (cuerpo-bonete) y de la brida prensaempaques
+        # v0.14.0: materiales de pernos y tuercas (cuerpo-bonete) y de la brida prensaempaques; v0.14.1: junta
+        # cuerpo-bonete, O-rings y resortes. Mismo ancho que las demás celdas; el texto completo y la
+        # especificación se ven al pasar el mouse.
         self.cb_pernos = {}
         for clave, etiqueta, tabla in (("pernos_bonete", "Material pernos y tuercas cuerpo a bonete", PE.CUERPO_BONETE),
                                        ("pernos_prensa", "Material espárragos y tuercas de brida prensaempaques",
-                                        PE.PRENSAEMPAQUES)):
+                                        PE.PRENSAEMPAQUES),
+                                       ("junta_bonete", "Material junta cuerpo a bonete", PE.JUNTAS),
+                                       ("orings", "Material de O-rings", PE.ORINGS),
+                                       ("resortes", "Material de resortes", PE.RESORTES)):
             cb = self._registrar(clave, Combo())
             for o in tabla.values():
                 cb.addItem(o.nombre, o.clave)
-                cb.setItemData(cb.count() - 1, o.detalle, Qt.ToolTipRole)
+                cb.setItemData(cb.count() - 1, f"{o.nombre}\n{o.detalle}", Qt.ToolTipRole)
+            cb.view().setMinimumWidth(max(cb.fontMetrics().horizontalAdvance(o.nombre) for o in tabla.values()) + 40)
+            cb.view().setTextElideMode(Qt.ElideNone)
             cb.currentIndexChanged.connect(lambda _=0, c=cb: c.setToolTip(c.currentData(Qt.ToolTipRole) or ""))
+            cb.setToolTip(cb.currentData(Qt.ToolTipRole) or "")
             self.cb_pernos[clave] = cb
-            ancho = max(self._ancho_celda(), max(cb.fontMetrics().horizontalAdvance(o.nombre) for o in tabla.values())
-                        + 40)
-            self._fila(grid, r, etiqueta, cb, clave, ancho=ancho)
-            grid.removeWidget(cb)       # ocupa también las columnas de unidad y valor, sin ensancharlas
-            grid.addWidget(cb, r, 2, 1, 3, Qt.AlignLeft); r += 1
+            self._fila(grid, r, etiqueta, cb, clave); r += 1
         grid.setColumnStretch(5, 1)
         lay.addWidget(g)
         nota = QLabel("Estos datos definen los diámetros interiores de tubería, los trims compatibles, el límite "
@@ -1325,6 +1329,18 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self._cambio_tipo_trim(recalcular=False)
         for w in self.fila_balance:
             w.setVisible(not c.rotativa)
+        # v0.14.1: en las rotativas el puerto es el diámetro del disco u orificio y la carrera es la rotación del
+        # eje, fija para cada estilo (90°, 70° o 60°)
+        self.f_puerto.lbl.setText("Diámetro del disco / orificio certificado" if c.rotativa else
+                                  "Tamaño del trim (puerto) certificado")
+        self.f_carrera.lbl.setText("Rotación nominal certificada" if c.rotativa else
+                                   "Carrera nominal del vástago certificada")
+        ed = self.f_carrera.edits[0]
+        if c.rotativa:
+            ed.clear()
+        ed.setEnabled(not c.rotativa)
+        self.f_carrera.unidad.setEnabled(not c.rotativa)
+        ed.setPlaceholderText("según el estilo" if c.rotativa else "estimada")
         actual = self.cb_tamano.currentData()
         self.cb_tamano.clear()
         self.cb_tamano.addItem("Automático", None)
@@ -1858,7 +1874,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
             ruido_permitido=self._float(self.ed_ruido, "ruido permitido"), conexion=self.cb_conexion.currentText(),
             P_diseno=self.f_Pd.valor_base(0), T_diseno=self.f_Td.valor_base(0), cierre=self.cb_cierre.currentText(),
             pernos_bonete=self.cb_pernos["pernos_bonete"].currentData(),
-            pernos_prensa=self.cb_pernos["pernos_prensa"].currentData())
+            pernos_prensa=self.cb_pernos["pernos_prensa"].currentData(),
+            junta_bonete=self.cb_pernos["junta_bonete"].currentData(), orings=self.cb_pernos["orings"].currentData(),
+            resortes=self.cb_pernos["resortes"].currentData())
         F = self.filas
         t = self.tipo()
         activos = self._activos()
