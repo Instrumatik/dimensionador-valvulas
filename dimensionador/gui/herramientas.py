@@ -7,6 +7,7 @@ biblioteca de materiales, calculadoras, enlaces de referencia y contacto con INS
 from __future__ import annotations
 
 import json
+import math
 import os
 
 from PySide6.QtCore import QSize, Qt, QUrl
@@ -23,11 +24,13 @@ from . import iconos
 # (clave, globo de ayuda, nombre del método de la ventana principal que la abre)
 HERRAMIENTAS = (
     ("conversor", "Conversor de unidades"),
+    ("cv", "Cv rápido: verificación del Cv y Kv de líquido, gas y vapor (IEC 60534-2-1)"),
     ("fluidos", "Propiedades de fluidos y tablas de vapor"),
     ("tuberia", "Tablas de tubería ASME B36.10M / B36.19M y velocidad"),
     ("rating", "Presión-temperatura por clase ASME B16.34"),
     ("materiales", "Biblioteca de materiales"),
     ("calculadoras", "Calculadoras rápidas: ΔP de bloqueo, caudal de gas, velocidad, Reynolds"),
+    ("constantes", "Constantes numéricas N de IEC 60534-2-1"),
     ("enlaces", "Enlaces de referencia (editables)"),
 )
 
@@ -781,8 +784,228 @@ class Enlaces(_Ventana):
             self._guardar()
 
 
+# ----------------------------------------------------------------------------- Cv rápido
+class CvRapidoVentana(_Ventana):
+    """Verificación directa del Cv y Kv con los factores de la hoja de datos (IEC 60534-2-1, turbulento)."""
+
+    def __init__(self, padre=None):
+        super().__init__(padre, "Cv rápido · IEC 60534-2-1", 820, 720)
+        v = QVBoxLayout(self)
+        v.addWidget(_nota("Verificación rápida con los factores que entrega el fabricante o la hoja de datos (FL, xT, "
+                          "FP, FLP, xTP). Supone flujo turbulento: para líquidos muy viscosos use 2-Cálculos Válvula, "
+                          "que agrega el factor de Reynolds FR."))
+        self.tabs = QTabWidget()
+        v.addWidget(self.tabs, 1)
+        pa = "bar a" if self.sistema == "SI" else "psia"
+        self.pa = pa
+        self._liquido(pa)
+        self._gas(pa)
+        self._vapor(pa)
+
+    def _hoja(self, titulo: str):
+        w = QWidget()
+        lay = QHBoxLayout(w)
+        f = QFormLayout()
+        izq = QWidget()
+        izq.setLayout(f)
+        lay.addWidget(izq, 0)
+        der = QVBoxLayout()
+        res = QLabel("—")
+        res.setTextFormat(Qt.RichText)
+        res.setWordWrap(True)
+        res.setStyleSheet("background:#f2f6fb;border:1px solid #c9d6e5;border-radius:4px;padding:8px")
+        der.addWidget(res)
+        tabla = _tabla(["Paso", "Valor", "Unidad"])
+        tabla.horizontalHeader().setStretchLastSection(False)
+        tabla.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        der.addWidget(tabla, 1)
+        der.addWidget(_boton_copiar(tabla), 0, Qt.AlignRight)
+        lay.addLayout(der, 1)
+        self.tabs.addTab(w, titulo)
+        return f, res, tabla
+
+    def _opc(self, texto="", marcador="opcional"):
+        e = QLineEdit(texto)
+        e.setFixedWidth(110)
+        e.setPlaceholderText(marcador)
+        return e
+
+    def _mostrar(self, res, tabla, r: H.CvRapido, N: str):
+        ud = self.un("presion_dif")
+        filas = []
+        for nombre, valor, unidad in r.pasos:
+            if unidad == "kPa":
+                filas.append([nombre, fmt(U.desde_base(valor, "presion_dif", ud), 4), ud])
+            else:
+                filas.append([nombre, fmt(valor, 4), unidad])
+        _llenar(tabla, filas, derecha=(1,))
+        estado = ("<span style='color:#b00020'><b>Flujo bloqueado (choked)</b>: se dimensiona con el límite</span>"
+                  if r.bloqueado else "Flujo no bloqueado")
+        res.setText(f"<span style='font-size:13pt'>Cv = <b>{fmt(r.Cv, 4)}</b> &nbsp;&nbsp; Kv = <b>{fmt(r.Kv, 4)}</b>"
+                    f"</span><br>{estado}<br><span style='color:#5b6b7c'>{r.formula}<br>{N}</span>")
+
+    def _conectar(self, datos, fn):
+        for d in datos:
+            if isinstance(d, Dato):
+                d.edit.textChanged.connect(fn)
+                d.unidad.currentIndexChanged.connect(fn)
+            elif isinstance(d, QComboBox):
+                d.currentIndexChanged.connect(fn)
+            else:
+                d.textChanged.connect(fn)
+        fn()
+
+    def _liquido(self, pa):
+        f, res, tabla = self._hoja("Líquido")
+        Q = Dato("caudal_vol", self.un("caudal_vol"), "360" if self.sistema == "SI" else "1585")
+        P1, P2 = Dato("presion", pa, "6,8" if pa == "bar a" else "98,6"), Dato("presion", pa, "2,2" if pa == "bar a" else "31,9")
+        SG = self._opc("0,965", "")
+        Pv = Dato("presion", pa, "0,701" if pa == "bar a" else "10,17")
+        Pc = Dato("presion", pa, "220,64" if pa == "bar a" else "3200,1")
+        FL, FP, FLP = self._opc("0,90", ""), self._opc("1", ""), self._opc("", "sin accesorios")
+        for t, w in (("Caudal Q", Q), ("Presión de entrada P1", P1), ("Presión de salida P2", P2),
+                     ("Gravedad específica SG (agua 15 °C = 1)", SG), ("Presión de vapor Pv a T1", Pv),
+                     ("Presión crítica Pc", Pc), ("Factor de recuperación FL", FL),
+                     ("Factor de tubería FP", FP), ("FLP (con reductores)", FLP)):
+            f.addRow(t, w)
+        f.addRow(_nota("Ejemplo cargado: IEC 60534-2-1, Anexo D, ejemplo 1 (agua a 90 °C): Kv ≈ 165."))
+
+        def calc():
+            vals = (Q.base(), P1.base(), P2.base(), _numero(SG.text()), Pv.base(), Pc.base(), _numero(FL.text()),
+                    _numero(FP.text()) or 1.0)
+            if None in vals:
+                res.setText("Cargue los datos.")
+                tabla.setRowCount(0)
+                return
+            try:
+                r = H.cv_liquido(*vals, FLP=_numero(FLP.text()))
+            except ValueError as e:
+                res.setText(f"<span style='color:#b00020'>{e}</span>")
+                tabla.setRowCount(0)
+                return
+            self._mostrar(res, tabla, r, "N1 = 0,1 con Kv (Q m³/h, ΔP kPa); con Cv en unidades US, N1 = 1,00 (Q gpm, ΔP psi)")
+        self._conectar((Q, P1, P2, SG, Pv, Pc, FL, FP, FLP), calc)
+
+    def _caudal_gas(self, f):
+        W = Dato("caudal_masico", self.un("caudal_masico"))
+        QN = Dato("caudal_gas_std", self.un("caudal_gas_std"))
+        W.edit.setPlaceholderText("másico")
+        QN.edit.setPlaceholderText("o normal")
+        f.addRow("Caudal másico W", W)
+        f.addRow("o caudal normal / estándar", QN)
+        return W, QN
+
+    def _gas(self, pa):
+        f, res, tabla = self._hoja("Gas y vapor")
+        W, QN = self._caudal_gas(f)
+        QN.edit.setText("3800" if self.sistema == "SI" else "")
+        P1, P2 = Dato("presion", pa, "6,8" if pa == "bar a" else "98,6"), Dato("presion", pa, "3,1" if pa == "bar a" else "45")
+        T1 = Dato("temperatura", self.un("temperatura"), "160" if self.un("temperatura") == "°C" else "320")
+        M = Dato("masa_molar", "kg/kmol", "44,01")
+        Z, g = self._opc("0,988", ""), self._opc("1,30", "")
+        xT, FP, xTP = self._opc("0,60", ""), self._opc("1", ""), self._opc("", "sin accesorios")
+        for t, w in (("Presión de entrada P1", P1), ("Presión de salida P2", P2), ("Temperatura de entrada T1", T1),
+                     ("Masa molar M (o SG)", M), ("Compresibilidad Z1", Z), ("Exponente isoentrópico γ", g),
+                     ("Factor xT", xT), ("Factor de tubería FP", FP), ("xTP (con reductores)", xTP)):
+            f.addRow(t, w)
+        f.addRow(_nota("Ejemplo cargado: IEC 60534-2-1, Anexo D, ejemplo 2 (CO₂): Kv ≈ 62,7."))
+
+        def calc():
+            p1, p2, t1, m = P1.base(), P2.base(), T1.base(), M.base()
+            z, k, xt, fp = _numero(Z.text()), _numero(g.text()), _numero(xT.text()), _numero(FP.text()) or 1.0
+            w, qn = W.base(), QN.base()
+            if None in (p1, p2, t1, m, z, k, xt) or (w is None and qn is None):
+                res.setText("Cargue los datos y el caudal (másico o normal).")
+                tabla.setRowCount(0)
+                return
+            if w is None:
+                w = H.masico_desde_normal(qn, m)
+            try:
+                r = H.cv_gas(w, p1, p2, H.densidad_gas(p1, t1, m, z), k, xt, fp, _numero(xTP.text()))
+            except (ValueError, ZeroDivisionError) as e:
+                res.setText(f"<span style='color:#b00020'>{e}</span>")
+                tabla.setRowCount(0)
+                return
+            r.pasos.append(("Caudal másico usado", w, "kg/h"))
+            self._mostrar(res, tabla, r, "N6 = 3,16 con Kv (W kg/h, P kPa, ρ kg/m³); con Cv en unidades US, N6 = 63,3 (W lb/h, P psia, ρ lb/ft³)")
+        self._conectar((W, QN, P1, P2, T1, M, Z, g, xT, FP, xTP), calc)
+
+    def _vapor(self, pa):
+        f, res, tabla = self._hoja("Vapor de agua (steam)")
+        W = Dato("caudal_masico", self.un("caudal_masico"), "10000" if self.sistema == "SI" else "22000")
+        f.addRow("Caudal másico W", W)
+        P1, P2 = Dato("presion", pa, "11" if pa == "bar a" else "160"), Dato("presion", pa, "6" if pa == "bar a" else "87")
+        T1 = Dato("temperatura", self.un("temperatura"), "250" if self.un("temperatura") == "°C" else "480")
+        sat = QComboBox()
+        sat.addItems(["Sobrecalentado (con T1)", "Saturado seco (T1 de saturación)"])
+        xT, FP, xTP = self._opc("0,70", ""), self._opc("1", ""), self._opc("", "sin accesorios")
+        for t, w in (("Presión de entrada P1", P1), ("Presión de salida P2", P2), ("Estado a la entrada", sat),
+                     ("Temperatura de entrada T1", T1), ("Factor xT", xT), ("Factor de tubería FP", FP),
+                     ("xTP (con reductores)", xTP)):
+            f.addRow(t, w)
+        f.addRow(_nota("ρ1, Z y γ (κ real) salen de la tabla de vapor IAPWS-95 a P1 y T1."))
+
+        def calc():
+            if not P.DISPONIBLE:
+                res.setText("La tabla de vapor (CoolProp) no está disponible en esta instalación.")
+                return
+            w, p1, p2, t1 = W.base(), P1.base(), P2.base(), T1.base()
+            xt, fp = _numero(xT.text()), _numero(FP.text()) or 1.0
+            saturado = sat.currentIndex() == 1
+            T1.setEnabled(not saturado)
+            if None in (w, p1, p2, xt) or (t1 is None and not saturado):
+                res.setText("Cargue los datos.")
+                tabla.setRowCount(0)
+                return
+            try:
+                e = P.gas("Agua / vapor de agua", p1, t1, saturado=saturado)
+                r = H.cv_gas(w, p1, p2, e.rho, e.gamma, xt, fp, _numero(xTP.text()))
+            except (ValueError, P.ErrorPropiedades) as ex:
+                res.setText(f"<span style='color:#b00020'>{ex}</span>")
+                tabla.setRowCount(0)
+                return
+            r.pasos += [("Z1 (tabla de vapor)", e.Z, "-"), ("γ = κ real (tabla de vapor)", e.gamma, "-")]
+            self._mostrar(res, tabla, r, "N6 = 3,16 con Kv (W kg/h, P kPa, ρ kg/m³); con Cv en unidades US, N6 = 63,3 (W lb/h, P psia, ρ lb/ft³)")
+        self._conectar((W, P1, P2, T1, sat, xT, FP, xTP), calc)
+
+
+# ----------------------------------------------------------------------------- constantes N
+def _cientifico(v: float) -> str:
+    if v == 0:
+        return "0"
+    e = int(math.floor(math.log10(abs(v))))
+    if -1 <= e <= 3:
+        return fmt(v, 3)
+    m = v / 10 ** e
+    sup = str(e).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
+    return f"{fmt(m, 3)}×10{sup}"
+
+
+class Constantes(_Ventana):
+    def __init__(self, padre=None):
+        super().__init__(padre, "Constantes numéricas N · IEC 60534-2-1", 980, 560)
+        v = QVBoxLayout(self)
+        self.tabla = _tabla(["Constante", "Se usa en", "Con Kv", "Con Cv", "Unidades", "Cv en unidades US",
+                             "Unidades US"])
+        filas = []
+        for c in H.CONSTANTES_N:
+            for i, un in enumerate(c.unidades):
+                us = (_cientifico(c.us) if c.us is not None else "—") if i == 0 else ""
+                filas.append([c.nombre if i == 0 else "", c.uso if i == 0 else "", _cientifico(c.Kv[i]),
+                              _cientifico(c.Cv[i]), un, us, c.unidades_us if i == 0 else ""])
+        _llenar(self.tabla, filas, derecha=(2, 3, 5))
+        v.addWidget(self.tabla, 1)
+        pie = QHBoxLayout()
+        pie.addWidget(_nota("Valores numéricos de IEC 60534-2-1:2011 (Tabla 1) y ANSI/ISA-75.01.01. Las presiones son "
+                            "absolutas; ts es la temperatura de referencia del caudal normal o estándar. «—»: la "
+                            "constante no se usa en unidades US en N25. Verifique contra la edición que use el proyecto."),
+                      1)
+        pie.addWidget(_boton_copiar(self.tabla))
+        v.addLayout(pie)
+
+
 VENTANAS = {"conversor": Conversor, "fluidos": Fluidos, "tuberia": Tuberias, "rating": Rating,
-            "calculadoras": Calculadoras, "enlaces": Enlaces}
+            "calculadoras": Calculadoras, "enlaces": Enlaces, "cv": CvRapidoVentana, "constantes": Constantes}
 
 
 # ----------------------------------------------------------------------------- la barra

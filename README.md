@@ -74,7 +74,9 @@ cambia todo el programa, incluidos los documentos; cada dato además tiene su pr
 
 **Herramientas rápidas** (v0.15.0): bajo el buscador hay una fila de botones con iconos (también en el menú
 *Herramientas*) que abren, en ventanas aparte que no cambian el proyecto, el conversor de unidades (con Cv / Kv y
-la altitud del sitio), las propiedades de fluidos en un punto y en saturación (tabla de vapor), las tablas de
+la altitud del sitio), el **Cv rápido** (v0.15.1: verificación directa de Cv y Kv de líquido, gas y vapor de agua con
+FL, xT, FP, FLP y xTP cargados, ΔP o x de bloqueo y de dimensionamiento, Y y FF), la tabla de **constantes N** de
+IEC 60534-2-1 con Kv y Cv, las propiedades de fluidos en un punto y en saturación (tabla de vapor), las tablas de
 tubería ASME B36.10M / B36.19M con velocidad y diámetro sugerido, la tabla presión-temperatura ASME B16.34 con la
 clase mínima, la biblioteca de materiales, calculadoras (ΔP de bloqueo de líquidos y gases, caudal de gas normal,
 real y másico, velocidad, Reynolds y Mach, presión atmosférica) y una lista editable de enlaces de referencia.

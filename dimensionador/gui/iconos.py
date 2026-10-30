@@ -11,6 +11,10 @@ _A = ('xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke
 SVG = {
     # flechas en sentidos opuestos
     "conversor": '<path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>',
+    # símbolo de válvula de control: dos triángulos, vástago y diafragma
+    "cv": '<path d="M3 10v8l9-4z"/><path d="M21 10v8l-9-4z"/><path d="M12 14V7"/><path d="M7.5 7a4.5 3 0 0 1 9 0z"/>',
+    # «N» dentro de una tabla
+    "constantes": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 16V8l8 8V8"/>',
     # gota con brillo
     "fluidos": '<path d="M12 3c3 4 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-7 6-11z"/><path d="M9 15a3 3 0 0 0 3 3"/>',
     # tramo de caño con dos bridas

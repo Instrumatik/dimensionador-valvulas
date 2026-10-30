@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from . import asme_b16_34 as B, propiedades as P, tuberias as T, unidades as U
+from . import asme_b16_34 as B, iec60534_2_1 as IEC, propiedades as P, tuberias as T, unidades as U
 
 # ----------------------------------------------------------------------------- conversor de unidades
 # Kv es la base: Cv = Kv / 0,865
@@ -273,4 +273,107 @@ ENLACES = (
     ("ISA · normas de instrumentación", "https://www.isa.org"),
     ("IEC Webstore · IEC 60534", "https://webstore.iec.ch"),
     ("ASME · normas B16 y B36", "https://www.asme.org"),
+)
+
+
+# ----------------------------------------------------------------------------- Cv rápido (IEC 60534-2-1)
+# Verificación directa con los factores que entrega el fabricante o la hoja de datos (FP, FLP, xTP cargados,
+# no calculados de la geometría). Flujo turbulento: para fluidos viscosos (FR < 1) use 2-Cálculos Válvula.
+@dataclass
+class CvRapido:
+    Kv: float
+    Cv: float
+    bloqueado: bool
+    pasos: list[tuple[str, float, str]]     # (nombre, valor, unidad) en el orden del cálculo
+    formula: str
+
+
+def cv_liquido(Q_m3h: float, P1: float, P2: float, SG: float, Pv: float, Pc: float, FL: float,
+               FP: float = 1.0, FLP: float | None = None) -> CvRapido:
+    """Líquido, IEC 60534-2-1 ec. 1–4 (unidades base: m³/h, kPa a). SG = ρ1/ρ0 con ρ0 agua a 15 °C."""
+    if min(Q_m3h, SG, FL, FP, Pc) <= 0 or P2 >= P1 or Pv < 0:
+        raise ValueError("Revise los datos: caudal, SG, FL, FP y Pc mayores que cero, P2 menor que P1 y Pv ≥ 0.")
+    if abs(FP - 1) > 1e-9 and FLP is None:
+        raise ValueError("Con reductores o accesorios (FP distinto de 1) cargue también FLP.")
+    con_acc = FLP is not None
+    F = ff(Pv, Pc)
+    factor = (FLP / FP) if con_acc else FL
+    dp = P1 - P2
+    dp_max = factor ** 2 * (P1 - F * Pv)
+    dp_s = min(dp, dp_max)
+    if dp_s <= 0:
+        raise ValueError("La ΔP de dimensionamiento resulta nula o negativa: Pv es demasiado alta para esa P1.")
+    Kv = Q_m3h / (N1 * FP) * math.sqrt(SG / dp_s)
+    pasos = [("FF = 0,96 − 0,28·√(Pv/Pc)", F, "-"),
+             ("(FLP/FP)" if con_acc else "FL", factor, "-"),
+             ("ΔP real = P1 − P2", dp, "kPa"),
+             ("ΔP de bloqueo = " + ("(FLP/FP)²" if con_acc else "FL²") + "·(P1 − FF·Pv)", dp_max, "kPa"),
+             ("ΔP de dimensionamiento = mín(ΔP, ΔP bloqueo)", dp_s, "kPa")]
+    return CvRapido(Kv, Kv / N18_CV, dp >= dp_max, pasos, "Kv = Q / (N1·FP) · √(SG / ΔP dimensionamiento)")
+
+
+def cv_gas(W_kgh: float, P1: float, P2: float, rho1: float, gamma: float, xT: float,
+           FP: float = 1.0, xTP: float | None = None) -> CvRapido:
+    """Gas o vapor, IEC 60534-2-1 ec. 6–10 con caudal másico (kg/h), P en kPa a y ρ1 en kg/m³."""
+    if min(W_kgh, rho1, gamma, xT, FP) <= 0 or P2 >= P1:
+        raise ValueError("Revise los datos: caudal, densidad, γ, xT y FP mayores que cero y P2 menor que P1.")
+    xt = xTP if xTP is not None else xT
+    Fg = gamma / 1.40
+    x = (P1 - P2) / P1
+    x_ch = Fg * xt
+    x_s = min(x, x_ch)
+    Y = max(1 - x_s / (3 * x_ch), 2 / 3)
+    Kv = W_kgh / (N6 * FP * Y * math.sqrt(x_s * P1 * rho1))
+    pasos = [("Fγ = γ / 1,40", Fg, "-"),
+             ("x = ΔP / P1", x, "-"),
+             ("x de bloqueo = Fγ·" + ("xTP" if xTP is not None else "xT"), x_ch, "-"),
+             ("x de dimensionamiento = mín(x, Fγ·xT)", x_s, "-"),
+             ("Y = 1 − x / (3·Fγ·xT)", Y, "-"),
+             ("Densidad de entrada ρ1", rho1, "kg/m³")]
+    return CvRapido(Kv, Kv / N18_CV, x >= x_ch, pasos, "Kv = W / (N6·FP·Y·√(x·P1·ρ1))")
+
+
+def densidad_gas(P1_kPa: float, T1_K: float, M: float, Z: float = 1.0) -> float:
+    return P1_kPa * M / (Z * 8.314462618 * T1_K)
+
+
+N1, N6, N18_CV = IEC.N1, IEC.N6, U.CV_POR_KV ** -1   # los mismos del cálculo: Kv con m³/h, kPa y kg/h; Cv = Kv / 0,865
+
+
+# ----------------------------------------------------------------------------- constantes N (IEC 60534-2-1, Tabla 1)
+@dataclass(frozen=True)
+class ConstanteN:
+    nombre: str
+    uso: str
+    Kv: tuple[float, ...]       # valores con Kv, uno por juego de unidades métricas
+    Cv: tuple[float, ...]
+    unidades: tuple[str, ...]   # juego de unidades de cada valor métrico
+    us: float | None = None     # Cv con unidades US (gpm, lb/h, psia, °R, in, scfh)
+    unidades_us: str = ""
+
+
+CONSTANTES_N = (
+    ConstanteN("N1", "Líquido, caudal volumétrico", (1e-1, 1.0), (8.65e-2, 8.65e-1),
+               ("Q m³/h · ΔP kPa", "Q m³/h · ΔP bar"), 1.00, "Q gpm · ΔP psi"),
+    ConstanteN("N2", "Factor de tubería FP", (1.60e-3,), (2.14e-3,), ("d mm",), 890, "d in"),
+    ConstanteN("N4", "Número de Reynolds de la válvula", (7.07e-2,), (7.60e-2,), ("Q m³/h · ν m²/s",)),
+    ConstanteN("N5", "Factor FLP con accesorios", (1.80e-3,), (2.41e-3,), ("d mm",), 1000, "d in"),
+    ConstanteN("N6", "Gas, caudal másico con densidad", (3.16, 3.16e1), (2.73, 2.73e1),
+               ("W kg/h · P kPa · ρ kg/m³", "W kg/h · P bar · ρ kg/m³"), 63.3, "W lb/h · P psia · ρ lb/ft³"),
+    ConstanteN("N8", "Gas, caudal másico con masa molar", (1.10, 1.10e2), (9.48e-1, 9.48e1),
+               ("W kg/h · P kPa · T K", "W kg/h · P bar · T K"), 19.3, "W lb/h · P psia · T °R"),
+    ConstanteN("N9 (ts = 0 °C)", "Gas, caudal volumétrico normal", (2.46e1, 2.46e3), (2.12e1, 2.12e3),
+               ("Q m³/h · P kPa · T K", "Q m³/h · P bar · T K")),
+    ConstanteN("N9 (ts = 15 °C)", "Gas, caudal volumétrico estándar", (2.60e1, 2.60e3), (2.25e1, 2.25e3),
+               ("Q m³/h · P kPa · T K", "Q m³/h · P bar · T K"), 7.32e3, "Q scfh · P psia · T °R"),
+    ConstanteN("N17", "Factor de tubería con Reynolds", (1.05e-3,), (1.21e-3,), ("d mm",)),
+    ConstanteN("N18", "Factor de Reynolds FR (laminar)", (8.65e-1,), (1.00,), ("d mm",), 645, "d in"),
+    ConstanteN("N19", "Factor de Reynolds FR", (2.5,), (2.3,), ("d mm",)),
+    ConstanteN("N22 (ts = 0 °C)", "Gas no turbulento, caudal normal", (1.73e1, 1.73e3), (1.50e1, 1.50e3),
+               ("Q m³/h · P kPa · T K", "Q m³/h · P bar · T K")),
+    ConstanteN("N22 (ts = 15 °C)", "Gas no turbulento, caudal estándar", (1.84e1, 1.84e3), (1.59e1, 1.59e3),
+               ("Q m³/h · P kPa · T K", "Q m³/h · P bar · T K")),
+    ConstanteN("N27", "Gas no turbulento, caudal másico", (7.75e-1, 7.75e1), (6.70e-1, 6.70e1),
+               ("W kg/h · P kPa · T K", "W kg/h · P bar · T K"), 13.7, "W lb/h · P psia · T °R"),
+    ConstanteN("N32", "Reynolds con FL y diámetro", (1.40e2,), (1.27e2,), ("d mm",)),
 )

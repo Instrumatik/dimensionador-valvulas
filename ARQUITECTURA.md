@@ -60,7 +60,8 @@ dimensionador/
   gui/botones.py    Estilo y animación de los botones (hover, presionado y brillo de «Calcular»)
   gui/buscador.py   Buscador del encabezado: datos, opciones de las listas y temas de ayuda
   herramientas.py   Herramientas rápidas sin interfaz: conversor (incluye Cv/Kv y altitud), propiedades en un
-                    punto y en saturación, tablas de tubería y velocidad, rating B16.34, calculadoras, enlaces
+                    punto y en saturación, tablas de tubería y velocidad, rating B16.34, calculadoras, enlaces,
+                    Cv rápido con factores cargados y constantes N de IEC 60534-2-1 (v0.15.1)
   contacto.py       WhatsApp, LinkedIn y web de INSTRUMATIK (un solo lugar para cambiarlos) y mensaje con código
   gui/herramientas.py  Barra de iconos del encabezado (v0.15.0) y sus ventanas no modales; menú Herramientas
   gui/iconos.py     Iconos de línea en SVG de la barra
@@ -104,7 +105,7 @@ certificados de la válvula ofertada.
 
 ## Validación actual
 
-`python -m pytest tests` (215 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
+`python -m pytest tests` (219 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
 IEC 60534-2-1:2011 reproducidos:
 
 | Ejemplo | Norma | Programa |
