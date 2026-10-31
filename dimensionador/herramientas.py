@@ -71,7 +71,7 @@ class Propiedad:
 
 
 FASES = {"liquid": "Líquido", "gas": "Gas", "supercritical": "Supercrítico",
-         "supercritical_gas": "Supercrítico (tipo gas)", "supercritical_liquid": "Supercrítico (tipo líquido)",
+         "supercritical_gas": "Gas (sobre la temperatura crítica)", "supercritical_liquid": "Supercrítico (tipo líquido)",
          "twophase": "Bifásico", "critical_point": "Punto crítico"}
 
 
@@ -103,6 +103,10 @@ def propiedades_punto(fluido: str, P_kPa: float, T_K: float, composicion: dict |
     filas = [
         Propiedad("Fase", FASES.get(fase, fase)),
         Propiedad("Densidad", rho, "densidad"),
+        Propiedad("Gravedad específica SG (agua a 15 °C = 1)", rho / IEC.RHO_AGUA_15C
+                  if rho and fase in ("liquid", "supercritical_liquid") else None, unidad="-"),
+        Propiedad("Gravedad específica del gas SG (aire = 1)", M * 1000 / M_AIRE
+                  if M and fase not in ("liquid", "supercritical_liquid") else None, unidad="-"),
         Propiedad("Viscosidad dinámica", mu, "viscosidad_din"),
         Propiedad("Viscosidad cinemática", mu / rho if mu and rho else None, "viscosidad_cin"),
         Propiedad("Masa molar", M * 1000 if M else None, "masa_molar"),
@@ -122,6 +126,9 @@ def propiedades_punto(fluido: str, P_kPa: float, T_K: float, composicion: dict |
     return [f for f in filas if f.valor is not None]
 
 
+M_AIRE = 28.9647      # kg/kmol
+
+
 def saturacion(fluido: str, P_kPa: float | None = None, T_K: float | None = None) -> list[Propiedad]:
     """Líquido y vapor saturados a la presión o a la temperatura dada (tabla de vapor para el agua)."""
     n = P._cp_nombre(fluido)
@@ -139,6 +146,7 @@ def saturacion(fluido: str, P_kPa: float | None = None, T_K: float | None = None
         Propiedad("Temperatura de saturación", Ts, "temperatura"),
         Propiedad("Presión de saturación", Ps / 1000, "presion"),
         Propiedad("Densidad del líquido", v("D", 0), "densidad"),
+        Propiedad("SG del líquido (agua a 15 °C = 1)", v("D", 0) / IEC.RHO_AGUA_15C, unidad="-"),
         Propiedad("Densidad del vapor", v("D", 1), "densidad"),
         Propiedad("Volumen específico del vapor", 1 / v("D", 1), unidad="m³/kg"),
         Propiedad("Entalpía del líquido hf", hf / 1000, unidad="kJ/kg"),
@@ -377,3 +385,100 @@ CONSTANTES_N = (
                ("W kg/h · P kPa · T K", "W kg/h · P bar · T K"), 13.7, "W lb/h · P psia · T °R"),
     ConstanteN("N32", "Reynolds con FL y diámetro", (1.40e2,), (1.27e2,), ("d mm",)),
 )
+
+
+# ----------------------------------------------------------------------------- factores típicos de válvula
+@dataclass
+class FilaFactores:
+    cuerpo: str
+    estilo: str
+    FL: float
+    xT: float
+    Fd: float
+    Kc: float | None
+    caracteristica: str
+    rangeabilidad: float
+    clave: str
+
+
+CARACTERISTICAS = {"isoporcentual": "Isoporcentual", "lineal": "Lineal", "parabolica": "Parabólica modificada",
+                   "apertura_rapida": "Apertura rápida"}
+
+
+def factores_valvula() -> list[FilaFactores]:
+    """FL, xT, Fd y Kc típicos de cada estilo que se puede elegir en 2-Cálculos, agrupados por cuerpo."""
+    from . import estilos as E, trims as TR
+    filas = []
+    for c, cuerpo in E.CUERPOS.items():
+        if TR.deslizante(c):
+            claves = []
+            for e in TR.POR_CUERPO[c]:
+                for sd in TR.sentidos(c, e):
+                    k = TR.clave_estilo(c, e, sd, "")
+                    if k in E.ESTILOS and k not in claves:
+                        claves.append(k)
+        else:
+            claves = [k for k in cuerpo.trims if k in E.ESTILOS]
+        for k in claves:
+            st = E.ESTILOS[k]
+            filas.append(FilaFactores(cuerpo.nombre, st.nombre, st.FL, st.xT, st.Fd, E.KC_TIPICO.get(k),
+                                      CARACTERISTICAS.get(st.caracteristica, st.caracteristica), st.rangeabilidad, k))
+    return filas
+
+
+def factores_anticavitacion() -> list[tuple[str, int, float, float, float]]:
+    """Niveles de jaula anticavitación (líquidos): nombre, etapas, FL, Fd y Kc equivalentes."""
+    from . import anticavitacion as AC
+    return [(t.nombre, t.etapas, t.FL, t.Fd, t.Kc) for k, t in AC.TRIMS.items() if k != "estandar"]
+
+
+def factores_antiruido() -> list[tuple[str, int, float | None, float]]:
+    """Niveles de jaula antiruido (gases): nombre, etapas, Fd y xT equivalente."""
+    from . import compresible as CG
+    return [(t.nombre, t.etapas, t.Fd, CG.xT_etapas(t.etapas)) for k, t in CG.TRIMS_RUIDO.items() if k != "estandar"]
+
+
+# ----------------------------------------------------------------------------- tabla de fluidos
+@dataclass
+class FilaFluido:
+    fluido: str
+    M: float | None              # kg/kmol
+    SG_gas: float | None         # aire = 1
+    Tc: float | None             # K
+    Pc: float | None             # kPa a
+    Teb: float | None            # K, ebullición a 101,325 kPa
+    fase: str                    # a 15 °C y 101,325 kPa
+    rho: float | None            # kg/m³ a 15 °C y 101,325 kPa
+    SG_liq: float | None         # agua a 15 °C = 1 (si es líquido)
+    mu: float | None             # Pa·s
+    Pv: float | None             # kPa a, a 15 °C
+    k: float | None              # cp/cv a 15 °C y 101,325 kPa
+
+
+T_REF, P_REF = 288.15, U.P_ATM_KPA
+
+
+def tabla_fluidos() -> list[FilaFluido]:
+    """Constantes y propiedades a 15 °C y 1 atm de los fluidos de la biblioteca (CoolProp)."""
+    filas = []
+    for nombre in P.FLUIDOS:
+        n = P._cp_nombre(nombre)
+        mezcla = "&" in n
+        a = ("T", T_REF, "P", P_REF * 1000, n)
+        M = _cp("M", *a)
+        Tc = None if mezcla else _cp("Tcrit", n)
+        Pc = None if mezcla else _cp("Pcrit", n)
+        Teb = _cp("T", "P", P_REF * 1000, "Q", 0, n) if Pc and Pc > P_REF * 1000 else None
+        Pv = _cp("P", "T", T_REF, "Q", 0, n) if Tc and T_REF < Tc else None
+        try:
+            fase = P.CP.PhaseSI(*a)
+        except Exception:
+            fase = ""
+        rho, mu = _cp("D", *a), _cp("V", *a)
+        cp, cv = _cp("C", *a), _cp("O", *a)
+        liq = fase == "liquid"
+        filas.append(FilaFluido(nombre, M * 1000 if M else None, M * 1000 / M_AIRE if M else None, Tc,
+                                Pc / 1000 if Pc else None, Teb, FASES.get(fase, fase), rho,
+                                rho / IEC.RHO_AGUA_15C if rho and liq else None, mu, Pv / 1000 if Pv else None,
+                                cp / cv if cp and cv else None))
+    return filas

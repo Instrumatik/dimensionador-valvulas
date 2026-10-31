@@ -25,11 +25,12 @@ from . import iconos
 HERRAMIENTAS = (
     ("conversor", "Conversor de unidades"),
     ("cv", "Cv rápido: verificación del Cv y Kv de líquido, gas y vapor (IEC 60534-2-1)"),
-    ("fluidos", "Propiedades de fluidos y tablas de vapor"),
+    ("fluidos", "Propiedades de fluidos, tabla de vapor y tabla de fluidos (PM, SG, Tc, Pc…)"),
     ("tuberia", "Tablas de tubería ASME B36.10M / B36.19M y velocidad"),
     ("rating", "Presión-temperatura por clase ASME B16.34"),
     ("materiales", "Biblioteca de materiales"),
     ("calculadoras", "Calculadoras rápidas: ΔP de bloqueo, caudal de gas, velocidad, Reynolds"),
+    ("factores", "Factores típicos de válvula: FL, xT, Fd y Kc por estilo"),
     ("constantes", "Constantes numéricas N de IEC 60534-2-1"),
     ("enlaces", "Enlaces de referencia (editables)"),
 )
@@ -118,6 +119,8 @@ def _llenar(t: QTableWidget, filas: list[list[str]], derecha=()):
     for i, fila in enumerate(filas):
         for j, txt in enumerate(fila):
             it = QTableWidgetItem(txt)
+            if len(txt) > 30:
+                it.setToolTip(txt)       # los textos largos que la columna recorta se leen al pasar el mouse
             if j in derecha:
                 it.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             t.setItem(i, j, it)
@@ -236,11 +239,19 @@ class Conversor(_Ventana):
 # ----------------------------------------------------------------------------- 2. fluidos
 class Fluidos(_Ventana):
     def __init__(self, padre=None):
-        super().__init__(padre, "Propiedades de fluidos", 720, 640)
-        v = QVBoxLayout(self)
+        super().__init__(padre, "Propiedades de fluidos", 760, 660)
+        exterior = QVBoxLayout(self)
         if not P.DISPONIBLE:
-            v.addWidget(_error("La biblioteca de propiedades (CoolProp) no está disponible en esta instalación."))
+            exterior.addWidget(_error("La biblioteca de propiedades (CoolProp) no está disponible en esta instalación."))
             return
+        self.tabs = QTabWidget()
+        exterior.addWidget(self.tabs)
+        pag = QWidget()
+        v = QVBoxLayout(pag)
+        self.tabs.addTab(pag, "Consulta en un punto")
+        self.tabla_fluidos = TablaFluidos(self.sistema)
+        self.tabs.addTab(self.tabla_fluidos, "Tabla de fluidos")
+        self.tabs.currentChanged.connect(lambda i: i == 1 and self.tabla_fluidos.cargar())
         f = QFormLayout()
         self.cb_fluido = QComboBox()
         self.cb_fluido.addItems(list(P.FLUIDOS))
@@ -318,6 +329,60 @@ class Fluidos(_Ventana):
             else:
                 salida.append([p.nombre, fmt(p.valor, 5), p.unidad])
         _llenar(self.tabla, salida, derecha=(1,))
+
+
+class TablaFluidos(QWidget):
+    """Los fluidos de la biblioteca en una sola tabla: constantes y propiedades a 15 °C y 1 atm."""
+
+    def __init__(self, sistema: str = "SI"):
+        super().__init__()
+        v = QVBoxLayout(self)
+        h = QHBoxLayout()
+        h.addWidget(QLabel("Unidades"))
+        self.cb_un = QComboBox()
+        self.cb_un.addItems(["SI", "Imperial"])
+        self.cb_un.setCurrentText(sistema)
+        h.addWidget(self.cb_un)
+        h.addStretch(1)
+        v.addLayout(h)
+        self.tabla = _tabla([])
+        v.addWidget(self.tabla, 1)
+        pie = QHBoxLayout()
+        pie.addWidget(_nota("Constantes del fluido puro y propiedades a 15 °C y 101,325 kPa (CoolProp). SG del líquido: "
+                            "agua a 15 °C = 1; SG del gas: aire = 1 (M / 28,96). «—»: no corresponde (por ejemplo, "
+                            "sin presión de vapor por encima de la temperatura crítica). Para otra presión o "
+                            "temperatura use «Consulta en un punto»."), 1)
+        pie.addWidget(_boton_copiar(self.tabla))
+        v.addLayout(pie)
+        self.filas: list[H.FilaFluido] | None = None
+        self.cb_un.currentTextChanged.connect(self._mostrar)
+
+    def cargar(self):
+        if self.filas is None:
+            QGuiApplication.setOverrideCursor(Qt.WaitCursor)
+            try:
+                self.filas = H.tabla_fluidos()
+            finally:
+                QGuiApplication.restoreOverrideCursor()
+            self._mostrar()
+
+    def _mostrar(self):
+        if self.filas is None:
+            return
+        si = self.cb_un.currentText() == "SI"
+        uT, uP, ur, = ("°C", "bar a", "kg/m³") if si else ("°F", "psia", "lb/ft³")
+        cols = ["Fluido", "PM [kg/kmol]", "SG gas (aire = 1)", f"Tc [{uT}]", f"Pc [{uP}]",
+                f"T ebullición 1 atm [{uT}]", "Fase a 15 °C, 1 atm", f"Densidad [{ur}]", "SG líquido (agua = 1)",
+                "Viscosidad [cP]", f"Pv a 15 °C [{uP}]", "cp/cv"]
+        self.tabla.setColumnCount(len(cols))
+        self.tabla.setHorizontalHeaderLabels(cols)
+        t = lambda K: fmt(U.desde_base(K, "temperatura", uT), 4) if K else "—"
+        p = lambda k: fmt(U.desde_base(k, "presion", uP), 4) if k else "—"
+        n = lambda x, c=4: fmt(x, c) if x else "—"
+        filas = [[f.fluido, n(f.M, 5), n(f.SG_gas), t(f.Tc), p(f.Pc), t(f.Teb), f.fase,
+                  n(U.desde_base(f.rho, "densidad", ur) if f.rho else None), n(f.SG_liq),
+                  n(f.mu * 1000 if f.mu else None), p(f.Pv), n(f.k)] for f in self.filas]
+        _llenar(self.tabla, filas, derecha=(1, 2, 3, 4, 5, 7, 8, 9, 10, 11))
 
 
 # ----------------------------------------------------------------------------- 3. tuberías
@@ -1004,8 +1069,64 @@ class Constantes(_Ventana):
         v.addLayout(pie)
 
 
+# ----------------------------------------------------------------------------- factores de válvula
+class Factores(_Ventana):
+    def __init__(self, padre=None):
+        super().__init__(padre, "Factores típicos de válvula · FL, xT, Fd, Kc", 1000, 640)
+        v = QVBoxLayout(self)
+        self.tabs = QTabWidget()
+        v.addWidget(self.tabs, 1)
+        # estilos
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        h = QHBoxLayout()
+        h.addWidget(QLabel("Cuerpo"))
+        self.cb_cuerpo = QComboBox()
+        self.filas = H.factores_valvula()
+        self.cb_cuerpo.addItem("Todos")
+        for c in dict.fromkeys(f.cuerpo for f in self.filas):
+            self.cb_cuerpo.addItem(c)
+        h.addWidget(self.cb_cuerpo)
+        h.addStretch(1)
+        lay.addLayout(h)
+        self.tabla = _tabla(["Cuerpo", "Estilo / trim", "FL", "xT", "Fd", "Kc", "Característica", "Rangeabilidad"])
+        self.tabla.horizontalHeader().setStretchLastSection(False)
+        self.tabla.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        lay.addWidget(self.tabla, 1)
+        lay.addWidget(_boton_copiar(self.tabla), 0, Qt.AlignRight)
+        self.tabs.addTab(w, "Estilos de válvula")
+        # jaulas especiales
+        for titulo, cols, datos in (
+                ("Jaulas anticavitación (líquidos)", ["Nivel", "Etapas", "FL", "Fd", "Kc"],
+                 [[n, str(e), fmt(fl, 3), fmt(fd, 3), fmt(kc, 3)] for n, e, fl, fd, kc in H.factores_anticavitacion()]),
+                ("Jaulas antiruido (gases)", ["Nivel", "Etapas", "Fd", "xT"],
+                 [[n, str(e), fmt(fd, 3) if fd else "—", fmt(xt, 3)] for n, e, fd, xt in H.factores_antiruido()])):
+            p = QWidget()
+            pl = QVBoxLayout(p)
+            t = _tabla(cols)
+            t.horizontalHeader().setStretchLastSection(False)
+            t.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+            _llenar(t, datos, derecha=tuple(range(1, len(cols))))
+            pl.addWidget(t, 1)
+            pl.addWidget(_boton_copiar(t), 0, Qt.AlignRight)
+            self.tabs.addTab(p, titulo)
+        v.addWidget(_nota("Valores típicos a apertura nominal: IEC 60534-2-1 (Tabla 2) y datos publicados de fabricantes; "
+                          "Kc ≈ inicio de cavitación incipiente. Son los mismos que usa 2-Cálculos Válvula cuando no "
+                          "se cargan factores certificados. Para el diseño final use los del fabricante."))
+        self.cb_cuerpo.currentIndexChanged.connect(self._mostrar)
+        self._mostrar()
+
+    def _mostrar(self):
+        c = self.cb_cuerpo.currentText()
+        filas = [[f.cuerpo, f.estilo, fmt(f.FL, 3), fmt(f.xT, 3), fmt(f.Fd, 3), fmt(f.Kc, 3) if f.Kc else "—",
+                  f.caracteristica, f"{f.rangeabilidad:g}:1"]
+                 for f in self.filas if c == "Todos" or f.cuerpo == c]
+        _llenar(self.tabla, filas, derecha=(2, 3, 4, 5, 7))
+
+
 VENTANAS = {"conversor": Conversor, "fluidos": Fluidos, "tuberia": Tuberias, "rating": Rating,
-            "calculadoras": Calculadoras, "enlaces": Enlaces, "cv": CvRapidoVentana, "constantes": Constantes}
+            "calculadoras": Calculadoras, "enlaces": Enlaces, "cv": CvRapidoVentana, "constantes": Constantes,
+            "factores": Factores}
 
 
 # ----------------------------------------------------------------------------- la barra

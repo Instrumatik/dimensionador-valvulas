@@ -13,6 +13,8 @@ SVG = {
     "conversor": '<path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>',
     # símbolo de válvula de control: dos triángulos, vástago y diafragma
     "cv": '<path d="M3 10v8l9-4z"/><path d="M21 10v8l-9-4z"/><path d="M12 14V7"/><path d="M7.5 7a4.5 3 0 0 1 9 0z"/>',
+    # tabla de tres columnas con encabezado (factores)
+    "factores": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M15 9v11"/>',
     # «N» dentro de una tabla
     "constantes": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 16V8l8 8V8"/>',
     # gota con brillo
