@@ -1218,7 +1218,7 @@ def contexto(res, sv: ServicioMateriales | None = None) -> Contexto:
     from .proyecto import CIERRES
     n = CIERRES.index(inst.cierre)
     blando = {"globo": n >= 5, "angulo": n >= 5, "globo_liner": True, "bola_paso_completo": n >= 5,
-              "bola_paso_reducido": n >= 5, "bola_trunnion": n >= 5, "bola_segmentada": n >= 5,
+              "bola_paso_reducido": n >= 5, "bola_trunnion": n >= 5, "bola_segmentada": n >= 5, "bola_vport": n >= 5,
               "tapon_excentrico": n >= 5, "mariposa": n >= 4,
               "mariposa_doble": n >= 5}.get(inst.cuerpo, False)
     dPs = [c.P1 - c.P2 for c in dim.casos] + ([dim.cierre.dP] if dim.cierre else [])

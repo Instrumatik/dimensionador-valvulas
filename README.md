@@ -10,8 +10,8 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
 ## Flujo de trabajo
 
 1. **1-Sistema**: identificación del proyecto, estilo de válvula (globo, ángulo, mariposa, bola de paso
-   completo o reducido, bola trunnion / Bola-T, bola segmentada con corte en V de 90°, 60° o 30° y tapón
-   excéntrico, cada uno con sus factores FL, xT, Fd y Kc), rating, diámetros y
+   completo o reducido, bola trunnion / Bola-T, bola segmentada con corte en V de 90°, 60° o 30°, bola de paso
+   con orificio en V (V-port, v0.15.3) de 90°, 60° o 30° y tapón excéntrico, cada uno con sus factores FL, xT, Fd y Kc), rating, diámetros y
    cédulas de tubería de entrada y salida, ruido permitido, conexión a proceso, presión y
    temperatura de diseño y clase de cierre.
 2. **2-Cálculos Válvula**: fluido, caudal volumétrico o másico, P1, P2, T1, gravedad específica,

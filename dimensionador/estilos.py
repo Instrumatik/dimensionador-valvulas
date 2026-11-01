@@ -213,6 +213,20 @@ ESTILOS: dict[str, EstiloValvula] = {e.clave: e for e in [
     EstiloValvula("bola_segmentada_v30", "Bola segmentada, corte en V de 30°", "rotativa", 0.72, 0.45, 0.98, 9.0,
                   "isoporcentual", 200,
                   "V estrecha para caudales bajos y fluidos fibrosos o con sólidos. Valores estimados."),
+    # --- bola de paso con orificio en V (V-port, v0.15.3): bola completa con inserto o corte en V a la entrada.
+    # IEC 60534-2-1 no la publica; valores aproximados de datos publicados de bolas caracterizadas. La V
+    # restringe a la entrada y el orificio de la bola agrega una segunda restricción: FL y xT algo más altos y
+    # menos capacidad que la bola segmentada del mismo ángulo.
+    EstiloValvula("bola_vport_v90", "Bola de paso con orificio en V de 90° (V-port)", "rotativa", 0.70, 0.40, 0.95,
+                  20.0, "isoporcentual", 80,
+                  "Bola completa con la V a la entrada: regula y cierra hermético (asiento blando, clase V–VI) en "
+                  "fluidos limpios. Valores aproximados de datos publicados; confirmar con el fabricante."),
+    EstiloValvula("bola_vport_v60", "Bola de paso con orificio en V de 60° (V-port)", "rotativa", 0.75, 0.47, 0.95,
+                  13.0, "isoporcentual", 120, "Valores aproximados de datos publicados; confirmar con el fabricante."),
+    EstiloValvula("bola_vport_v30", "Bola de paso con orificio en V de 30° (V-port)", "rotativa", 0.80, 0.55, 0.95,
+                  7.0, "isoporcentual", 150,
+                  "V estrecha para caudales bajos en fluidos limpios. Valores aproximados de datos publicados; "
+                  "confirmar con el fabricante."),
     EstiloValvula("globo_liner_contorneado", "Globo con liner, obturador contorneado, flujo tiende a abrir",
                   "globo", 0.90, 0.72, 0.46, 10.0, "isoporcentual", 30,
                   "Cuerpo revestido (PFA/PTFE): IEC no publica factores propios; se adoptan los del "
@@ -273,6 +287,10 @@ CUERPOS: dict[str, Cuerpo] = {c.clave: c for c in [
     Cuerpo("bola_segmentada", "Bola segmentada (corte en V)", ("bola_segmentada", "bola_segmentada_v60",
                                                                "bola_segmentada_v30"),
            1, 24, True, "Segmento guiado por eje pasante con cojinetes", -4.3),
+    Cuerpo("bola_vport", "Bola de paso con orificio en V (V-port)", ("bola_vport_v90", "bola_vport_v60",
+                                                                     "bola_vport_v30"),
+           1, 16, True, "Bola completa con inserto o corte en V a la entrada; eje guiado por bujes, asientos a "
+                        "ambos lados", -4.3),
     Cuerpo("tapon_excentrico", "Tapón excéntrico rotativo", ("rotativa_obturador_excentrico_abre",
                                                              "rotativa_obturador_excentrico_cierra"),
            1, 12, True, "Tapón esférico en brazo flexible excéntrico; eje con cojinetes", -4.3),
@@ -369,7 +387,7 @@ KC_TIPICO = {
     "angular_venturi": 0.20,
     "bola_segmentada": 0.25, "bola_paso_total_70": 0.30, "bola_paso_completo_90": 0.20,
     "bola_paso_reducido_70": 0.40, "bola_paso_reducido_90": 0.30, "bola_segmentada_v60": 0.30,
-    "bola_segmentada_v30": 0.35,
+    "bola_segmentada_v30": 0.35, "bola_vport_v90": 0.30, "bola_vport_v60": 0.35, "bola_vport_v30": 0.40,
     "mariposa_concentrica_60": 0.35, "mariposa_concentrica_70": 0.30,
     "mariposa_alto_rendimiento_90": 0.35, "mariposa_triple_90": 0.35,
     "rotativa_obturador_excentrico_abre": 0.50, "rotativa_obturador_excentrico_cierra": 0.35,
@@ -526,6 +544,9 @@ NOMBRE_CORTO = {
     "bola_segmentada": "Corte en V de 90°",
     "bola_segmentada_v60": "Corte en V de 60°",
     "bola_segmentada_v30": "Corte en V de 30°",
+    "bola_vport_v90": "Orificio en V de 90°",
+    "bola_vport_v60": "Orificio en V de 60°",
+    "bola_vport_v30": "Orificio en V de 30°",
     "bola_paso_total_70": "Paso total · 70°",
     "bola_paso_completo_90": "Paso completo · 90°",
     "bola_paso_reducido_70": "Paso reducido · 70°",

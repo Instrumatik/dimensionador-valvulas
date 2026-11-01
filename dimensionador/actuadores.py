@@ -464,6 +464,18 @@ def factores_par(cuerpo: str, d: float, blando: bool, d_bola: float | None = Non
         fam = "Bola flotante"
         nota = ("En la bola flotante la presión carga la bola contra el asiento de aguas abajo: se toma 1,5 veces "
                 "el término A de la bola trunnion.")
+    if cuerpo == "bola_vport":
+        # El roce en asientos es el de una bola completa; el par dinámico lo gobierna la V de la entrada, como en
+        # la bola segmentada (el chorro sale por la V y no por el orificio pleno): se toma C(θ) de la segmentada.
+        flotante = d <= 8
+        if flotante:
+            A *= 1.5
+        C = {60: _tabla(_SEG, d, 2, 2.0), 70: _tabla(_SEG, d, 3, 2.0), 90: _tabla(_SEG, d, 3, 2.0)}
+        return FactoresPar(f"Bola con orificio en V ({'flotante' if flotante else 'muñones'})", A, B, C,
+                           "Roce de asientos de bola completa (" + ("flotante, 1,5 veces el término A de la "
+                           "trunnion" if flotante else "montada en muñones") + ") y par dinámico de la bola "
+                           "segmentada, porque el caudal lo regula la V de la entrada. Valores aproximados: "
+                           "confirmar con el fabricante.")
     return FactoresPar(fam, A, B, {70: 0.15 * db ** 3, 90: 0.045 * db ** 3}, nota)
 
 
