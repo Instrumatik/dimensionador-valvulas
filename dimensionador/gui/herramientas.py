@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDialog, QDialogBut
                                QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QTableWidget,
                                QTableWidgetItem, QTabWidget, QToolButton, QVBoxLayout, QWidget)
 
-from .. import asme_b16_34 as B, contacto, herramientas as H, propiedades as P, tuberias as T, unidades as U
+from .. import asme_b16_34 as B, contacto, fluidos_proceso as FP, herramientas as H, propiedades as P, tuberias as T, unidades as U
 from ..entregables import fmt
 from . import iconos
 
@@ -254,7 +254,14 @@ class Fluidos(_Ventana):
         self.tabs.currentChanged.connect(lambda i: i == 1 and self.tabla_fluidos.cargar())
         f = QFormLayout()
         self.cb_fluido = QComboBox()
-        self.cb_fluido.addItems(list(P.FLUIDOS))
+        self.cb_fluido.addItems([k for k in P.FLUIDOS if not FP.es_proceso(k)])
+        for grupo in FP.GRUPOS:
+            self.cb_fluido.insertSeparator(self.cb_fluido.count())
+            self.cb_fluido.addItems([n for n, fp in FP.CATALOGO.items() if fp.grupo == grupo])
+        self.cb_fluido.setMaxVisibleItems(30)
+        self.cb_pres = QComboBox()
+        self.ed_datos = QLineEdit()
+        self.ed_datos.setPlaceholderText("vacío = datos típicos de la presentación")
         self.cb_modo = QComboBox()
         self.cb_modo.addItems(["Punto: presión y temperatura", "Saturación a la presión dada",
                                "Saturación a la temperatura dada"])
@@ -265,6 +272,9 @@ class Fluidos(_Ventana):
         self.cb_salida.addItems(["SI", "Imperial"])
         self.cb_salida.setCurrentText(self.sistema)
         f.addRow("Fluido", self.cb_fluido)
+        f.addRow("Presentación / concentración", self.cb_pres)
+        f.addRow("Caracterización / composición", self.ed_datos)
+        self._form = f
         f.addRow("Consulta", self.cb_modo)
         f.addRow("Presión", self.d_P)
         f.addRow("Temperatura", self.d_T)
@@ -287,7 +297,30 @@ class Fluidos(_Ventana):
         self.btn.clicked.connect(self._calcular)
         self.cb_modo.currentIndexChanged.connect(self._modo)
         self.cb_salida.currentTextChanged.connect(self._calcular)
+        self.cb_fluido.currentTextChanged.connect(self._fluido)
+        self.cb_pres.currentTextChanged.connect(self._presentacion)
+        self._fluido()
         self._modo()
+
+    def _fluido(self):
+        fl = self.cb_fluido.currentText()
+        proc = FP.es_proceso(fl)
+        self.cb_pres.blockSignals(True)
+        self.cb_pres.clear()
+        if proc:
+            self.cb_pres.addItems(FP.presentaciones(fl))
+        self.cb_pres.blockSignals(False)
+        for w in (self.cb_pres, self.ed_datos):
+            w.setVisible(proc)
+            self._form.labelForField(w).setVisible(proc)
+        self._presentacion()
+
+    def _presentacion(self):
+        fl = self.cb_fluido.currentText()
+        if FP.es_proceso(fl):
+            self.ed_datos.setText(FP.texto_por_defecto(fl, self.cb_pres.currentText()))
+            self.ed_datos.setCursorPosition(0)
+            self.ed_datos.setToolTip(FP.nota_servicio(fl, self.cb_pres.currentText()))
 
     def _modo(self):
         i = self.cb_modo.currentIndex()
@@ -303,7 +336,12 @@ class Fluidos(_Ventana):
             if i == 0:
                 if Pk is None or TK is None:
                     raise ValueError("Ingrese la presión y la temperatura.")
-                filas = H.propiedades_punto(fluido, Pk, TK)
+                if FP.es_proceso(fluido):
+                    filas = H.propiedades_proceso(fluido, self.cb_pres.currentText(), Pk, TK, self.ed_datos.text())
+                else:
+                    filas = H.propiedades_punto(fluido, Pk, TK)
+            elif FP.es_proceso(fluido):
+                raise ValueError("Para los fluidos de proceso la consulta es en un punto (presión y temperatura).")
             elif i == 1:
                 if Pk is None:
                     raise ValueError("Ingrese la presión.")
@@ -343,7 +381,12 @@ class TablaFluidos(QWidget):
         self.cb_un.addItems(["SI", "Imperial"])
         self.cb_un.setCurrentText(sistema)
         h.addWidget(self.cb_un)
-        h.addStretch(1)
+        h.addSpacing(16)
+        h.addWidget(QLabel("Buscar"))
+        self.ed_buscar = QLineEdit()
+        self.ed_buscar.setPlaceholderText("parte del nombre: crudo, TEG, sulfúrico…")
+        self.ed_buscar.setClearButtonEnabled(True)
+        h.addWidget(self.ed_buscar, 1)
         v.addLayout(h)
         self.tabla = _tabla([])
         v.addWidget(self.tabla, 1)
@@ -351,11 +394,19 @@ class TablaFluidos(QWidget):
         pie.addWidget(_nota("Constantes del fluido puro y propiedades a 15 °C y 101,325 kPa (CoolProp). SG del líquido: "
                             "agua a 15 °C = 1; SG del gas: aire = 1 (M / 28,96). «—»: no corresponde (por ejemplo, "
                             "sin presión de vapor por encima de la temperatura crítica). Para otra presión o "
-                            "temperatura use «Consulta en un punto»."), 1)
+                            "temperatura use «Consulta en un punto». Fluidos de proceso: una fila por presentación con datos típicos "
+                            "(Tc y Pc pseudocríticas; T ebullición = Tb media del corte)."), 1)
         pie.addWidget(_boton_copiar(self.tabla))
         v.addLayout(pie)
         self.filas: list[H.FilaFluido] | None = None
         self.cb_un.currentTextChanged.connect(self._mostrar)
+        self.ed_buscar.textChanged.connect(self._filtrar)
+
+    def _filtrar(self, *_):
+        t = self.ed_buscar.text().strip().lower()
+        for i in range(self.tabla.rowCount()):
+            it = self.tabla.item(i, 0)
+            self.tabla.setRowHidden(i, bool(t) and (it is None or t not in it.text().lower()))
 
     def cargar(self):
         if self.filas is None:
@@ -383,6 +434,7 @@ class TablaFluidos(QWidget):
                   n(U.desde_base(f.rho, "densidad", ur) if f.rho else None), n(f.SG_liq),
                   n(f.mu * 1000 if f.mu else None), p(f.Pv), n(f.k)] for f in self.filas]
         _llenar(self.tabla, filas, derecha=(1, 2, 3, 4, 5, 7, 8, 9, 10, 11))
+        self._filtrar()
 
 
 # ----------------------------------------------------------------------------- 3. tuberías

@@ -29,6 +29,8 @@ dimensionador/
   asme_b16_34.py    Clases de presión-temperatura ASME B16.34 por grupo de material
   datos_b16_34.py   Tablas numéricas de B16.34-2017 (49 grupos, clases 150 a 2500), generadas
   fluido_servicio.py  Definición única del fluido: variantes, agua libre, corrección salina y datos para materiales
+  fluidos_proceso.py  Fluidos de refinería, mejoradores, servicios y químicos (v0.16.0): presentaciones, propiedades
+                      estimadas (pseudocomponente de petróleo, tablas de soluciones, glicoles, azufre, slurry) y agentes
   materiales.py     Biblioteca de materiales por componente (ASTM/UNS, dureza, PREN, NACE, costo)
   pernos.py         Pernos y tuercas, junta cuerpo-bonete, O-rings y resortes: opciones, temperatura, química y NACE
   quimica.py        Agentes químicos, normalización de unidades y compatibilidad A–D por material
@@ -106,7 +108,7 @@ certificados de la válvula ofertada.
 
 ## Validación actual
 
-`python -m pytest tests` (225 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
+`python -m pytest tests` (236 pruebas, incluidas pruebas de la interfaz y de los documentos Word). Ejemplos resueltos del Anexo de
 IEC 60534-2-1:2011 reproducidos:
 
 | Ejemplo | Norma | Programa |

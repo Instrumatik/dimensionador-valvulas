@@ -885,7 +885,7 @@ _e("mecanismos_falla", "Mecanismos de deterioro",
    "M03 SCC por cloruros, M04 SSC por H₂S, M05 HIC / SOHIC, M06 corrosión por CO₂, M07 oxidantes, M08 "
    "cáusticos, M09 HF / fluoruros, M10 azufre / sulfuros, M14 erosión por partículas, M16 cavitación, M17 "
    "flashing, M19 galling, M21 grafitización / creep, M22 HTHA o fragilización por hidrógeno, M24 SCC en "
-   "amoníaco anhidro, M25 SCC por aminas, M26 SCC por nitratos, M27 ignición en oxígeno.</p>"
+   "amoníaco anhidro, M25 SCC por aminas, M26 SCC por nitratos, M27 ignición en oxígeno, M30 sulfidación a alta temperatura (azufre en hidrocarburos por encima de 200 a 230 °C), M31 corrosión por ácidos nafténicos (TAN &gt; 0,5 entre 220 y 400 °C), M32 corrosión por bisulfuro de amonio (H₂S y NH₃ en agua, aguas agrias) y M33 hinchamiento de elastómeros en hidrocarburos (descarta EPDM).</p>"
    "<p>A partir de ellos clasifica el medio en corrosivo, agrio, erosivo o mixto.</p>",
    NOR, relacionadas=["mat_medio", "ssc", "scc_cloruros", "erosion", "galling"],
    guia=_g("Son las formas en que el fluido y la operación pueden dañar la válvula.",
@@ -926,7 +926,14 @@ _e("variante_fluido", "Calidad / variante del fluido",
    "qué fluido es: la solapa 3-Materiales la toma de aquí y no la repite. Aparece solo cuando el nombre del "
    "fluido no alcanza:</p><ul>"
    "<li><b>Agua / vapor de agua (líquido)</b>: agua industrial o de enfriamiento, potable, desmineralizada, de "
-   "alimentación de caldera, condensado, agua de mar, agua producida (yacimiento) o salmuera.</li>"
+   "alimentación de caldera, condensado (general, de media y de baja presión), agua de servicio, agua de "
+   "enfriamiento de torre, agua agria, agua agria despojada (salida de SWS), aguas servidas o residuales, agua "
+   "aceitosa, agua de mar, agua producida (yacimiento) o salmuera.</li>"
+   "<li><b>Agua / vapor de agua (vapor)</b>: vapor de alta, media o baja presión (solo informativo: las "
+   "propiedades salen de P y T).</li>"
+   "<li><b>Cloro</b>: seco o húmedo (el húmedo cambia por completo los materiales).</li>"
+   "<li><b>Fluidos de proceso</b>: la presentación o concentración (por ejemplo «Soda 50 %», «MDEA 45 % "
+   "rica», «Crudo 16 °API»); ver la ayuda de fluidos de proceso.</li>"
    "<li><b>Definido por el usuario</b>: crudo, diésel, naftas, aceite térmico, ácido, alcalino, solvente, "
    "slurry (líquidos); gas natural, gas combustible, gas ácido o gas de proceso (gases); vapor de "
    "hidrocarburo o de proceso (vapores).</li></ul>"

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QApplication, QCalendarWidget, QComboBox, QDateEd
                                QSplitter, QTabWidget, QTextBrowser, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
-from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, contacto, entregables as E, fluido_servicio as FS, modelos, pernos as PE, propiedades, trims as T, tuberias, unidades as U
+from .. import __version__, anticavitacion as AC, ayuda, compresible as CG, contacto, entregables as E, fluido_servicio as FS, fluidos_proceso as FP, modelos, pernos as PE, propiedades, trims as T, tuberias, unidades as U
 from ..estilos import (CLAVES_ANTERIORES, CUERPOS, ESTILOS, EXCENTRICAS, KC_TIPICO, NOMBRE_CORTO, NOMBRES_ANTERIORES,
                        SENTIDOS, SENTIDOS_ROT, NOMBRE_GEOMETRIA, TAMANOS, clave_de_geometria, clave_trim, factores, geometria_sentido,
                        geometrias, nombre_geometria, sentidos)
@@ -324,7 +324,8 @@ def boton_ir(abrir_ayuda, clave: str) -> QPushButton:
     b.setToolTip("Ver la explicación de este dato en el panel de la derecha (F1)")
     b.setFocusPolicy(Qt.NoFocus)
     b.setStyleSheet("QPushButton{padding:1px 2px;color:#0d3b66;font-size:8pt}")
-    b.clicked.connect(lambda: abrir_ayuda(clave))
+    b.setProperty("ayuda", clave)
+    b.clicked.connect(lambda: abrir_ayuda(b.property("ayuda") or clave))
     return b
 
 
@@ -995,7 +996,11 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_tipo_fluido.currentIndexChanged.connect(self._cambio_tipo_fluido)
         self._fila(grid, r, "Tipo de fluido", self.cb_tipo_fluido, "tipo_fluido"); r += 1
         self.cb_fluido = self._registrar("fluido", Combo())
-        self.cb_fluido.addItems([USUARIO, *propiedades.FLUIDOS.keys()])
+        self.cb_fluido.addItems([USUARIO, *(k for k in propiedades.FLUIDOS if not FP.es_proceso(k))])
+        for grupo in FP.GRUPOS:            # v0.16.0: fluidos de refinería, mejoradores, servicios y químicos
+            self.cb_fluido.insertSeparator(self.cb_fluido.count())
+            self.cb_fluido.addItems([n for n, f in FP.CATALOGO.items() if f.grupo == grupo])
+        self.cb_fluido.setMaxVisibleItems(30)
         self.cb_fluido.setCurrentText("Agua / vapor de agua")
         self.cb_fluido.currentIndexChanged.connect(self._cambio_fluido)
         self.vis_g1.append((self._fila(grid, r, "Fluido", self.cb_fluido, "fluido"), "LGV")); r += 1
@@ -1008,15 +1013,19 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.lbl_comp_gn.setWordWrap(True)
         self.ed_comp_gn.editingFinished.connect(self._comp_gn_resumen)
         self.ed_comp_gn.setCursorPosition(0)
-        self.fila_comp_gn = self._fila(grid, r, "Composición del gas natural (% molar)", self.ed_comp_gn,
-                                       "composicion_gn", self.lbl_comp_gn, ancho=420); r += 1
+        # v0.16.0: la composición / caracterización va debajo de la presentación (fila r + 1)
+        self.fila_comp_gn = self._fila(grid, r + 1, "Composición del gas natural (% molar)", self.ed_comp_gn,
+                                       "composicion_gn", self.lbl_comp_gn, ancho=420)
         self.cb_variante = self._registrar("variante", Combo())
         self.lbl_salinidad = QLabel("")
         self.lbl_salinidad.setStyleSheet(f"color:{ACENTO};font-size:8pt")
         self.lbl_salinidad.setWordWrap(True)
         self.fila_variante = self._fila(grid, r, "Calidad / variante del fluido", self.cb_variante,
-                                        "variante_fluido", self.lbl_salinidad); r += 1
+                                        "variante_fluido", self.lbl_salinidad); r += 2
         self.cb_variante.currentIndexChanged.connect(self._cambio_variante)
+        # al abrir un proyecto la composición / caracterización se carga después de la variante
+        self.campos["composicion_gn"] = self.campos.pop("composicion_gn")
+        self._pres_previa = None
         self.cb_agua_libre = self._registrar("agua_libre", Combo())
         self.cb_agua_libre.addItems(FS.AGUA_LIBRE)
         self.cb_agua_libre.currentIndexChanged.connect(self._fluido_a_materiales)
@@ -1648,8 +1657,26 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         self.cb_agua_libre.setToolTip("Lo impone el fluido elegido." if fija else "")
         sal = FS.salinidad_pct(t, fl, var, self._cloruros_materiales())
         c = FS.correccion_salina(sal)
-        self.lbl_salinidad.setText(f"Propiedades corregidas por {c.texto}." if c else "")
+        self.lbl_salinidad.setText(f"Propiedades corregidas por {c.texto}." if c else FS.nota_variante(t, fl, var))
+        self._datos_por_defecto()
         self._fluido_a_materiales()
+
+    def _datos_por_defecto(self):
+        """Al cambiar de fluido o de presentación, la composición / caracterización vuelve a la típica."""
+        fl, var = self.cb_fluido.currentText(), self.cb_variante.currentText()
+        clave = (fl, var)
+        if clave == self._pres_previa:
+            return
+        self._pres_previa = clave
+        if FP.es_proceso(fl):
+            self.ed_comp_gn.setText(FP.texto_por_defecto(fl, var))
+            nota = FP.nota_servicio(fl, var)
+            self.cb_variante.setToolTip(nota)
+            self.ed_comp_gn.setToolTip(nota)
+        elif fl == propiedades.GAS_NATURAL:
+            self.ed_comp_gn.setText(propiedades.texto_composicion(propiedades.GN_TIPICO))
+        self.ed_comp_gn.setCursorPosition(0)
+        self._comp_gn_resumen()
 
     def _cloruros_materiales(self) -> float | None:
         """Cloruros (mg/L) informados en la tabla de agentes de 3-Materiales, si los hay."""
@@ -1685,20 +1712,38 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         for k in PROPIEDADES:
             self.filas[k].solo_lectura(k in auto and not manual, FLUYEN)
         self.f_Pc.solo_lectura(not manual)
-        gn = t == "gas" and self.cb_fluido.currentText() == propiedades.GAS_NATURAL
+        fl = self.cb_fluido.currentText()
+        gn = t == "gas" and fl == propiedades.GAS_NATURAL
+        mezcla = fl in propiedades.MEZCLAS and t != "steam"
+        liq_proc = FP.es_liquido_proceso(fl) and t == "liquido"
+        ver = gn or mezcla or liq_proc
         for w in self.fila_comp_gn:
-            w.setVisible(gn)
-        if gn:
+            w.setVisible(ver)
+        self.fila_comp_gn[0].setText("Composición del gas natural (% molar)" if gn else
+                                     "Composición (% molar)" if mezcla else "Caracterización del fluido")
+        self.fila_variante[0].setText("Presentación / concentración" if FP.es_proceso(fl) else
+                                      "Calidad / variante del fluido")
+        proc = FP.es_proceso(fl)
+        for fila, clave in ((self.fila_comp_gn, "caracterizacion_fluido" if liq_proc else "composicion_gn"),
+                            (self.fila_variante, "fluidos_proceso" if proc else "variante_fluido")):
+            for w in fila[1:3]:
+                w.setProperty("ayuda", clave)
+        if ver:
             self._comp_gn_resumen()
 
     def _composicion(self) -> dict | None:
-        """Composición del gas natural en % molar (None si el fluido no es gas natural)."""
-        if self.tipo() != "gas" or self.cb_fluido.currentText() != propiedades.GAS_NATURAL:
-            return None
-        return propiedades.leer_composicion(self.ed_comp_gn.text())
+        """Composición en % molar del gas natural o de la mezcla de proceso (None si no corresponde)."""
+        fl, t = self.cb_fluido.currentText(), self.tipo()
+        if fl == propiedades.GAS_NATURAL and t == "gas" or fl in propiedades.MEZCLAS and t != "steam":
+            return propiedades.leer_composicion(self.ed_comp_gn.text(), fl)
+        return None
 
     def _comp_gn_resumen(self):
+        fl = self.cb_fluido.currentText()
         try:
+            if FP.es_proceso(fl):
+                self.lbl_comp_gn.setText(FP.resumen(fl, self.cb_variante.currentText(), self.ed_comp_gn.text()))
+                return
             c = self._composicion()
             if c is None:
                 return
@@ -1848,11 +1893,21 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         t = self.tipo()
         if fluido == USUARIO or t == "steam":
             return
+        if FP.es_proceso(fluido) and not FP.admite(fluido, t):
+            raise ValueError(f"{fluido} se calcula como {'gas' if t == 'liquido' else 'líquido'}: cambie el tipo "
+                             "de fluido.")
         F = self.filas
         for j in self._activos():
             P1, P2, T1 = F["P1"].valor_base(j), F["P2"].valor_base(j), F["T1"].valor_base(j)
             if P1 is None or T1 is None:
                 raise ValueError(f"Caso {CASOS[j]}: ingrese P1 y T1 para obtener las propiedades.")
+            if t == "liquido" and FP.es_proceso(fluido):
+                r = FP.liquido(fluido, self.cb_variante.currentText(), P1, T1, self.ed_comp_gn.text())
+                F["SG"].edits[j].setText(_num(r.SG))
+                F["mu"].poner_base(j, r.mu)
+                F["Pv"].poner_base(j, r.Pv)
+                self.f_Pc.poner_base(0, r.Pc)
+                continue
             if t == "liquido":
                 p = propiedades.liquido(fluido, P1, T1)
                 c = FS.correccion_salina(FS.salinidad_pct(t, fluido, self.cb_variante.currentText(),
@@ -1942,7 +1997,7 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
                                                  balanceado=self._balanceado(), **self._geo_cert(),
                                                  anticav=self.trim_especial()[0], guia=self._guia(),
                                                  sentido_instalacion=self._sentido_instalacion(),
-                                                 **self._datos_fluido())
+                                                 composicion=self._composicion(), **self._datos_fluido())
         ruido_g = RuidoAerodinamico(self.trim_especial()[1], self.f_Rn.valor_base(0) or 1.0,
                                     self.f_area.valor_base(0) if self._area_manual() else None)
         dim = Dimensionamiento(casos, None, self.trim_clave(), self.cb_tamano.currentData(),
@@ -2014,7 +2069,9 @@ class VentanaPrincipal(SolapaMateriales, SolapaEquipo, QMainWindow):
         t, fl, var = self.tipo(), self._fluido_actual(), self.cb_variante.currentText()
         agua = self.cb_agua_libre.currentText()
         sal = FS.salinidad_pct(t, fl, var, self._cloruros_materiales()) if fl != USUARIO else 0.0
-        return {"variante": var, "agua_libre": "" if agua == FS.AUTO_AGUA else agua, "salinidad_pct": sal}
+        datos = self.ed_comp_gn.text().strip() if FP.es_liquido_proceso(fl) else ""
+        return {"variante": var, "agua_libre": "" if agua == FS.AUTO_AGUA else agua, "salinidad_pct": sal,
+                "datos_fluido": datos}
 
     def calcular(self, silencioso: bool = False):
         pr = self.presentacion()

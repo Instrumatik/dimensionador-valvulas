@@ -458,8 +458,44 @@ class FilaFluido:
 T_REF, P_REF = 288.15, U.P_ATM_KPA
 
 
+def propiedades_proceso(fluido: str, presentacion: str | None, P_kPa: float, T_K: float,
+                        texto: str = "") -> list[Propiedad]:
+    """Propiedades de un fluido de proceso (refinería, químicos) en un punto."""
+    from . import fluidos_proceso as FP
+    f = FP.CATALOGO[fluido]
+    p = f.presentacion(presentacion)
+    if (p.modelo or f.modelo) == "mezcla":
+        comp = P.leer_composicion(texto, fluido) if (texto or "").strip() else dict(p.datos["comp"])
+        return propiedades_punto(fluido, P_kPa, T_K, comp)
+    return [Propiedad(n, v, m or "", u) for n, v, m, u in FP.propiedades_punto(fluido, presentacion, P_kPa, T_K, texto)]
+
+
+def filas_proceso() -> list[FilaFluido]:
+    """Fluidos de proceso líquidos, una fila por presentación, a 15 °C y 1 atm (o donde son líquidos)."""
+    from . import fluidos_proceso as FP
+    filas = []
+    for nombre, f in FP.CATALOGO.items():
+        if f.modelo == "mezcla":
+            continue
+        for pr in f.presentaciones:
+            T = T_REF
+            if pr.T_min_C is not None and pr.T_min_C + 273.15 > T_REF:
+                T = pr.T_min_C + 273.15 + 15
+            try:
+                r = FP.liquido(nombre, pr.nombre, P_REF, T)
+            except P.ErrorPropiedades:
+                continue
+            Teb = None
+            if (pr.modelo or f.modelo) == "petroleo":
+                Teb = FP.pseudo(pr.datos["API"], pr.datos["Kw"])["Tb"]
+            fase = "Líquido" if T == T_REF else f"Líquido (a {T - 273.15:.0f} °C)".replace(".", ",")
+            filas.append(FilaFluido(f"{nombre} — {pr.nombre}", r.M, None, r.Tc, r.Pc, Teb, fase, r.rho, r.SG, r.mu,
+                                    r.Pv, None))
+    return filas
+
+
 def tabla_fluidos() -> list[FilaFluido]:
-    """Constantes y propiedades a 15 °C y 1 atm de los fluidos de la biblioteca (CoolProp)."""
+    """Constantes y propiedades a 15 °C y 1 atm de los fluidos de la biblioteca (CoolProp) y de proceso."""
     filas = []
     for nombre in P.FLUIDOS:
         n = P._cp_nombre(nombre)
@@ -481,4 +517,4 @@ def tabla_fluidos() -> list[FilaFluido]:
                                 Pc / 1000 if Pc else None, Teb, FASES.get(fase, fase), rho,
                                 rho / IEC.RHO_AGUA_15C if rho and liq else None, mu, Pv / 1000 if Pv else None,
                                 cp / cv if cp and cv else None))
-    return filas
+    return filas + filas_proceso()

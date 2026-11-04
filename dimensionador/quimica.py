@@ -37,7 +37,7 @@ NIVEL_TXT = {"A": "A — excelente", "B": "B — bueno", "C": "C — regular (no
 
 FAMILIAS = ["Gases ácidos / reactivos", "Halogenuros / sales", "Ácidos inorgánicos", "Ácidos orgánicos",
             "Álcalis / bases", "Azufre / sulfuros", "Oxidantes", "Otros"]
-UNIDADES = ["mg/L", "ppm masa", "ppmv", "% p/p", "% molar", "mol/L", "bar(a) parcial", "kPa parcial"]
+UNIDADES = ["mg/L", "ppm masa", "ppmv", "% p/p", "% molar", "mol/L", "bar(a) parcial", "kPa parcial", "mg KOH/g"]
 FASES = ["Acuosa", "Orgánica líquida", "Gas / vapor", "Sólida", "Desconocida"]
 UNIDADES_GAS = ("ppmv", "bar(a) parcial", "kPa parcial")
 
@@ -127,6 +127,15 @@ AGENTES: dict[str, Agente] = {a.clave: a for a in [
     Agente("nitratos", "Nitratos", "NO₃⁻", FAMILIAS[6], "mgL", 62.0, "mg/L", 50000, ("scc_nitratos",)),
     # Otros
     Agente("aminas", "Aminas (MEA, DEA, MDEA)", "R-NH₂", FAMILIAS[7], "pct", 61.08, "% p/p", 50, ("scc_aminas",)),
+    # v0.16.0: hidrocarburos, glicoles, azufre en hidrocarburos (sulfidación) y acidez nafténica
+    Agente("hidrocarburos", "Hidrocarburos (crudo, cortes, combustibles, aceites)", "HC", FAMILIAS[7], "pct", 200.0,
+           "% p/p", 100, ("hinchamiento_elastomeros",), acuoso=False),
+    Agente("glicoles", "Glicoles (MEG, MPG, DEG, TEG, TREG)", "R(OH)₂", FAMILIAS[7], "pct", 106.0, "% p/p", 100,
+           (), acuoso=False),
+    Agente("azufre_hc", "Azufre total en hidrocarburo (sulfidación)", "S", FAMILIAS[5], "pct", 32.06, "% p/p", 3.0,
+           ("sulfidacion",), acuoso=False),
+    Agente("tan", "Acidez nafténica (TAN)", "TAN", FAMILIAS[3], "pct", 280.0, "mg KOH/g", 2.0, ("naftenica",),
+           acuoso=False),
     Agente("solidos", "Sólidos abrasivos", "—", FAMILIAS[7], "mgL", 100.0, "mg/L", 5000, ("erosion",),
            acuoso=False),
     Agente("otro", "Otro (especificar)", "—", FAMILIAS[7], "mgL", 100.0, "mg/L", 1, ("sin_datos",)),
@@ -491,6 +500,53 @@ SECO: dict[str, dict[str, list]] = {
 }
 SECO["o2"]["grafito"] = r((INF, 200, "A"), (INF, 370, "B"))   # grafito oxidable en O₂ caliente
 
+# --- v0.16.0: agentes de crudos y cortes, glicoles. Valen con o sin agua (se cargan en las dos tablas).
+# Hidrocarburos: los metales no se afectan; el EPDM se hincha (no usar); NBR y FKM son los elastómeros habituales.
+_HC_R = {**_todos(METALES, A_), "ptfe": A_, "vidrio": A_, "peek": A_, "grafito": A_,
+         "fkm": r((INF, 200, "A")), "nbr": r((INF, 100, "A"), (INF, 120, "B")), "epdm": D_}
+# Glicoles: poco corrosivos mientras no se degraden (la degradación genera ácidos orgánicos, que se informan aparte)
+_GLI_R = {**_todos(METALES, r((INF, 230, "A"))), "bronce": r((INF, 120, "A"), (INF, 200, "B")),
+          "ptfe": A_, "vidrio": A_, "peek": A_, "grafito": A_, "fkm": r((INF, 120, "A"), (INF, 150, "B")),
+          "epdm": r((INF, 120, "A"), (INF, 150, "B")), "nbr": r((INF, 100, "A"), (INF, 120, "B"))}
+# Sulfidación por compuestos de azufre en hidrocarburos sin H₂ (orden de las curvas de McConomy modificadas,
+# API RP 939-C / API 571): crece con la temperatura y el contenido de azufre; el Cr la reduce. Filas
+# (S mín, S máx % p/p, T máx °C, nivel); por debajo de ~ 230 °C no hay sulfidación apreciable.
+_S = 0.2
+
+
+def _sulf(a_bajo, b_bajo, c_bajo, a_alto, b_alto, c_alto):
+    return r((0, _S, a_bajo, "A"), (0, _S, b_bajo, "B"), (0, _S, c_bajo, "C"),
+             (_S, INF, a_alto, "A"), (_S, INF, b_alto, "B"), (_S, INF, c_alto, "C"))
+
+
+_SULF_R = {
+    "cs": _sulf(260, 300, 340, 230, 260, 290), "crmo": _sulf(290, 340, 370, 260, 315, 345),
+    "crmo9": _sulf(340, 400, 430, 315, 370, 400), **_todos(["mart", "mart440", "ph"], _sulf(370, 430, 460, 340, 400, 430)),
+    **_todos(["ss304", "ss316", "ss317", "superaus", "duplex", "sduplex", "a20", "in825", "ni625", "ni_c"],
+             _sulf(450, 550, 600, 400, 500, 550)),
+    **_todos(["monel", "ni600", "ni_b", "enc"], _sulf(290, 370, 430, 260, 340, 400)),
+    "ti": _sulf(320, 400, 450, 300, 400, 450), **_todos(["cocr", "wc", "wc_ni", "ceram"], A_),
+    "bronce": r((INF, 100, "B"), (INF, 200, "C")),
+    "ptfe": A_, "vidrio": A_, "peek": A_, "grafito": A_, "fkm": A_, "nbr": A_, "epdm": D_,
+}
+# Corrosión nafténica (API 571): entre ~ 220 y 400 °C con TAN > 0,5 mg KOH/g; el Mo la reduce (316 con ≥ 2,5 % Mo,
+# 317L). Por debajo de 220 °C y por encima de 400 °C (los ácidos se descomponen) no se aplica.
+_NAF_R = {
+    **_todos(["cs", "crmo"], r((0, INF, 220, "A"), (0, 0.5, 400, "A"), (0.5, 1.5, 400, "C"), (1.5, INF, 400, "D"),
+                               (0, INF, 2000, "A"))),
+    "crmo9": r((0, INF, 220, "A"), (0, 0.5, 400, "A"), (0.5, 1.5, 400, "B"), (1.5, INF, 400, "C"), (0, INF, 2000, "A")),
+    **_todos(["mart", "mart440", "ph", "ss304", "monel", "ni600", "enc", "bronce"],
+             r((0, INF, 220, "A"), (0, 0.5, 400, "A"), (0.5, 1.5, 400, "B"), (1.5, INF, 400, "C"), (0, INF, 2000, "A"))),
+    "ss316": r((0, INF, 220, "A"), (0, 1.5, 400, "A"), (1.5, INF, 400, "B"), (0, INF, 2000, "A")),
+    **_todos(["ss317", "superaus", "sduplex", "a20", "in825", "ni625", "ni_c", "ni_b", "ti", "cocr", "wc", "wc_ni",
+              "ceram"], A_),
+    "duplex": r((0, INF, 220, "A"), (0, 1.5, 400, "A"), (1.5, INF, 400, "B"), (0, INF, 2000, "A")),
+    "ptfe": A_, "vidrio": A_, "peek": A_, "grafito": A_, "fkm": A_, "nbr": A_, "epdm": D_,
+}
+for _clave, _reglas in (("hidrocarburos", _HC_R), ("glicoles", _GLI_R), ("azufre_hc", _SULF_R), ("tan", _NAF_R)):
+    REGLAS[_clave] = _reglas
+    SECO[_clave] = _reglas
+
 # Tabla cualitativa A–D (resistencia química a temperatura ambiente; extracto de las
 # filas que corresponden a los agentes del programa). Fuente: tabla de resistencia
 # química de materiales de bombas y equipos (Mettler-Toledo / Little Giant).
@@ -638,6 +694,9 @@ def normalizar(a: AgenteServicio, P_kPa: float, SG: float = 1.0, M_gas: float | 
                        f"molar (M del gas {_fmt(Mm)} kg/kmol{'' if M_gas else ', la del aire por falta de dato'}). "
                        "Para gases la unidad habitual es ppmv o % molar.")
         u, v = "% molar", y * 100
+    if u == "mg KOH/g":            # número de acidez (TAN): se evalúa tal cual
+        n.valor = v
+        return n
     gas = u in UNIDADES_GAS or (u == "% molar" and a.fase == "Gas / vapor")
     if gas:
         p = v * 100 if u == "bar(a) parcial" else v if u == "kPa parcial" else \

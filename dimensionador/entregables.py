@@ -544,11 +544,15 @@ def _nombre_fluido(res: Resultado) -> str:
     if d.tipo == "steam":
         return "Agua, vapor (propiedades IAPWS-95)"
     t = d.fluido or "Definido por el usuario"
-    if d.fluido == "Gas natural":
-        from .propiedades import GN_TIPICO, texto_composicion
-        t += f" (% molar: {texto_composicion({k: round(v, 3) for k, v in (d.composicion or GN_TIPICO).items()})})"
+    from . import fluidos_proceso as FP
+    from .propiedades import composicion_tipica, es_mezcla, texto_composicion
     if d.variante:
         t += f" — {d.variante}"
+    if es_mezcla(d.fluido):
+        comp = d.composicion or composicion_tipica(d.fluido)
+        t += f" (% molar: {texto_composicion({k: round(v, 3) for k, v in comp.items()})})"
+    elif FP.es_liquido_proceso(d.fluido):
+        t += f" ({d.datos_fluido or FP.texto_por_defecto(d.fluido, d.variante)})"
     if d.agua_libre and d.agua_libre != "Sí" and d.tipo != "liquido":
         t += f" (agua libre: {d.agua_libre.lower()})"
     return t

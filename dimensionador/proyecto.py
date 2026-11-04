@@ -130,7 +130,8 @@ class Dimensionamiento:
     carrera_mm: float | None = None    # carrera nominal certificada (None = estimada)
     Cv_reducido_cert: float | None = None   # Cv certificado del trim reducido (None = estimado por el puerto)
     anticav: str = "estandar"          # clave de anticavitacion.TRIMS (solo líquidos)
-    composicion: dict | None = None    # % molar del gas natural (None = típica, propiedades.GN_TIPICO)
+    composicion: dict | None = None    # % molar del gas natural o de la mezcla (None = la típica)
+    datos_fluido: str = ""             # caracterización del fluido de proceso (fluidos_proceso), editable
     guia: str = ""                     # guía del obturador (trims.GUIAS); "" = la habitual del obturador
     sentido_instalacion: str = ""      # mariposas excéntricas: «abre» / «cierra» (Flow to open / close), informativo
 
@@ -490,6 +491,12 @@ def _con_coherencia(res: "Resultado") -> "Resultado":
     a = _alerta_coherencia(res)
     if a is not None:
         res.alertas.append(("General", a))
+    from . import fluidos_proceso as FP
+    d = res.dim
+    if FP.es_proceso(d.fluido):
+        T1s = [getattr(c, "T1", None) for c in d.casos]
+        for a in FP.alertas(d.fluido, d.variante, d.datos_fluido, [t for t in T1s if t], d.tipo):
+            res.alertas.append(("General", a))
     res.alertas.sort(key=lambda t: -t[1].severidad)
     return res
 

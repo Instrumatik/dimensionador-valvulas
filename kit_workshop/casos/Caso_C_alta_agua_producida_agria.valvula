@@ -1,5 +1,5 @@
 {
- "version": "0.15.3",
+ "version": "0.16.0",
  "sistema": "SI",
  "campos": {
   "id_proyecto": "Workshop N25 Valves Sizing",
@@ -26,8 +26,8 @@
   "resortes": "Estándar del fabricante",
   "tipo_fluido": "Líquido",
   "fluido": "Agua / vapor de agua",
-  "composicion_gn": "Metano 90; Etano 5; Propano 2; n-Butano 0,5; Isobutano 0,5; Nitrógeno 1; Dióxido de carbono 1",
   "variante": "Agua producida (yacimiento)",
+  "composicion_gn": "Metano 90; Etano 5; Propano 2; n-Butano 0,5; Isobutano 0,5; Nitrógeno 1; Dióxido de carbono 1",
   "agua_libre": "Sí",
   "tipo_caudal": "Volumétrico",
   "tamano": "Automático",

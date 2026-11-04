@@ -213,6 +213,15 @@ ESTILOS: dict[str, EstiloValvula] = {e.clave: e for e in [
     EstiloValvula("bola_segmentada_v30", "Bola segmentada, corte en V de 30°", "rotativa", 0.72, 0.45, 0.98, 9.0,
                   "isoporcentual", 200,
                   "V estrecha para caudales bajos y fluidos fibrosos o con sólidos. Valores estimados."),
+    # --- v0.16.0: bola segmentada con perfil parabólico (contorneado). Mismo segmento que la V de 90°, con el borde
+    # de corte de perfil parabólico: abre más gradual al comienzo (característica parabólica modificada,
+    # intermedia entre lineal e isoporcentual) y conserva el paso amplio a carrera completa.
+    EstiloValvula("bola_segmentada_parabolica", "Bola segmentada, perfil parabólico", "rotativa", 0.62, 0.32, 0.98,
+                  23.0, "parabolica", 100,
+                  "Segmento con el borde de corte contorneado en forma parabólica: ganancia más pareja que la V en "
+                  "todo el recorrido, buena para lazos de caudal y de presión con cargas variables y para pulpas, "
+                  "fibras y slurries. Valores aproximados (IEC 60534-2-1 publica solo la segmentada en V): "
+                  "confirmar con el fabricante."),
     # --- bola de paso con orificio en V (V-port, v0.15.3): bola completa con inserto o corte en V a la entrada.
     # IEC 60534-2-1 no la publica; valores aproximados de datos publicados de bolas caracterizadas. La V
     # restringe a la entrada y el orificio de la bola agrega una segunda restricción: FL y xT algo más altos y
@@ -284,8 +293,8 @@ CUERPOS: dict[str, Cuerpo] = {c.clave: c for c in [
                                                                  "bola_paso_reducido_70", "bola_paso_reducido_90",
                                                                  "bola_segmentada"),
            2, 48, True, "Bola fija en muñones superior e inferior con cojinetes; asientos con resorte", -4.3),
-    Cuerpo("bola_segmentada", "Bola segmentada (corte en V)", ("bola_segmentada", "bola_segmentada_v60",
-                                                               "bola_segmentada_v30"),
+    Cuerpo("bola_segmentada", "Bola segmentada (corte en V o parabólico)", ("bola_segmentada", "bola_segmentada_v60",
+                                                               "bola_segmentada_v30", "bola_segmentada_parabolica"),
            1, 24, True, "Segmento guiado por eje pasante con cojinetes", -4.3),
     Cuerpo("bola_vport", "Bola de paso con orificio en V (V-port)", ("bola_vport_v90", "bola_vport_v60",
                                                                      "bola_vport_v30"),
@@ -387,7 +396,7 @@ KC_TIPICO = {
     "angular_venturi": 0.20,
     "bola_segmentada": 0.25, "bola_paso_total_70": 0.30, "bola_paso_completo_90": 0.20,
     "bola_paso_reducido_70": 0.40, "bola_paso_reducido_90": 0.30, "bola_segmentada_v60": 0.30,
-    "bola_segmentada_v30": 0.35, "bola_vport_v90": 0.30, "bola_vport_v60": 0.35, "bola_vport_v30": 0.40,
+    "bola_segmentada_v30": 0.35, "bola_segmentada_parabolica": 0.27, "bola_vport_v90": 0.30, "bola_vport_v60": 0.35, "bola_vport_v30": 0.40,
     "mariposa_concentrica_60": 0.35, "mariposa_concentrica_70": 0.30,
     "mariposa_alto_rendimiento_90": 0.35, "mariposa_triple_90": 0.35,
     "rotativa_obturador_excentrico_abre": 0.50, "rotativa_obturador_excentrico_cierra": 0.35,
@@ -544,6 +553,7 @@ NOMBRE_CORTO = {
     "bola_segmentada": "Corte en V de 90°",
     "bola_segmentada_v60": "Corte en V de 60°",
     "bola_segmentada_v30": "Corte en V de 30°",
+    "bola_segmentada_parabolica": "Perfil parabólico",
     "bola_vport_v90": "Orificio en V de 90°",
     "bola_vport_v60": "Orificio en V de 60°",
     "bola_vport_v30": "Orificio en V de 30°",

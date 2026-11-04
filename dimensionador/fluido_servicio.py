@@ -29,6 +29,29 @@ VARIANTES_AGUA = {
     "Agua de mar": _V(familia="Agua", sal=3.5, agua="Sí", mat="Agua de mar"),
     "Agua producida (yacimiento)": _V(familia="Agua", sal=10.0, agua="Sí", mat="Agua producida"),
     "Salmuera": _V(familia="Salmuera", sal=20.0, agua="Sí", mat="Salmuera"),
+    # v0.16.0: aguas de refinería y mejoradores
+    "Agua de servicio": _V(familia="Agua", sal=0.0, agua="Sí", mat="Agua de servicio"),
+    "Agua de enfriamiento (circuito de torre)": _V(familia="Agua", sal=0.0, agua="Sí", mat="Agua de enfriamiento (torre)"),
+    "Condensado de media presión (MP)": _V(familia="Agua", sal=0.0, agua="Sí", mat="Condensado"),
+    "Condensado de baja presión (LP)": _V(familia="Agua", sal=0.0, agua="Sí", mat="Condensado"),
+    "Agua agria (sour water)": _V(familia="Agua", sal=0.0, agua="Sí", mat="Agua agria"),
+    "Agua agria despojada (salida de SWS)": _V(familia="Agua", sal=0.0, agua="Sí", mat="Agua agria despojada"),
+    "Aguas servidas / residuales (waste water)": _V(familia="Agua", sal=0.0, agua="Sí", mat="Aguas residuales"),
+    "Agua aceitosa (oily water)": _V(familia="Agua", sal=0.0, agua="Sí", mat="Agua aceitosa"),
+}
+# Vapor de agua: niveles de presión de la red de vapor (informativo; las propiedades salen de P y T)
+VARIANTES_VAPOR = {
+    "Vapor (sin especificar)": _V(),
+    "Vapor de alta presión (HP)": _V(nota="Red de alta presión: típico 40 a 60 bar g, sobrecalentado a 370 a 420 °C."),
+    "Vapor de media presión (MP)": _V(nota="Red de media presión: típico 10 a 20 bar g."),
+    "Vapor de baja presión (LP)": _V(nota="Red de baja presión: típico 3 a 5 bar g."),
+}
+# Variantes de fluidos puros de la biblioteca
+VARIANTES_BIBLIO = {
+    "Cloro": {
+        "Cloro seco (H₂O < 150 ppm)": _V(familia="Gas", agua="No", fija=True),
+        "Cloro húmedo": _V(familia="Gas", agua="Sí", fija=True),
+    },
 }
 VARIANTES_USUARIO = {
     "liquido": {
@@ -70,12 +93,21 @@ def grupo_tipo(tipo: str) -> str:
     return "liquido" if tipo == "liquido" else ("vapor" if tipo == "vapor" else "gas")
 
 
+def _fp():
+    from . import fluidos_proceso
+    return fluidos_proceso
+
+
 def variantes(tipo: str, fluido: str | None) -> list[str]:
     """Opciones de «Calidad / variante del fluido» para el tipo y fluido elegidos ([] = no se pide)."""
     if fluido == AGUA:
-        return list(VARIANTES_AGUA) if tipo == "liquido" else []
+        return list(VARIANTES_AGUA) if tipo == "liquido" else list(VARIANTES_VAPOR) if tipo == "steam" else []
     if fluido in (USUARIO, None, ""):
         return list(VARIANTES_USUARIO[grupo_tipo(tipo)])
+    if fluido in VARIANTES_BIBLIO:
+        return list(VARIANTES_BIBLIO[fluido])
+    if _fp().es_proceso(fluido):
+        return _fp().presentaciones(fluido)
     return []
 
 
@@ -84,6 +116,8 @@ def _datos_variante(tipo: str, fluido: str | None, variante: str) -> dict | None
         return VARIANTES_AGUA.get(variante)
     if fluido in (USUARIO, None, ""):
         return VARIANTES_USUARIO[grupo_tipo(tipo)].get(variante)
+    if fluido in VARIANTES_BIBLIO:
+        return VARIANTES_BIBLIO[fluido].get(variante)
     return None
 
 
@@ -96,7 +130,12 @@ def agua_libre_fija(tipo: str, fluido: str | None, variante: str) -> str | None:
     """Agua libre que el propio fluido impone (None = la elige el usuario)."""
     if fluido == AGUA:
         return "Sí" if tipo == "liquido" else AUTO_AGUA
+    if _fp().es_proceso(fluido):
+        agua, fija = _fp().agua_libre(fluido, variante)
+        return agua if fija else None
     d = _datos_variante(tipo, fluido, variante)
+    if d and d.get("fija"):
+        return d["agua"]
     if d and d.get("familia") in ("Agua", "Salmuera", "Ácido", "Alcalino", "Slurry"):
         return "Sí"
     return None
@@ -106,6 +145,8 @@ def agua_libre_sugerida(tipo: str, fluido: str | None, variante: str) -> str:
     fija = agua_libre_fija(tipo, fluido, variante)
     if fija:
         return fija
+    if _fp().es_proceso(fluido):
+        return _fp().agua_libre(fluido, variante)[0]
     d = _datos_variante(tipo, fluido, variante)
     if d:
         return d["agua"]
@@ -168,11 +209,23 @@ class FluidoMateriales:
 
 
 def para_materiales(tipo: str, fluido: str | None, variante: str, agua_libre: str,
-                    salidas: list[dict] | None = None, flashing: bool = False) -> FluidoMateriales:
+                    salidas: list[dict] | None = None, flashing: bool = False, datos: str = "") -> FluidoMateriales:
     """Familia, fluido, fase y fase acuosa que la selección de materiales deriva de la solapa 2."""
     salidas = salidas or []
     nombre = fluido or USUARIO
+    if _fp().es_proceso(fluido):
+        m = _fp().para_materiales(fluido, variante, datos, tipo, agua_libre)
+        fase = m["fase"]
+        if flashing and fase == "Líquido":
+            fase = "Gas-líquido"
+        if m["familia"] == "Slurry":
+            fase = "Líquido-sólido"
+        return FluidoMateriales(m["familia"], m["fluido"], fase, m["acuosa"], m["fluido"])
     d = _datos_variante(tipo, fluido, variante)
+    if fluido in VARIANTES_BIBLIO and d is not None:
+        fase = "Líquido" if tipo == "liquido" else "Gas"
+        return FluidoMateriales(d["familia"], fluido, "Gas-líquido" if flashing and fase == "Líquido" else fase,
+                                d["agua"], f"{fluido} — {variante}", AGENTE_DEL_FLUIDO.get(fluido))
     if fluido == AGUA and tipo == "steam":
         sat = any(s.get("saturado") for s in salidas)
         mat = "Vapor saturado" if sat or not salidas else "Vapor sobrecalentado"
@@ -207,3 +260,13 @@ def para_materiales(tipo: str, fluido: str | None, variante: str, agua_libre: st
     if nombre == USUARIO and variante:
         desc = f"{variante} (propiedades del usuario)"
     return FluidoMateriales(familia, mat, fase, acuosa, desc, AGENTE_DEL_FLUIDO.get(nombre))
+
+
+def nota_variante(tipo: str, fluido: str | None, variante: str) -> str:
+    """Nota corta de la variante elegida (red de vapor, presentación del fluido de proceso)."""
+    if fluido == AGUA and tipo == "steam":
+        return VARIANTES_VAPOR.get(variante, {}).get("nota", "")
+    if _fp().es_proceso(fluido):
+        p = _fp().CATALOGO[fluido].presentacion(variante)
+        return p.nota
+    return ""

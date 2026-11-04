@@ -10,7 +10,7 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
 ## Flujo de trabajo
 
 1. **1-Sistema**: identificación del proyecto, estilo de válvula (globo, ángulo, mariposa, bola de paso
-   completo o reducido, bola trunnion / Bola-T, bola segmentada con corte en V de 90°, 60° o 30°, bola de paso
+   completo o reducido, bola trunnion / Bola-T, bola segmentada con corte en V de 90°, 60° o 30° o con perfil parabólico (v0.16.0), bola de paso
    con orificio en V (V-port, v0.15.3) de 90°, 60° o 30° y tapón excéntrico, cada uno con sus factores FL, xT, Fd y Kc), rating, diámetros y
    cédulas de tubería de entrada y salida, ruido permitido, conexión a proceso, presión y
    temperatura de diseño y clase de cierre.
@@ -18,7 +18,12 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    viscosidad, Pv y Pc para los casos mínimo, normal y máximo; calidad / variante del fluido (por ejemplo,
    agua de mar, que corrige SG, μ y Pv por salinidad) y agua libre, que también usa la selección de materiales; tipo de trim con sus factores
    típicos FL, Fd y Kc (editables), diámetro de válvula y Cv nominal. **Gas natural** (v0.11.0) con composición
-   molar editable: M, μ, κ, Z1, T2 y Z2 salen de la ecuación de estado multicomponente. Trim «Doble guía de vástago
+   molar editable: M, μ, κ, Z1, T2 y Z2 salen de la ecuación de estado multicomponente. Desde v0.16.0, **fluidos
+   de refinería, mejoradores, servicios y químicos** (37 fluidos con sus presentaciones: crudos de 8 a 27 °API,
+   naftas, gasolinas, jet, diésel, gasóleos de vacío y de coquización, residuos, slurry, gases de refinería y de
+   síntesis, gas ácido, LPG, aminas, glicoles, soda, ácidos, cloruro férrico, hipoclorito, azufre líquido y
+   polímeros) con propiedades estimadas y una línea de caracterización para los datos del laboratorio; aguas de
+   servicio, de enfriamiento, agrias, despojadas, servidas y aceitosas, y vapores de alta, media y baja presión. Trim «Doble guía de vástago
    - superior». Desde v0.12.0 el trim se elige en tres datos independientes: **estilo de trim** (geometría),
    **sentido de flujo** (tiende a abrir o a cerrar; la fila Flow del actuador lo toma de aquí) y **característica**.
    Desde v0.13.1 globo y ángulo se eligen en el orden **tipo de trim** (sin jaula o con jaula); sin jaula,

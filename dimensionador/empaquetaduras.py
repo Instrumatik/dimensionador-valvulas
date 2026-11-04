@@ -232,7 +232,8 @@ def _bonete(T_min: float, T_max: float, rotativa: bool) -> tuple[str, str]:
 def _emision(sv, agentes, agrio: bool) -> tuple[str, str]:
     toxicos = [n.agente.nombre for n in agentes if n.agente.clave in TOXICOS_AGENTES and not n.supuesto
                and (n.kPa or n.valor or 0) > 0]
-    if sv.fluido in TOXICOS_FLUIDOS:
+    from . import fluidos_proceso as FP
+    if sv.fluido in TOXICOS_FLUIDOS or FP.es_toxico(sv.fluido):
         toxicos.insert(0, sv.fluido)
     if agrio:
         toxicos.append("servicio agrio (H₂S)")

@@ -855,6 +855,85 @@ _ag("aminas", "R-NH₂ — Aminas (MEA, DEA, MDEA)",
     "MDEA al 45 % a 110 °C: acero al carbono B con alivio de tensiones; el programa agrega el mecanismo de SCC "
     "por aminas.")
 
+_ag("hidrocarburos", "HC — Hidrocarburos (crudo, cortes, combustibles)",
+    "<p>Crudos, naftas, gasolinas, jet, diésel, gasóleos, residuos, LPG y gases de hidrocarburo. No corroen "
+    "los metales por sí mismos (el daño viene del azufre, la acidez nafténica, el agua y el H₂S que llevan, "
+    "que se informan como agentes aparte), pero hinchan y ablandan los elastómeros no resistentes.</p>"
+    "<p><b>Dónde aparece.</b> Toda la refinería y los mejoradores; se carga solo al elegir un fluido de "
+    "petróleo.</p>" + _CONV_PCT +
+    "<p><b>Reglas del programa.</b> Metales, PTFE, PEEK y grafito: A. FKM A hasta 200 °C; NBR A hasta 100 °C "
+    "y B hasta 120 °C; EPDM D (se hincha). El mecanismo M33 avisa del hinchamiento de elastómeros.</p>",
+    "Crudos y cortes: 100 %. Agua aceitosa: 0,01 a 1 %.", "API 571; ISO 1817 (ensayo de elastómeros)",
+    ["agente_azufre_hc", "agente_tan"],
+    "Son los hidrocarburos líquidos o gaseosos del proceso.", "Descarta EPDM y limita NBR y FKM por temperatura.",
+    "Con hidrocarburos los elastómeros deciden; los metales los deciden otros agentes.",
+    "NBR hasta 120 °C, FKM hasta 200 °C; por encima, solo grafito y metal.",
+    "Frío: NBR y FKM aptos.", "Caliente: empaques de grafito y asientos metálicos o PEEK.",
+    ["Elastómeros y juntas", "Asientos blandos", "Mecanismo M33"],
+    ["No use EPDM en ningún servicio con hidrocarburos.",
+     "En aromáticos (gasolinas, reformado) prefiera FKM sobre NBR."],
+    "Diésel a 60 °C: NBR A, FKM A, EPDM D; el cuerpo lo decide el azufre.")
+
+_ag("glicoles", "R(OH)₂ — Glicoles (MEG, MPG, DEG, TEG, TREG)",
+    "<p>Alcoholes de dos grupos OH usados como anticongelante, inhibidor de hidratos (MEG) y deshidratante de "
+    "gas (TEG). Puros y limpios son poco corrosivos; al degradarse por temperatura u oxígeno forman ácidos "
+    "orgánicos que bajan el pH y atacan el acero al carbono.</p>"
+    "<p><b>Dónde aparece.</b> Deshidratación de gas con TEG, inyección de MEG en ductos, circuitos de "
+    "enfriamiento y calefacción.</p>" + _CONV_PCT +
+    "<p><b>Reglas del programa.</b> Metales A hasta 230 °C; bronce A hasta 120 °C; EPDM y FKM A hasta 120 °C "
+    "y B hasta 150 °C; NBR A hasta 100 °C.</p>",
+    "MEG anticongelante 30 a 50 %; MEG pobre 80 %; TEG pobre 99 a 99,9 %.", "GPSA Engineering Data Book, sección 20",
+    ["agente_hidrocarburos", "agente_acetico"],
+    "Son los glicoles de proceso y servicios.", "Limita bronce y elastómeros por temperatura.",
+    "Si el glicol está degradado (pH < 6), cargue además el ácido acético o fórmico.",
+    "Elastómeros hasta 120 a 150 °C; TEG se degrada por encima de ~ 204 °C.",
+    "Frío: casi todos los materiales aptos.", "Caliente: el regenerador de TEG pide internos 316.",
+    ["Elastómeros", "Bronce"],
+    ["Controle el pH del glicol (6,5 a 8,5).", "Evite la entrada de oxígeno al circuito."],
+    "TEG rico a 40 °C: acero al carbono A, EPDM A; en el rehervidor a 200 °C, juntas de grafito.")
+
+_ag("azufre_hc", "S — Azufre total en hidrocarburos (sulfidación)",
+    "<p>Compuestos de azufre del crudo y sus cortes (mercaptanos, sulfuros, tiofenos). Por encima de ~ 230 °C "
+    "reaccionan con el hierro y forman sulfuro de hierro: corrosión uniforme que crece con la temperatura y "
+    "el contenido de azufre y que se reduce con el cromo de la aleación. No confundir con el azufre elemental "
+    "líquido (agente «azufre»).</p>"
+    "<p><b>Dónde aparece.</b> Unidades de crudo y vacío, coquización, visbreaking, fondos de FCC.</p>"
+    "<p><b>Cómo se detecta.</b> % en masa de azufre total del certificado (ASTM D4294).</p>" + _CONV_PCT +
+    "<p><b>Reglas del programa.</b> Escalones del orden de las curvas de McConomy modificadas, separando "
+    "S ≤ 0,2 % y S > 0,2 %: acero al carbono A hasta 230 a 260 °C; 5Cr y 9Cr hasta 260 a 340 °C; 12Cr hasta "
+    "340 a 370 °C; austeníticos hasta 400 a 450 °C. El mecanismo M30 aparece por encima de 200 °C (potencial) "
+    "y 230 °C (detectado). En hidrotratamiento con H₂ la sulfidación es mayor (curvas de Couper-Gorman): "
+    "consulte al especialista.</p>",
+    "Crudos livianos 0,1 a 1 %; pesados 2 a 5 %; diésel ULSD 0,001 %.", "API RP 939-C; API 571",
+    ["agente_tan", "agente_hidrocarburos", "agente_h2s"],
+    "Es el azufre total del hidrocarburo.", "Limita el acero al carbono y el Cr-Mo por temperatura.",
+    "A más azufre y temperatura, más cromo en cuerpo e internos.",
+    "Acero al carbono hasta 230 a 260 °C según el contenido de azufre.",
+    "Por debajo de 230 °C: sin sulfidación apreciable.", "Por encima: 9Cr, 12Cr o 316 según la temperatura.",
+    ["Material del cuerpo", "Internos", "Mecanismo M30"],
+    ["Use el azufre del certificado, no un típico.", "Por encima de 290 °C considere cuerpo de 9Cr o 316."],
+    "Residuo atmosférico con 3,5 % de S a 340 °C: acero al carbono C, 9Cr B, 316 A.")
+
+_ag("tan", "TAN — Acidez nafténica",
+    "<p>Número de acidez total (mg KOH/g) que mide los ácidos nafténicos del crudo. Entre ~ 220 y 400 °C "
+    "disuelven el acero formando naftenatos; el ataque es localizado y muy fuerte donde la velocidad es alta "
+    "(trim, asiento, salida de la válvula). El molibdeno lo reduce (316 con ≥ 2,5 % Mo, 317L).</p>"
+    "<p><b>Dónde aparece.</b> Crudos pesados y extrapesados, gasóleos de vacío y sus líneas calientes.</p>"
+    "<p><b>Cómo se detecta.</b> ASTM D664 en el crudo o el corte.</p>"
+    "<p><b>Cómo lo convierte el programa.</b> Se ingresa en mg KOH/g y se usa sin conversión.</p>"
+    "<p><b>Reglas del programa.</b> Fuera de 220 a 400 °C: A. Dentro: con TAN ≤ 0,5 todo A; de 0,5 a 1,5 "
+    "acero al carbono C, 9Cr y 12Cr B, 316 A; con TAN > 1,5 acero al carbono D, 316 B, 317L y aleaciones de "
+    "níquel A. El mecanismo M31 aparece con TAN > 0,5 en ese rango.</p>",
+    "Crudos livianos < 0,5; pesados venezolanos y canadienses 1 a 4 mg KOH/g.", "API 571; NACE 34103",
+    ["agente_azufre_hc", "agente_hidrocarburos"],
+    "Es la acidez de los ácidos nafténicos del crudo.", "Penaliza aceros sin molibdeno entre 220 y 400 °C.",
+    "Con TAN alto y temperatura en rango, el trim debe ser 316 como mínimo y mejor 317L.",
+    "TAN 0,5 y 1,5 mg KOH/g, de 220 a 400 °C.", "TAN ≤ 0,5: sin ataque apreciable.",
+    "TAN > 1,5: 317L o aleación de níquel en internos.",
+    ["Material del cuerpo", "Internos", "Mecanismo M31"],
+    ["Combine TAN con velocidad: limite la velocidad de salida.", "El azufre alto atenúa el ataque nafténico."],
+    "HVGO con TAN 2,5 a 320 °C: acero al carbono D, 316 B, 317L A.")
+
 _ag("solidos", "Sólidos abrasivos",
     "<p>Partículas en suspensión (arena, catalizador, cenizas, cristales, óxidos) que erosionan las superficies "
     "por impacto. En la válvula el daño se concentra donde la velocidad es mayor: asiento, obturador y "

@@ -122,7 +122,7 @@ def test_fluido_de_la_solapa_2_manda_sobre_materiales():
 
 def test_variantes_y_agua_libre():
     assert "Agua de mar" in FS.variantes("liquido", FS.AGUA)
-    assert FS.variantes("steam", FS.AGUA) == [] and FS.variantes("gas", "Nitrógeno") == []
+    assert FS.variantes("steam", FS.AGUA)[0] == "Vapor (sin especificar)" and FS.variantes("gas", "Nitrógeno") == []   # v0.16.0: redes HP / MP / LP
     assert "Gas natural" in FS.variantes("gas", FS.USUARIO)
     assert FS.agua_libre_fija("liquido", FS.AGUA, "Condensado") == "Sí"
     assert FS.agua_libre_fija("steam", FS.AGUA, "") == FS.AUTO_AGUA

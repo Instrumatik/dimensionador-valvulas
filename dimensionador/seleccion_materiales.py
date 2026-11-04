@@ -59,6 +59,17 @@ IMPLICITOS = {
     "Agua industrial": [("cloruros", "mg/L", 250, "Acuosa"), ("o2", "mg/L", 8, "Acuosa")],
     "Agua producida": [("cloruros", "mg/L", 60000, "Acuosa")],
     "Agua potable": [("cloruros", "mg/L", 100, "Acuosa"), ("o2", "mg/L", 8, "Acuosa")],
+    # v0.16.0: aguas de refinería
+    "Agua de servicio": [("cloruros", "mg/L", 250, "Acuosa"), ("o2", "mg/L", 8, "Acuosa")],
+    "Agua de enfriamiento (torre)": [("cloruros", "mg/L", 500, "Acuosa"), ("o2", "mg/L", 8, "Acuosa"),
+                                     ("hipoclorito", "mg/L", 1, "Acuosa")],
+    "Agua agria": [("h2s", "mg/L", 5000, "Acuosa"), ("nh3", "% p/p", 0.4, "Acuosa"), ("cloruros", "mg/L", 100, "Acuosa")],
+    "Agua agria despojada": [("h2s", "mg/L", 10, "Acuosa"), ("nh3", "% p/p", 0.005, "Acuosa"),
+                             ("cloruros", "mg/L", 100, "Acuosa")],
+    "Aguas residuales": [("cloruros", "mg/L", 500, "Acuosa"), ("h2s", "mg/L", 10, "Acuosa"),
+                         ("solidos", "mg/L", 300, "Sólida"), ("o2", "mg/L", 2, "Acuosa")],
+    "Agua aceitosa": [("cloruros", "mg/L", 1000, "Acuosa"), ("h2s", "mg/L", 5, "Acuosa"),
+                      ("solidos", "mg/L", 100, "Sólida"), ("hidrocarburos", "% p/p", 1, "Orgánica líquida")],
     "Sulfuro de hidrógeno": [("h2s", "% molar", 100, "Gas / vapor")],
     "Cloro": [("cl2", "% molar", 100, "Gas / vapor")],
     "Hidrógeno": [("h2", "% molar", 100, "Gas / vapor")],
@@ -545,7 +556,8 @@ def _agentes(sv: ServicioMateriales, ctx: Contexto) -> tuple[list[Q.AgenteNormal
     notas = []
     filas = [a for a in sv.agentes if a.clave in Q.AGENTES]
     presentes = {a.clave for a in filas}
-    for clave, u, v, fase in IMPLICITOS.get(sv.fluido, []):
+    from . import fluidos_proceso as FP
+    for clave, u, v, fase in IMPLICITOS.get(sv.fluido) or FP.implicitos(sv.fluido):
         if clave not in presentes:
             filas.append(Q.AgenteServicio(clave, u, v, fase))
             notas.append(f"{sv.fluido}: se agrega {Q.AGENTES[clave].nombre.lower()} típico "
@@ -623,7 +635,7 @@ def completar_desde_calculo(sv: ServicioMateriales, dim, salidas, ctx: Contexto)
     from . import fluido_servicio as FS
     var = getattr(dim, "variante", "") or ""
     agua = getattr(dim, "agua_libre", "") or FS.agua_libre_sugerida(dim.tipo, dim.fluido, var)
-    fm = FS.para_materiales(dim.tipo, dim.fluido, var, agua, salidas, ctx.flashing)
+    fm = FS.para_materiales(dim.tipo, dim.fluido, var, agua, salidas, ctx.flashing, getattr(dim, "datos_fluido", ""))
     solidos = "Presentes" if fm.familia == "Slurry" and sv.solidos != "Presentes" and \
         sv.solidos != "Ausentes confirmados" else sv.solidos
     return replace(sv, familia_fluido=fm.familia, fluido=fm.fluido, fase=fm.fase, acuosa=fm.acuosa, solidos=solidos)
@@ -724,6 +736,34 @@ def _mecanismos(sv, ctx, agentes, acuoso, agrio, pH2S) -> list[Mecanismo]:
             "Acero al carbono en aminas: PWHT obligatorio por encima de ~60 °C (API RP 945).")
     if "nitratos" in claves and ctx.T_corr > 60:
         add("M26", "SCC por nitratos", "Potencial", "Nitratos calientes concentrados agrietan aceros al carbono.")
+    if "azufre_hc" in claves:
+        sh = val("azufre_hc") or 0
+        if ctx.T_corr > 230:
+            add("M30", "Sulfidación a alta temperatura", "Detectado",
+                f"Hidrocarburo con {_n(sh, 2)} % de azufre a {_n(ctx.T_corr, 0)} °C: por encima de ~ 230 a 260 °C el "
+                "acero al carbono se sulfida; 5Cr / 9Cr hasta ~ 370 °C y 12Cr / 300 por encima (curvas de "
+                "McConomy modificadas, API 571 / RP 939-C).")
+        elif ctx.T_corr > 200:
+            add("M30", "Sulfidación a alta temperatura", "Potencial",
+                f"Hidrocarburo con azufre a {_n(ctx.T_corr, 0)} °C, cerca del umbral de ~ 230 °C.")
+    if "tan" in claves:
+        tan = val("tan") or 0
+        if tan > 0.5 and 220 <= ctx.T_corr <= 400:
+            add("M31", "Corrosión por ácidos nafténicos", "Detectado",
+                f"TAN {_n(tan, 2)} mg KOH/g a {_n(ctx.T_corr, 0)} °C: entre 220 y 400 °C los ácidos nafténicos atacan "
+                "al acero al carbono y al Cr-Mo, sobre todo con velocidad alta y turbulencia (justo en la válvula); "
+                "316 con ≥ 2,5 % de Mo o 317L (API 571).")
+        elif tan > 0.3 and ctx.T_corr >= 200:
+            add("M31", "Corrosión por ácidos nafténicos", "Potencial",
+                f"TAN {_n(tan, 2)} mg KOH/g a {_n(ctx.T_corr, 0)} °C.")
+    if "h2s" in claves and "nh3" in claves and acuoso:
+        add("M32", "Corrosión por bisulfuro de amonio (NH₄HS)", "Detectado",
+            "H₂S y NH₃ en agua (aguas agrias, efluentes de reactores): corrosión-erosión muy sensible a la velocidad "
+            "y la turbulencia; con NH₄HS > 2 % se usan aleación 825, dúplex 2205 o superiores y velocidad baja "
+            "(API 571, API RP 932-B).")
+    if "hidrocarburos" in claves:
+        add("M33", "Hinchamiento de elastómeros en hidrocarburos", "Detectado",
+            "Hidrocarburos: el EPDM se hincha y pierde propiedades; se usan NBR, FKM, PTFE o grafito.")
     if "o2" in claves and sv.fluido == "Oxígeno":
         add("M27", "Ignición en servicio de oxígeno", "Detectado",
             "Oxígeno gaseoso: limpieza para oxígeno y materiales resistentes a la ignición (ASTM G88/G94, "
@@ -734,7 +774,7 @@ def _mecanismos(sv, ctx, agentes, acuoso, agrio, pH2S) -> list[Mecanismo]:
 def _medio_detectado(mecs: list[Mecanismo]) -> str:
     cods = {m.codigo for m in mecs if m.estado == "Detectado"}
     tipos = []
-    if cods & {"M01", "M02", "M03", "M06", "M07", "M08", "M09", "M10"}:
+    if cods & {"M01", "M02", "M03", "M06", "M07", "M08", "M09", "M10", "M30", "M31", "M32"}:
         tipos.append("corrosivo")
     if cods & {"M04"}:
         tipos.append("agrio")

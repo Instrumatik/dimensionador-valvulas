@@ -125,13 +125,19 @@ _e("fluido", "Fluido",
    "<p>Seleccione el fluido de la lista para que el programa calcule automáticamente densidad, "
    "presión de vapor, presión crítica, viscosidad, masa molar, relación de calores "
    "específicos y factor de compresibilidad a las condiciones de entrada de cada caso.</p>"
-   "<p>Elija <b>Definido por el usuario</b> para ingresar las propiedades a mano (mezclas, "
-   "fluidos de proceso, datos de la hoja de datos del proyecto). Las propiedades provienen de "
+   "<p>Debajo de los fluidos puros están los <b>fluidos de proceso</b> de refinería y mejoradores (crudos de "
+   "8 a 27 °API, naftas, gasolinas, jet, diésel, gasóleos LVGO/MVGO/HVGO/LCGO/HCGO, residuos, gases de "
+   "refinería, gas de síntesis, gas ácido, LPG), los químicos (soda, ácidos, cloruro férrico, hipoclorito, "
+   "aminas, glicoles, polímeros) y el azufre líquido y los slurries: se elige la presentación y, si los hay, se "
+   "cargan los datos del laboratorio en la caracterización.</p>"
+   "<p>Elija <b>Definido por el usuario</b> para ingresar las propiedades a mano (datos de la hoja de datos "
+   "del proyecto o fluidos que no están en la lista). Las propiedades de los fluidos puros provienen de "
    "la biblioteca CoolProp; para agua y vapor usa la formulación IAPWS-95.</p>"
    "<p>El fluido se define <b>solo aquí</b>: con la <b>calidad / variante</b> (qué agua es, o qué tipo de "
    "fluido definido por el usuario) y el <b>agua libre</b>, alimenta también la selección de materiales de la "
    "solapa 3, que no vuelve a preguntarlo.</p>",
-   relacionadas=["rho", "Pv", "Pc", "viscosidad", "variante_fluido", "agua_libre", "composicion_gn"])
+   relacionadas=["rho", "Pv", "Pc", "viscosidad", "variante_fluido", "agua_libre", "composicion_gn",
+                 "fluidos_proceso", "caracterizacion_fluido"])
 
 _e("composicion_gn", "Composición del gas natural",
    "<p>Con <b>Gas natural</b> en la lista, N25 calcula las propiedades de la mezcla con la ecuación de estado "
@@ -145,10 +151,13 @@ _e("composicion_gn", "Composición del gas natural",
    "<p>Componentes posibles: metano, etano, propano, n-butano, isobutano, n-pentano, isopentano, n-hexano, "
    "nitrógeno, dióxido de carbono, sulfuro de hidrógeno, hidrógeno, helio, oxígeno y agua.</p>"
    "<p>Ejemplo: 90 % metano, de 70 a 20 bar a desde 27 °C da Z1 ≈ 0,86, T2 ≈ 2 °C y Z2 ≈ 0,94.</p>"
-   "<p>Si el gas trae H₂S o CO₂, declárelos también como agentes en 3-Materiales para la selección "
-   "según ISO 15156.</p>",
+   "<p>Además del gas natural se aceptan monóxido de carbono, etileno, propileno, amoníaco y argón. La misma "
+   "línea define la composición de los gases de proceso (gas de síntesis, off-gas, gas combustible, gas ácido, "
+   "gases de refinería) y del LPG y los hidrocarburos livianos, que se cargan con su composición típica.</p>"
+   "<p>En el gas natural, si trae H₂S o CO₂, declárelos también como agentes en 3-Materiales para la "
+   "selección según ISO 15156; en los gases de proceso N25 los toma de la composición.</p>",
    tipicos="Gas de gasoducto: metano 85–96 %, etano 2–8 %, propano 0,5–3 %, N₂ y CO₂ 0–3 % cada uno",
-   relacionadas=["fluido", "Z", "T2", "M"])
+   relacionadas=["fluido", "Z", "T2", "M", "fluidos_proceso"])
 
 _e("caudal", "Caudal",
    "<p>Cantidad de fluido que debe pasar la válvula en cada caso de operación. Puede ingresarse "
@@ -834,7 +843,11 @@ _e("estilo_cuerpo", "Estilo de válvula",
    "CL2500. Admite bola de paso completo, reducido o segmentada.</li>"
    "<li><b>Bola segmentada (corte en V)</b>: un segmento de bola con borde en V de 90°, 60° o 30°; "
    "característica isoporcentual, rangeabilidad alta (100 a 200:1) y efecto de corte para pulpas, fibras "
-   "y sólidos. Es media bola: un casquete sin orificio pasante. Cierre clase IV metálico o VI blando.</li>"
+   "y sólidos. Es media bola: un casquete sin orificio pasante. Cierre clase IV metálico o VI blando. "
+   "También con <b>perfil parabólico</b>: el borde de corte contorneado abre más gradual al comienzo y da "
+   "una característica parabólica modificada (entre lineal e isoporcentual), con ganancia más pareja en "
+   "todo el recorrido y la misma capacidad aproximada que la V de 90°; buena para lazos de caudal y presión "
+   "con cargas variables y para pulpas y slurries (valores aproximados, IEC no la publica).</li>"
    "<li><b>Bola de paso con orificio en V (V-port)</b>: bola completa, con orificio pasante, que lleva un "
    "inserto o un corte en V de 90°, 60° o 30° a la entrada del orificio. Regula con característica "
    "isoporcentual y además cierra hermético (asiento blando, clase V–VI) con asientos a ambos lados. Para "
@@ -1344,6 +1357,15 @@ for _k, _d in _AC.ENTRADAS.items():
         raise KeyError(f"ayuda duplicada: {_k}")
     _e(_k, **_d)
 GUIA.update(_AC.GUIA)
+
+# v0.16.0: fluidos de proceso (refinería, mejoradores, servicios y químicos)
+from . import ayuda_fluidos_proceso as _FPA  # noqa: E402
+
+for _k, _d in _FPA.ENTRADAS.items():
+    if _k in A:
+        raise KeyError(f"ayuda duplicada: {_k}")
+    _e(_k, **_d)
+GUIA.update(_FPA.GUIA)
 
 
 def obtener(clave: str) -> EntradaAyuda | None:
