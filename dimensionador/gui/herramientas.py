@@ -29,6 +29,7 @@ HERRAMIENTAS = (
     ("tuberia", "Tablas de tubería ASME B36.10M / B36.19M y velocidad"),
     ("rating", "Presión-temperatura por clase ASME B16.34"),
     ("materiales", "Biblioteca de materiales"),
+    ("verif_material", "Verificación rápida de material: galling y mecanismos de deterioro"),
     ("calculadoras", "Calculadoras rápidas: ΔP de bloqueo, caudal de gas, velocidad, Reynolds"),
     ("factores", "Factores típicos de válvula: FL, xT, Fd y Kc por estilo"),
     ("constantes", "Constantes numéricas N de IEC 60534-2-1"),
@@ -1176,9 +1177,139 @@ class Factores(_Ventana):
         _llenar(self.tabla, filas, derecha=(2, 3, 4, 5, 7))
 
 
+# ----------------------------------------------------------------------------- verificación de material
+_COLOR_NIVEL = {"ALTO": "#f8d7da", "MEDIO": "#fff3cd", "BAJO": "#d4edda", "A": "#d4edda", "B": "#e8f5e9",
+                "C": "#fff3cd", "D": "#f8d7da"}
+
+
+def _pintar(t: QTableWidget, col: int):
+    from PySide6.QtGui import QColor
+    for i in range(t.rowCount()):
+        it = t.item(i, col)
+        c = _COLOR_NIVEL.get(it.text().split(" ")[0]) if it else None
+        if c:
+            it.setBackground(QColor(c))
+            it.setTextAlignment(Qt.AlignCenter)
+
+
+def _ajustar_columnas(t: QTableWidget, anchos: dict, estira: int):
+    """Columnas de texto largo con ancho fijo y ajuste de línea; la última se estira."""
+    hh = t.horizontalHeader()
+    for c, a in anchos.items():
+        hh.setSectionResizeMode(c, QHeaderView.Interactive)
+        t.setColumnWidth(c, a)
+    hh.setSectionResizeMode(estira, QHeaderView.Stretch)
+    t.setWordWrap(True)
+
+
+class VerificacionMaterial(_Ventana):
+    """Un material de la biblioteca frente al galling con los demás y frente a los mecanismos M01–M33."""
+
+    def __init__(self, padre=None, clave: str | None = None):
+        from .. import materiales as MT
+        super().__init__(padre, "Verificación rápida de material · galling y mecanismos de deterioro", 1200, 760)
+        self.setProperty("ayuda", "verificacion_material")
+        v = QVBoxLayout(self)
+        h = QHBoxLayout()
+        h.addWidget(QLabel("Material"))
+        self.cb_mat = QComboBox()
+        self.cb_mat.setMaxVisibleItems(30)
+        for m in sorted(MT.MATERIALES.values(), key=lambda m: (m.familia, m.nombre)):
+            self.cb_mat.addItem(f"{m.nombre}  ·  {m.familia}", m.clave)
+        h.addWidget(self.cb_mat, 1)
+        h.addWidget(QLabel("Temperatura"))
+        self.ed_T = QLineEdit("60")
+        self.ed_T.setFixedWidth(70)
+        self.ed_T.setAlignment(Qt.AlignRight)
+        h.addWidget(self.ed_T)
+        h.addWidget(QLabel("°C"))
+        v.addLayout(h)
+        self.lbl_mat = QLabel("")
+        self.lbl_mat.setWordWrap(True)
+        self.lbl_mat.setStyleSheet("color:#1f3550")
+        v.addWidget(self.lbl_mat)
+        self.msg = _error("")
+        v.addWidget(self.msg)
+        self.tabs = QTabWidget()
+        v.addWidget(self.tabs, 1)
+        # mecanismos
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        self.t_mec = _tabla(["Código", "Mecanismo", "Condición de referencia", "Nivel", "Resultado",
+                             "Límite del material a la temperatura indicada", "Explicación"])
+        _ajustar_columnas(self.t_mec, {5: 360}, 6)
+        lay.addWidget(self.t_mec, 1)
+        lay.addWidget(_nota("Nivel A: evita el daño · B: lo reduce a una velocidad aceptable con vigilancia · C: lo "
+                            "mitiga poco (no recomendado) · D: no resiste. El límite indica hasta qué concentración, "
+                            "presión parcial o temperatura el material se mantiene en A o en B. Son las mismas reglas "
+                            "que usa 3-Materiales; los agentes acuosos se evalúan con agua libre."))
+        lay.addWidget(_boton_copiar(self.t_mec), 0, Qt.AlignRight)
+        self.tabs.addTab(w, "Mecanismos de deterioro")
+        # galling
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        self.lbl_gall = QLabel("")
+        self.lbl_gall.setWordWrap(True)
+        lay.addWidget(self.lbl_gall)
+        hh = QHBoxLayout()
+        from PySide6.QtWidgets import QCheckBox
+        self.chk_todos = QCheckBox("Incluir toda la biblioteca (pernos, resortes, juntas)")
+        self.cb_nivel = QComboBox()
+        self.cb_nivel.addItems(["Todos los niveles", "Solo riesgo alto", "Solo riesgo alto y medio", "Solo riesgo bajo"])
+        hh.addWidget(QLabel("Mostrar"))
+        hh.addWidget(self.cb_nivel)
+        hh.addWidget(self.chk_todos)
+        hh.addStretch(1)
+        lay.addLayout(hh)
+        self.t_gall = _tabla(["Material en contacto", "Familia", "Dureza", "Riesgo de galling", "Motivo",
+                              "Cómo evitarlo"])
+        _ajustar_columnas(self.t_gall, {0: 330, 1: 200, 5: 300}, 4)
+        lay.addWidget(self.t_gall, 1)
+        lay.addWidget(_nota("Pareja deslizante (obturador–jaula, obturador–asiento, vástago–guía, eje–cojinete) a la "
+                            "temperatura indicada; por encima de 316 °C el riesgo sube un escalón. Cómo evitarlo: "
+                            "recargue de Stellite 6 en una de las superficies, buje de Nitronic 60, endurecer una de las "
+                            "partes a ≥ 38 HRC o lograr una diferencia de dureza ≥ 10 HRC; verificar con ASTM G98. "
+                            "Misma regla que usa 3-Materiales."))
+        lay.addWidget(_boton_copiar(self.t_gall), 0, Qt.AlignRight)
+        self.tabs.addTab(w, "Galling con otros materiales")
+        if clave:
+            i = self.cb_mat.findData(clave)
+            if i >= 0:
+                self.cb_mat.setCurrentIndex(i)
+        self.cb_mat.currentIndexChanged.connect(self._mostrar)
+        self.ed_T.editingFinished.connect(self._mostrar)
+        self.cb_nivel.currentIndexChanged.connect(self._mostrar)
+        self.chk_todos.toggled.connect(self._mostrar)
+        self._mostrar()
+
+    def _mostrar(self):
+        from .. import materiales as MT, verificacion_material as VM
+        m = MT.MATERIALES[self.cb_mat.currentData()]
+        T = _numero(self.ed_T.text())
+        self.msg.setText("" if T is not None else "Temperatura no válida: se usa 60 °C.")
+        T = 60.0 if T is None else T
+        self.lbl_mat.setText(f"<b>{m.nombre}</b> · {m.familia} · UNS {m.uns or '—'} · {m.forma} · dureza "
+                             f"{m.dureza_txt}" + (f" · PREN {fmt(m.pren, 3)}" if m.pren else "")
+                             + f" · ISO 15156: {m.iso15156.estado.replace('_', ' ')}")
+        mec = VM.mecanismos(m, T)
+        _llenar(self.t_mec, [[f.codigo, f.nombre, f.referencia, f.nivel if f.nivel != "-" else "—", f.resultado,
+                              f.limite, f.explicacion] for f in mec])
+        _pintar(self.t_mec, 3)
+        self.t_mec.resizeRowsToContents()
+        filas = VM.galling(m, T, self.chk_todos.isChecked())
+        self.lbl_gall.setText(VM.resumen_galling(m, filas))
+        sel = {1: ("ALTO",), 2: ("ALTO", "MEDIO"), 3: ("BAJO",)}.get(self.cb_nivel.currentIndex())
+        filas = [f for f in filas if not sel or f.nivel in sel]
+        _llenar(self.t_gall, [[f.material.nombre, f.material.familia, f.material.dureza_txt, f.nivel, f.motivo,
+                               "Stellite, Nitronic 60, ≥ 38 HRC o ΔHRC ≥ 10" if f.remedio else "—"]
+                              for f in filas])
+        _pintar(self.t_gall, 3)
+        self.t_gall.resizeRowsToContents()
+
+
 VENTANAS = {"conversor": Conversor, "fluidos": Fluidos, "tuberia": Tuberias, "rating": Rating,
             "calculadoras": Calculadoras, "enlaces": Enlaces, "cv": CvRapidoVentana, "constantes": Constantes,
-            "factores": Factores}
+            "factores": Factores, "verif_material": VerificacionMaterial}
 
 
 # ----------------------------------------------------------------------------- la barra

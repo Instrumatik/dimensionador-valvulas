@@ -43,6 +43,8 @@ cálculo de gases, vapor y bifásico se conserva para versiones futuras. Ver
    concentración, sólidos, pH y norma de servicio agrio. El programa recomienda el material de cuerpo, bonete, asiento, jaula, guía,
    obturador y vástago (modo AUTOMÁTICO) o verifica el elegido por el usuario (MANUAL, no
    recomendado), con galling, dureza por cavitación, ISO 15156 / ISO 17945 y límites P-T de ASME B16.34.
+   **Verificación rápida de material** (v0.16.1, también en la barra de herramientas): para cualquier material de
+   la biblioteca, el riesgo de galling con cada otro y su nivel A–D y límite frente a los mecanismos M01–M33.
    Evalúa además 17 juegos de internos estándar (asiento, jaula y obturador compatibles, con código propio
    N25-T01 a N25-T17), informa el que coincide con la selección o el apto más económico y permite elegir
    uno completo. También elige la empaquetadura del vástago (15 opciones: PTFE en V simple o doble para

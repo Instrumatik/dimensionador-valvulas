@@ -4436,7 +4436,7 @@ GUIA["resortes"] = {
 GUIA["herramientas"] = {
     'que_es': 'Es la fila de botones con iconos bajo el buscador: herramientas de consulta a un clic.',
     'que_hace': ('Abre conversor de unidades, Cv rápido, factores de válvula, constantes N, propiedades y tabla de fluidos, tablas de tubería, presión-temperatura por clase, '
-                 'biblioteca de materiales, calculadoras y enlaces, en ventanas aparte que no cambian el proyecto.'),
+                 'biblioteca y verificación rápida de materiales, calculadoras y enlaces, en ventanas aparte que no cambian el proyecto.'),
     'que_indica': 'Los resultados usan los mismos módulos que el cálculo, así que coinciden con los del programa.',
     'umbrales': 'No aplica.',
     'por_debajo': 'No aplica.',

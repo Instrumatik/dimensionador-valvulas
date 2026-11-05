@@ -1406,3 +1406,39 @@ _alerta("bola_flotante_presion", "Bola flotante en clase alta",
         "Bola de paso completo o reducido (flotante) con rating mayor que CL600.",
         ["Cambiar el estilo a «Bola trunnion».", "Consultar al fabricante el límite de su diseño."],
         "Bola flotante de 6\" CL900: se recomienda trunnion.", ["estilo_cuerpo"], "API 6D / ISO 17292")
+
+
+_e("verificacion_material", "Verificación rápida de material",
+   "<p>Ventana de consulta (barra de herramientas del encabezado o botón de la solapa 3-Materiales) que muestra, "
+   "para un material de la biblioteca y una temperatura, dos cuadros. No cambia el proyecto.</p>"
+   "<p><b>Mecanismos de deterioro.</b> Una fila por mecanismo (M01 a M33) con:</p><ul>"
+   "<li><b>Condición de referencia</b>: el caso típico con que se evalúa (por ejemplo cloruros 1.000 mg/L con "
+   "agua, pCO₂ 100 kPa, NaOH 20 %).</li>"
+   "<li><b>Nivel y resultado</b>: A <i>evita</i> el daño; B lo <i>reduce</i> a una velocidad aceptable con "
+   "vigilancia; C lo <i>mitiga poco</i> (no recomendado); D <i>no resiste</i>. «No aplica» cuando el mecanismo "
+   "no afecta a ese tipo de material.</li>"
+   "<li><b>Límite del material</b>: hasta qué concentración, presión parcial o temperatura se mantiene en A o en "
+   "B. Así se ve en qué medida el material mitiga el mecanismo: por ejemplo, el 316 queda en B hasta ~ 1.000 "
+   "mg/L de cloruros a 60 °C y el superdúplex en A hasta ~ 5.000 mg/L.</li>"
+   "<li><b>SCC por cloruros</b>: temperatura orientativa desde la que el material es susceptible.</li>"
+   "<li><b>H₂S (SSC)</b>: la situación en ISO 15156 / NACE MR0175 con sus límites de dureza, pH₂S, temperatura "
+   "y azufre.</li>"
+   "<li><b>Erosión y cavitación</b>: el índice 0–10 de la biblioteca y la dureza.</li></ul>"
+   "<p><b>Galling con otros materiales.</b> El riesgo (alto, medio o bajo) del material elegido contra cada "
+   "material de internos de la biblioteca, con el motivo y el remedio, y el porcentaje de parejas con cada nivel. "
+   "Se puede filtrar por nivel o incluir toda la biblioteca.</p>"
+   "<p>Usa las mismas reglas que la selección de 3-Materiales, así que coincide con lo que el programa decide en "
+   "un cálculo. Es una preselección: confirme con los datos del fabricante y el especialista en corrosión.</p>",
+   MAT, referencia="ASTM G98; ISO 15156 / NACE MR0175; API 571; API RP 939-C; API 932-B; API RP 945; ASTM G94",
+   relacionadas=["mecanismos_falla", "galling", "mat_biblioteca", "compatibilidad_ad"],
+   guia=_g("Es una consulta del comportamiento de un material sin cargar un servicio.",
+           "Muestra el galling del material con cada otro y su nivel A–D y su límite para cada mecanismo.",
+           "Si el material evita, reduce, mitiga poco o no resiste cada mecanismo, y hasta qué condición.",
+           "A y B: apto; C: no recomendado; D: descartar. Galling: riesgo alto pide cambiar la pareja.",
+           "Por debajo del límite el material se mantiene en el nivel indicado.",
+           "Por encima del límite baja de nivel: revise otro material.",
+           ["Preselección de materiales", "Parejas de internos"],
+           ["Use la temperatura de operación.", "Para el servicio real use el cálculo de 3-Materiales, que suma "
+            "todos los agentes a la vez."],
+           "CF8M a 60 °C: picaduras B hasta 1.000 mg/L de Cl⁻, SCC por cloruros C, SSC B con 22 HRC; galling alto "
+           "con 316, dúplex y níquel, bajo con Stellite."))

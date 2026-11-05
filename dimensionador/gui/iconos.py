@@ -26,6 +26,8 @@ SVG = {
     "rating": '<path d="M4.5 17a8.5 8.5 0 1 1 15 0"/><path d="M12 13l4-4"/><circle cx="12" cy="13" r="1.3"/><path d="M7 17h10"/>',
     # capas
     "materiales": '<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/>',
+    # lupa sobre dos piezas en contacto (verificación de material)
+    "verif_material": '<circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/><path d="M7 12l3-4 3 4"/>',
     # calculadora
     "calculadoras": '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8"/>'
                     '<path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01M8.5 15h.01M12 15h.01M15.5 15h.01M8.5 18h.01M12 18h.01M15.5 18h.01" stroke-width="2.4"/>',
