@@ -64,3 +64,21 @@ def test_ventana(app):
     assert all(d.t_gall.item(i, 3).text() == "ALTO" for i in range(d.t_gall.rowCount()))
     d.ed_T.setText("abc"); d._mostrar()
     assert d.msg.text()
+
+
+def test_unidades_imperiales_de_propiedades_termicas():
+    """v0.16.2: cp, entalpía, entropía y volumen específico también en unidades US."""
+    from dimensionador import herramientas as H, unidades as U
+    imp = U.SISTEMAS["Imperial"]
+    sat = {p.nombre: p for p in H.saturacion("Agua / vapor de agua", P_kPa=101.325)}
+    def us(n):
+        p = sat[n]
+        return U.desde_base(p.valor, p.magnitud, imp[p.magnitud])
+    # tabla de vapor a 14,696 psia: hf 180,16 / hg 1150,3 Btu/lb, sg 1,7566 Btu/(lb·°R), vg 26,80 ft³/lb
+    assert us("Entalpía del líquido hf") == pytest.approx(180.16, abs=0.1)
+    assert us("Entalpía del vapor hg") == pytest.approx(1150.3, abs=0.3)
+    assert us("Entropía del vapor sg") == pytest.approx(1.7566, abs=0.001)
+    assert us("Volumen específico del vapor") == pytest.approx(26.80, abs=0.02)
+    pto = {p.nombre: p for p in H.propiedades_punto("Agua / vapor de agua", 1516.85, (150 - 32) / 1.8 + 273.15)}
+    assert all(pto[n].magnitud for n in ("Calor específico cp", "Calor específico cv", "Entalpía específica",
+                                         "Entropía específica"))

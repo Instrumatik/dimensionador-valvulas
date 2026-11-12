@@ -189,6 +189,13 @@ MAGNITUDES: dict[str, dict[str, Unidad]] = {
                                       _u("lbf", "libra fuerza", LBF_N)]},
     "par": {u.simbolo: u for u in [_u("N·m", "newton metro", 1.0), _u("lbf·in", "libra fuerza pulgada", LBF_N * IN_MM / 1000),
                                    _u("lbf·ft", "libra fuerza pie", LBF_N * FT_M)]},
+    # v0.16.2: propiedades térmicas (Btu de la International Table: 1 Btu = 1,055056 kJ)
+    "calor_especifico": {u.simbolo: u for u in [_u("kJ/(kg·K)", "kilojoule por kilogramo y kelvin", 1.0),
+                                                _u("Btu/(lb·°F)", "Btu por libra y grado Fahrenheit", 4.1868)]},
+    "energia_especifica": {u.simbolo: u for u in [_u("kJ/kg", "kilojoule por kilogramo", 1.0),
+                                                  _u("Btu/lb", "Btu por libra", 2.326)]},
+    "volumen_especifico": {u.simbolo: u for u in [_u("m³/kg", "metro cúbico por kilogramo", 1.0),
+                                                  _u("ft³/lb", "pie cúbico por libra", FT_M ** 3 / LB_KG)]},
     "adimensional": {u.simbolo: u for u in [_u("-", "adimensional", 1.0)]},
     "fraccion": {u.simbolo: u for u in [_u("%", "porcentaje", 0.01), _u("-", "fracción", 1.0)]},
 }
@@ -212,6 +219,9 @@ UNIDAD_BASE = {
     "fuerza": "N",
     "par": "N·m",
     "temperatura_dif": "K",
+    "calor_especifico": "kJ/(kg·K)",
+    "energia_especifica": "kJ/kg",
+    "volumen_especifico": "m³/kg",
     "adimensional": "-",
     "fraccion": "-",
 }
@@ -224,7 +234,7 @@ SISTEMAS = {
         "densidad": "kg/m³", "viscosidad_din": "cP", "viscosidad_cin": "cSt",
         "longitud": "mm", "carrera": "mm", "velocidad": "m/s", "masa_molar": "kg/kmol", "adimensional": "-",
         "area": "mm²", "distancia": "m", "temperatura_dif": "°C", "fuerza": "N", "par": "N·m",
-        "fraccion": "%",
+        "fraccion": "%", "calor_especifico": "kJ/(kg·K)", "energia_especifica": "kJ/kg", "volumen_especifico": "m³/kg",
     },
     "Imperial": {
         "presion": "psia", "presion_dif": "psi", "temperatura": "°F",
@@ -232,7 +242,7 @@ SISTEMAS = {
         "densidad": "lb/ft³", "viscosidad_din": "cP", "viscosidad_cin": "cSt",
         "longitud": "in", "carrera": "in", "velocidad": "ft/s", "masa_molar": "lb/lbmol", "adimensional": "-",
         "area": "in²", "distancia": "ft", "temperatura_dif": "°F", "fuerza": "lbf", "par": "lbf·in",
-        "fraccion": "%",
+        "fraccion": "%", "calor_especifico": "Btu/(lb·°F)", "energia_especifica": "Btu/lb", "volumen_especifico": "ft³/lb",
     },
 }
 
